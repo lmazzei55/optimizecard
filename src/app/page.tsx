@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { formatCurrency } from "@/lib/utils"
+import Link from "next/link"
 
 export default function Home() {
   return (
@@ -46,9 +47,11 @@ export default function Home() {
           </div>
 
           <div className="text-center">
-            <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg">
-              Get Started
-            </Button>
+            <Link href="/dashboard">
+              <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg">
+                Get Started
+              </Button>
+            </Link>
           </div>
         </div>
 
