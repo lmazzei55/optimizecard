@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { formatCurrency } from "@/lib/utils"
-import { BenefitsForm } from "@/components/BenefitsForm"
+import { CardCustomizationModal } from "@/components/CardCustomizationModal"
 
 interface SpendingCategory {
   id: string
@@ -58,15 +58,28 @@ interface CardRecommendation {
   signupBonus?: SignupBonus
 }
 
+interface CardCustomization {
+  pointValue?: number
+  benefitValues: Record<string, number>
+  enabledBenefits: Record<string, boolean>
+}
+
 export function SpendingForm() {
   const [categories, setCategories] = useState<SpendingCategory[]>([])
   const [spending, setSpending] = useState<UserSpending[]>([])
-  const [rewardPreference, setRewardPreference] = useState<'cashback' | 'points'>('cashback')
+  const [rewardPreference, setRewardPreference] = useState<'cashback' | 'points' | 'best_overall'>('best_overall')
   const [pointValue, setPointValue] = useState(0.01)
-  const [benefitValuations, setBenefitValuations] = useState<BenefitValuation[]>([])
   const [loading, setLoading] = useState(true)
   const [calculating, setCalculating] = useState(false)
+  const [recalculating, setRecalculating] = useState(false)
   const [recommendations, setRecommendations] = useState<CardRecommendation[]>([])
+  
+  // Card customization modal state
+  const [customizationOpen, setCustomizationOpen] = useState(false)
+  const [editingCardId, setEditingCardId] = useState<string | null>(null)
+  const [cardCustomizations, setCardCustomizations] = useState<{
+    [cardId: string]: CardCustomization
+  }>({})
 
   // Fetch spending categories
   useEffect(() => {
@@ -101,8 +114,86 @@ export function SpendingForm() {
     ))
   }
 
-  const handleBenefitValuationsChange = (valuations: BenefitValuation[]) => {
-    setBenefitValuations(valuations)
+  const openCardCustomization = (cardId: string) => {
+    setEditingCardId(cardId)
+    setCustomizationOpen(true)
+  }
+
+  const closeCardCustomization = () => {
+    setCustomizationOpen(false)
+    setEditingCardId(null)
+  }
+
+  const updateCardCustomization = (customization: CardCustomization) => {
+    if (!editingCardId) return
+    
+    // Update the customizations
+    const updatedCustomizations = {
+      ...cardCustomizations,
+      [editingCardId]: customization
+    }
+    setCardCustomizations(updatedCustomizations)
+    
+    // Recalculate recommendations with per-card customizations
+    recalculateWithCustomizations(updatedCustomizations)
+  }
+
+  const recalculateWithCustomizations = async (customizations: typeof cardCustomizations) => {
+    setRecalculating(true)
+    try {
+      const activeSpending = spending.filter(s => s.monthlySpend > 0)
+      
+      const response = await fetch('/api/recommendations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userSpending: activeSpending,
+          rewardPreference,
+          pointValue: 0.01, // Default for non-customized cards
+          cardCustomizations: customizations // Send per-card customizations
+        })
+      })
+      
+      const data = await response.json()
+      setRecommendations(data)
+    } catch (error) {
+      console.error('Error recalculating recommendations:', error)
+    } finally {
+      setRecalculating(false)
+    }
+  }
+
+  const updatePointValue = async (newValue: number) => {
+    setPointValue(newValue)
+    
+    // Only recalculate if we have results and points/best_overall is selected
+    if (recommendations.length > 0 && (rewardPreference === 'points' || rewardPreference === 'best_overall')) {
+      await recalculateRecommendations(newValue)
+    }
+  }
+
+  const recalculateRecommendations = async (newPointValue: number) => {
+    setRecalculating(true)
+    try {
+      const activeSpending = spending.filter(s => s.monthlySpend > 0)
+      
+      const response = await fetch('/api/recommendations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userSpending: activeSpending,
+          rewardPreference,
+          pointValue: newPointValue
+        })
+      })
+      
+      const data = await response.json()
+      setRecommendations(data)
+    } catch (error) {
+      console.error('Error recalculating recommendations:', error)
+    } finally {
+      setRecalculating(false)
+    }
   }
 
   const calculateRecommendations = async () => {
@@ -116,13 +207,13 @@ export function SpendingForm() {
         body: JSON.stringify({
           userSpending: activeSpending,
           rewardPreference,
-          pointValue: rewardPreference === 'points' ? pointValue : 0.01,
-          benefitValuations
+          pointValue: 0.01 // Always use 1¢ for initial calculation
         })
       })
       
       const data = await response.json()
       setRecommendations(data)
+      
     } catch (error) {
       console.error('Error calculating recommendations:', error)
     } finally {
@@ -131,7 +222,6 @@ export function SpendingForm() {
   }
 
   const totalMonthlySpend = spending.reduce((sum, s) => sum + s.monthlySpend, 0)
-  const totalBenefitsValue = benefitValuations.reduce((sum, val) => sum + val.personalValue, 0)
 
   if (loading) {
     return (
@@ -232,7 +322,7 @@ export function SpendingForm() {
             <label className="block text-lg font-semibold text-gray-900 dark:text-white mb-4">
               What type of rewards do you prefer?
             </label>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <button
                 onClick={() => setRewardPreference('cashback')}
                 className={`p-4 rounded-xl border-2 transition-all duration-200 ${
@@ -262,39 +352,34 @@ export function SpendingForm() {
                   <div className="text-sm opacity-75">Travel & transfer partners</div>
                 </div>
               </button>
+
+              <button
+                onClick={() => setRewardPreference('best_overall')}
+                className={`p-4 rounded-xl border-2 transition-all duration-200 ${
+                  rewardPreference === 'best_overall'
+                    ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
+                    : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:border-green-300 dark:hover:border-green-500'
+                }`}
+              >
+                <div className="text-center">
+                  <div className="text-2xl mb-2">🏆</div>
+                  <div className="font-semibold">Best Overall</div>
+                  <div className="text-sm opacity-75">Compare cash & points</div>
+                </div>
+              </button>
             </div>
           </div>
 
-          {rewardPreference === 'points' && (
-            <div>
-              <label className="block text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                How much do you value each point/mile?
-              </label>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-4">
-                  <span className="text-sm text-gray-500 dark:text-gray-400 w-20">Value:</span>
-                  <input
-                    type="number"
-                    min="0.005"
-                    max="0.05"
-                    step="0.001"
-                    value={pointValue}
-                    onChange={(e) => setPointValue(parseFloat(e.target.value) || 0.01)}
-                    className="flex-1 max-w-32 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                  <span className="text-sm text-gray-500 dark:text-gray-400">cents per point</span>
-                </div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">
-                  Examples: Chase Ultimate Rewards ~1.2¢, Amex Membership Rewards ~1.0¢, Airline miles ~1.5¢
-                </div>
-              </div>
+          {(rewardPreference === 'points' || rewardPreference === 'best_overall') && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-600">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                📊 <strong>Initial calculation will use 1¢ per point.</strong><br/>
+                You'll be able to adjust point valuations for your top card recommendations after seeing the results.
+              </p>
             </div>
           )}
         </div>
       </div>
-
-      {/* Benefits Form */}
-      <BenefitsForm onBenefitValuationsChange={handleBenefitValuationsChange} />
 
       {/* Calculate Button */}
       <div className="text-center">
@@ -312,111 +397,254 @@ export function SpendingForm() {
             '🎯 Get My Recommendations'
           )}
         </Button>
-        {totalBenefitsValue > 0 && (
-          <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">
-            Including {formatCurrency(totalBenefitsValue)} in personal benefits value
-          </p>
-        )}
       </div>
 
       {/* Recommendations */}
       {recommendations.length > 0 && (
-        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">
-          <h2 className="text-3xl font-semibold text-gray-900 dark:text-white mb-8 text-center">
-            🏆 Your Personalized Credit Card Recommendations
-          </h2>
-          
+        <div className="space-y-8">
+          {/* Header */}
+          <div className="text-center">
+            <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-green-600 bg-clip-text text-transparent mb-4">
+              🏆 Your Personalized Recommendations
+            </h2>
+            <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+              Based on your ${formatCurrency(totalMonthlySpend)} monthly spending across {spending.filter(s => s.monthlySpend > 0).length} categories
+            </p>
+          </div>
+
+          {/* Cards Grid */}
           <div className="space-y-6">
-            {recommendations.map((rec, index) => (
-              <div key={rec.cardId} className="bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-700 dark:to-gray-600 rounded-xl p-6 border border-gray-200 dark:border-gray-600">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold">
-                      #{index + 1}
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">{rec.cardName}</h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-300">{rec.issuer}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                      {formatCurrency(rec.netAnnualValue)}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">net annual value</p>
-                  </div>
-                </div>
-
-                <div className="grid md:grid-cols-4 gap-4 text-sm mb-4">
-                  <div>
-                    <p className="font-semibold text-gray-700 dark:text-gray-300">Annual Rewards</p>
-                    <p className="text-green-600 dark:text-green-400">{formatCurrency(rec.totalAnnualValue)}</p>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-700 dark:text-gray-300">Benefits Value</p>
-                    <p className="text-blue-600 dark:text-blue-400">{formatCurrency(rec.benefitsValue)}</p>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-700 dark:text-gray-300">Annual Fee</p>
-                    <p className="text-red-600 dark:text-red-400">{formatCurrency(rec.annualFee)}</p>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-700 dark:text-gray-300">Effective Rate</p>
-                    <p className="text-blue-600 dark:text-blue-400">{((rec.netAnnualValue / (totalMonthlySpend * 12)) * 100).toFixed(1)}%</p>
-                  </div>
-                </div>
-
-                {rec.categoryBreakdown && rec.categoryBreakdown.length > 0 && (
-                  <div className="mb-4">
-                    <p className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Spending Rewards:</p>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-                      {rec.categoryBreakdown.map((breakdown, idx) => (
-                        <div key={idx} className="bg-white dark:bg-gray-700 rounded p-2">
-                          <p className="font-medium text-gray-700 dark:text-gray-300">{breakdown.categoryName}</p>
-                          <p className="text-green-600 dark:text-green-400">{formatCurrency(breakdown.annualValue)}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {rec.benefitsBreakdown && rec.benefitsBreakdown.length > 0 && rec.benefitsValue > 0 && (
-                  <div className="mb-4">
-                    <p className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Benefits You Value:</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                      {rec.benefitsBreakdown
-                        .filter(benefit => benefit.personalValue > 0)
-                        .map((benefit, idx) => (
-                        <div key={idx} className="bg-white dark:bg-gray-700 rounded p-2 flex justify-between items-center">
-                          <div>
-                            <p className="font-medium text-gray-700 dark:text-gray-300">{benefit.benefitName}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              Official: {formatCurrency(benefit.officialValue)}
-                            </p>
+            {recommendations.map((rec, index) => {
+              const rankColors = [
+                'from-yellow-400 to-orange-500', // Gold for #1
+                'from-gray-300 to-gray-500',     // Silver for #2
+                'from-amber-600 to-amber-800',   // Bronze for #3
+                'from-blue-400 to-blue-600',     // Blue for others
+              ];
+              const rankColor = rankColors[Math.min(index, 3)];
+              
+              return (
+                <div 
+                  key={rec.cardId} 
+                  className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden transform hover:scale-105 transition-all duration-300"
+                >
+                  {/* Card Header */}
+                  <div className="relative">
+                    <div className={`bg-gradient-to-r ${rankColor} p-6 text-white`}>
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center space-x-4">
+                          <div className="bg-white/20 backdrop-blur-sm rounded-full p-3">
+                            <span className="text-3xl font-bold">#{index + 1}</span>
                           </div>
-                          <p className="text-blue-600 dark:text-blue-400 font-semibold">
-                            {formatCurrency(benefit.personalValue)}
-                          </p>
+                          <div>
+                            <h3 className="text-2xl font-bold">{rec.cardName}</h3>
+                            <p className="text-lg opacity-90">{rec.issuer}</p>
+                            <div className="flex items-center space-x-2 mt-2">
+                              <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium">
+                                {rec.rewardType === 'cashback' ? '💵 Cashback' : '🎯 Points'}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                      ))}
+                        <div className="text-right">
+                          <div className="text-3xl font-bold">{formatCurrency(rec.netAnnualValue)}</div>
+                          <div className="text-lg opacity-90">net annual value</div>
+                          <Button
+                            onClick={() => openCardCustomization(rec.cardId)}
+                            variant="outline"
+                            size="sm"
+                            className="mt-3 bg-white/10 border-white/30 text-white hover:bg-white/20 backdrop-blur-sm"
+                          >
+                            ⚙️ Customize Card
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Value Breakdown Bar */}
+                    <div className="bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-700 dark:to-gray-600 p-4">
+                      <div className="grid grid-cols-4 gap-4 text-center">
+                        <div className="space-y-1">
+                          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                            {formatCurrency(rec.totalAnnualValue)}
+                          </div>
+                          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Annual Rewards</div>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                            {formatCurrency(rec.benefitsValue)}
+                          </div>
+                          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Benefits Value</div>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                            -{formatCurrency(rec.annualFee)}
+                          </div>
+                          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Annual Fee</div>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                            {((rec.netAnnualValue / (totalMonthlySpend * 12)) * 100).toFixed(1)}%
+                          </div>
+                          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Effective Rate</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                )}
 
-                {rec.signupBonus && (
-                  <div className="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-xl border border-yellow-200 dark:border-yellow-700">
-                    <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300">
-                      🎁 Signup Bonus: {formatCurrency(rec.signupBonus.amount)} 
-                      <span className="block text-xs opacity-75 mt-1">
-                        Spend {formatCurrency(rec.signupBonus.requiredSpend)} in {rec.signupBonus.timeframe} months
-                      </span>
-                    </p>
+                  {/* Card Body */}
+                  <div className="p-6 space-y-6">
+                    {/* Category Rewards Breakdown */}
+                    {rec.categoryBreakdown && rec.categoryBreakdown.length > 0 && (
+                      <div>
+                        <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                          💳 Earning Breakdown by Category
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {rec.categoryBreakdown.map((breakdown, idx) => {
+                            const categoryIcons: { [key: string]: string } = {
+                              'Dining': '🍽️',
+                              'Travel': '✈️',
+                              'Gas': '⛽',
+                              'Groceries': '🛒',
+                              'Entertainment': '🎬',
+                              'Online Shopping': '🛍️',
+                              'Department Stores': '🏬',
+                              'General': '💳'
+                            };
+                            const icon = categoryIcons[breakdown.categoryName] || '💳';
+                            const rewardRate = breakdown.rewardRate * 100;
+                            
+                            return (
+                              <div 
+                                key={idx} 
+                                className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-700 dark:to-gray-600 rounded-2xl p-4 border border-gray-200 dark:border-gray-600 shadow-lg"
+                              >
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-2xl">{icon}</span>
+                                    <span className="font-semibold text-gray-900 dark:text-white">
+                                      {breakdown.categoryName}
+                                    </span>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                                      {rewardRate}%
+                                    </div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                                      {rec.rewardType === 'points' ? 'points' : 'cashback'}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-gray-600 dark:text-gray-300">Monthly Spend:</span>
+                                    <span className="font-medium">{formatCurrency(breakdown.monthlySpend)}</span>
+                                  </div>
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-gray-600 dark:text-gray-300">Monthly Earnings:</span>
+                                    <span className="font-medium text-green-600 dark:text-green-400">
+                                      {formatCurrency(breakdown.monthlyValue)}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between text-lg font-bold border-t pt-2">
+                                    <span className="text-gray-900 dark:text-white">Annual Value:</span>
+                                    <span className="text-green-600 dark:text-green-400">
+                                      {formatCurrency(breakdown.annualValue)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Benefits Section */}
+                    {rec.benefitsBreakdown && rec.benefitsBreakdown.length > 0 && rec.benefitsValue > 0 && (
+                      <div>
+                        <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                          🎁 Benefits You Value
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {rec.benefitsBreakdown
+                            .filter(benefit => benefit.personalValue > 0)
+                            .map((benefit, idx) => (
+                            <div 
+                              key={idx} 
+                              className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-2xl p-4 border border-blue-200 dark:border-blue-700"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                  <h5 className="font-semibold text-gray-900 dark:text-white mb-2">
+                                    {benefit.benefitName}
+                                  </h5>
+                                  <div className="space-y-1 text-sm">
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-300">Official Value:</span>
+                                      <span className="font-medium">{formatCurrency(benefit.officialValue)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-600 dark:text-gray-300">Your Value:</span>
+                                      <span className="font-bold text-blue-600 dark:text-blue-400">
+                                        {formatCurrency(benefit.personalValue)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Signup Bonus */}
+                    {rec.signupBonus && (
+                      <div className="bg-gradient-to-r from-yellow-100 to-orange-100 dark:from-yellow-900/30 dark:to-orange-900/30 rounded-2xl p-6 border-2 border-yellow-300 dark:border-yellow-600">
+                        <div className="flex items-center space-x-4">
+                          <div className="text-4xl">🎁</div>
+                          <div className="flex-1">
+                            <h4 className="text-xl font-bold text-yellow-800 dark:text-yellow-300 mb-2">
+                              Welcome Bonus
+                            </h4>
+                            <div className="text-lg font-semibold text-yellow-900 dark:text-yellow-200">
+                              Earn {formatCurrency(rec.signupBonus.amount)}
+                            </div>
+                            <div className="text-sm text-yellow-700 dark:text-yellow-300">
+                              when you spend {formatCurrency(rec.signupBonus.requiredSpend)} in the first {rec.signupBonus.timeframe} months
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         </div>
+      )}
+      
+      {/* Card Customization Modal */}
+      {customizationOpen && editingCardId && (
+        <CardCustomizationModal
+          isOpen={customizationOpen}
+          onClose={closeCardCustomization}
+          onSave={updateCardCustomization}
+          card={{
+            id: editingCardId,
+            name: recommendations.find(r => r.cardId === editingCardId)?.cardName || '',
+            type: recommendations.find(r => r.cardId === editingCardId)?.rewardType || 'cashback',
+            benefits: recommendations.find(r => r.cardId === editingCardId)?.benefitsBreakdown?.map(b => ({
+              id: b.benefitName,
+              name: b.benefitName,
+              value: b.officialValue
+            })) || []
+          }}
+          currentCustomization={cardCustomizations[editingCardId]}
+        />
       )}
     </div>
   )

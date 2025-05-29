@@ -259,7 +259,17 @@ async function main() {
     // Create the card
     const card = await prisma.creditCard.upsert({
       where: { id: cardData.id },
-      update: {},
+      update: {
+        name: cardData.name,
+        issuer: cardData.issuer,
+        annualFee: cardData.annualFee,
+        baseReward: cardData.baseReward,
+        rewardType: cardData.rewardType,
+        pointValue: cardData.pointValue,
+        signupBonus: cardData.signupBonus,
+        signupSpend: cardData.signupSpend,
+        signupTimeframe: cardData.signupTimeframe,
+      },
       create: {
         id: cardData.id,
         name: cardData.name,

@@ -42,9 +42,18 @@ export interface CardRecommendation {
 
 export interface RecommendationOptions {
   userSpending: UserSpending[]
-  rewardPreference: 'cashback' | 'points'
-  pointValue?: number // For points cards, how much user values 1 point
-  benefitValuations?: BenefitValuation[] // User's personal valuation of benefits
+  rewardPreference: 'cashback' | 'points' | 'best_overall'
+  pointValue?: number // Default point value for cards without custom values
+  benefitValuations?: BenefitValuation[] // Default benefit valuations
+  cardCustomizations?: {
+    [cardId: string]: {
+      pointValue?: number
+      benefitValuations?: BenefitValuation[]
+      // New format for per-card customizations
+      benefitValues?: Record<string, number>
+      enabledBenefits?: Record<string, boolean>
+    }
+  }
   ownedCardIds?: string[]
 }
 
@@ -56,12 +65,23 @@ export async function calculateCardRecommendations(
     rewardPreference, 
     pointValue = 0.01, 
     benefitValuations = [],
+    cardCustomizations = {},
     ownedCardIds = [] 
   } = options
 
   // Get all active credit cards with their category rewards and benefits
+  let whereClause: any = { isActive: true }
+  
+  // Filter by reward type based on user preference
+  if (rewardPreference === 'cashback') {
+    whereClause.rewardType = 'cashback'
+  } else if (rewardPreference === 'points') {
+    whereClause.rewardType = 'points'
+  }
+  // For 'best_overall', show all cards (no additional filter)
+
   const cards = await prisma.creditCard.findMany({
-    where: { isActive: true },
+    where: whereClause,
     include: {
       categoryRewards: {
         include: {
@@ -77,6 +97,11 @@ export async function calculateCardRecommendations(
   for (const card of cards) {
     let totalAnnualValue = 0
     const categoryBreakdown: CardRecommendation['categoryBreakdown'] = []
+    
+    // Get card-specific customizations or use defaults
+    const cardCustomization = cardCustomizations[card.id]
+    const effectivePointValue = cardCustomization?.pointValue || pointValue
+    const effectiveBenefitValuations = cardCustomization?.benefitValuations || benefitValuations
 
     // Calculate value for each spending category
     for (const spending of userSpending) {
@@ -85,16 +110,16 @@ export async function calculateCardRecommendations(
       )
 
       let rewardRate = card.baseReward
-      let effectivePointValue = card.pointValue || 0.01
+      let finalPointValue = card.pointValue || 0.01
 
       // Use category-specific reward rate if available
       if (categoryReward) {
         rewardRate = categoryReward.rewardRate * card.baseReward
       }
 
-      // For points cards, use user's point valuation if they prefer points
-      if (card.rewardType === 'points' && rewardPreference === 'points') {
-        effectivePointValue = pointValue
+      // For points cards, use card-specific point valuation if available, or user's preference
+      if (card.rewardType === 'points' && (rewardPreference === 'points' || rewardPreference === 'best_overall')) {
+        finalPointValue = effectivePointValue
       }
 
       // Calculate monthly and annual value
@@ -103,7 +128,7 @@ export async function calculateCardRecommendations(
       if (card.rewardType === 'points') {
         // For points cards: baseReward is the points multiplier
         const pointsEarned = spending.monthlySpend * rewardRate
-        monthlyValue = pointsEarned * effectivePointValue
+        monthlyValue = pointsEarned * finalPointValue
       } else {
         // For cashback cards: baseReward is the cash percentage
         monthlyValue = spending.monthlySpend * rewardRate
@@ -134,12 +159,27 @@ export async function calculateCardRecommendations(
     const benefitsBreakdown: CardRecommendation['benefitsBreakdown'] = []
 
     for (const benefit of card.benefits) {
-      // Find user's personal valuation for this benefit
-      const userValuation = benefitValuations.find(
-        (val) => val.benefitId === benefit.id
-      )
+      let personalValue = 0
+
+      // Check if we have new format customizations for this card
+      if (cardCustomization?.benefitValues && cardCustomization?.enabledBenefits) {
+        // Use new format: benefit is enabled and has custom value
+        const isEnabled = cardCustomization.enabledBenefits[benefit.name] !== false // Default to enabled
+        if (isEnabled) {
+          personalValue = cardCustomization.benefitValues[benefit.name] || benefit.annualValue
+        }
+        // If not enabled, personalValue stays 0
+      } else if (effectiveBenefitValuations.length > 0) {
+        // Fall back to old format for backward compatibility
+        const userValuation = effectiveBenefitValuations.find(
+          (val) => val.benefitId === benefit.id
+        )
+        personalValue = userValuation?.personalValue ?? 0
+      } else {
+        // Default case: use official benefit value when no customizations exist
+        personalValue = benefit.annualValue
+      }
       
-      const personalValue = userValuation?.personalValue ?? 0 // Default to 0 if not specified
       benefitsValue += personalValue
 
       benefitsBreakdown.push({
