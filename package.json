@@ -3,7 +3,14 @@
   "version": "0.1.0",
   "description": "A modern web application that helps users maximize credit card rewards through personalized recommendations based on spending patterns and preferences.",
   "private": true,
-  "keywords": ["credit-cards", "rewards", "optimization", "finance", "nextjs", "typescript"],
+  "keywords": [
+    "credit-cards",
+    "rewards",
+    "optimization",
+    "finance",
+    "nextjs",
+    "typescript"
+  ],
   "author": "Credit Card Optimizer Team",
   "license": "MIT",
   "scripts": {
@@ -29,6 +36,7 @@
     "lucide-react": "^0.511.0",
     "next": "15.3.2",
     "next-auth": "^4.24.11",
+    "node-fetch": "^3.3.2",
     "prisma": "^6.8.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

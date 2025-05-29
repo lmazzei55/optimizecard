@@ -10,10 +10,19 @@ interface SpendingCategory {
   id: string
   name: string
   description: string
+  subCategories?: SubCategory[]
+}
+
+interface SubCategory {
+  id: string
+  name: string
+  description: string
+  parentCategoryId: string
 }
 
 interface UserSpending {
-  categoryId: string
+  categoryId?: string
+  subCategoryId?: string
   categoryName: string
   monthlySpend: number
 }
@@ -74,6 +83,9 @@ export function SpendingForm() {
   const [recalculating, setRecalculating] = useState(false)
   const [recommendations, setRecommendations] = useState<CardRecommendation[]>([])
   
+  // Subcategory support
+  const [enableSubcategories, setEnableSubcategories] = useState(false)
+  
   // Card customization modal state
   const [customizationOpen, setCustomizationOpen] = useState(false)
   const [editingCardId, setEditingCardId] = useState<string | null>(null)
@@ -84,20 +96,49 @@ export function SpendingForm() {
   // Fetch spending categories
   useEffect(() => {
     fetchCategories()
-  }, [])
+  }, [enableSubcategories])
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('/api/categories')
+      const endpoint = enableSubcategories ? '/api/subcategories' : '/api/categories'
+      const response = await fetch(endpoint)
       const data = await response.json()
       setCategories(data)
       
-      // Initialize spending with all categories at $0
-      setSpending(data.map((cat: SpendingCategory) => ({
-        categoryId: cat.id,
-        categoryName: cat.name,
-        monthlySpend: 0
-      })))
+      // Initialize spending based on subcategory mode
+      if (enableSubcategories) {
+        // Create spending entries for both categories and subcategories
+        const spendingEntries: UserSpending[] = []
+        
+        data.forEach((cat: SpendingCategory) => {
+          // Add main category
+          spendingEntries.push({
+            categoryId: cat.id,
+            categoryName: cat.name,
+            monthlySpend: 0
+          })
+          
+          // Add subcategories if they exist
+          if (cat.subCategories && cat.subCategories.length > 0) {
+            cat.subCategories.forEach((sub: SubCategory) => {
+              spendingEntries.push({
+                subCategoryId: sub.id,
+                categoryName: `${cat.name} → ${sub.name}`,
+                monthlySpend: 0
+              })
+            })
+          }
+        })
+        
+        setSpending(spendingEntries)
+      } else {
+        // Standard category mode
+        setSpending(data.map((cat: SpendingCategory) => ({
+          categoryId: cat.id,
+          categoryName: cat.name,
+          monthlySpend: 0
+        })))
+      }
       
       setLoading(false)
     } catch (error) {
@@ -106,12 +147,13 @@ export function SpendingForm() {
     }
   }
 
-  const updateSpending = (categoryId: string, amount: number) => {
-    setSpending(prev => prev.map(s => 
-      s.categoryId === categoryId 
+  const updateSpending = (id: string, amount: number, isSubcategory: boolean = false) => {
+    setSpending(prev => prev.map(s => {
+      const matchId = isSubcategory ? s.subCategoryId : s.categoryId
+      return matchId === id 
         ? { ...s, monthlySpend: amount }
         : s
-    ))
+    }))
   }
 
   const openCardCustomization = (cardId: string) => {
@@ -242,61 +284,193 @@ export function SpendingForm() {
           💳 Monthly Spending by Category
         </h2>
         
+        {/* Subcategory Toggle */}
+        <div className="mb-8 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-gray-700 dark:to-gray-600 rounded-xl border border-indigo-200 dark:border-gray-600">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                🎯 Enable Subcategories
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Get more precise recommendations with specific subcategories like Amazon, Whole Foods, Hotels, etc.
+              </p>
+            </div>
+            <button
+              onClick={() => setEnableSubcategories(!enableSubcategories)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
+                enableSubcategories 
+                  ? 'bg-blue-600' 
+                  : 'bg-gray-300 dark:bg-gray-600'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+                  enableSubcategories ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+        
         <div className="grid md:grid-cols-2 gap-8">
-          {categories.map((category) => {
-            const currentSpending = spending.find(s => s.categoryId === category.id)
-            const amount = currentSpending?.monthlySpend || 0
-            
-            return (
-              <div key={category.id} className="space-y-4 p-6 bg-gray-50/50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <label className="block text-lg font-semibold text-gray-900 dark:text-white">
-                      {category.name}
-                    </label>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{category.description}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                      {formatCurrency(amount)}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">per month</p>
-                  </div>
+          {enableSubcategories ? (
+            // Subcategory mode: group by parent category
+            categories.map((category) => (
+              <div key={category.id} className="space-y-4">
+                {/* Parent Category Header */}
+                <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-600 rounded-xl border border-blue-200 dark:border-gray-600">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {category.name}
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{category.description}</p>
                 </div>
+                
+                {/* Main Category Spending */}
+                {(() => {
+                  const currentSpending = spending.find(s => s.categoryId === category.id)
+                  const amount = currentSpending?.monthlySpend || 0
+                  
+                  return (
+                    <div className="p-4 bg-gray-50/50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <label className="block text-md font-medium text-gray-900 dark:text-white">
+                            General {category.name}
+                          </label>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Other {category.name.toLowerCase()} not listed below</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                            {formatCurrency(amount)}
+                          </p>
+                        </div>
+                      </div>
 
-                {/* Slider */}
-                <div className="space-y-3">
-                  <Slider
-                    value={amount}
-                    onValueChange={(value) => updateSpending(category.id, value)}
-                    min={0}
-                    max={2000}
-                    step={25}
-                    className="py-2"
-                  />
-                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                    <span>$0</span>
-                    <span>$1000</span>
-                    <span>$2000+</span>
-                  </div>
-                </div>
+                      <div className="space-y-2">
+                        <Slider
+                          value={amount}
+                          onValueChange={(value) => updateSpending(category.id, value, false)}
+                          min={0}
+                          max={2000}
+                          step={25}
+                          className="py-1"
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          step="25"
+                          value={amount || ''}
+                          onChange={(e) => updateSpending(category.id, parseFloat(e.target.value) || 0, false)}
+                          className="w-full px-2 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                  )
+                })()}
+                
+                {/* Subcategories */}
+                {category.subCategories && category.subCategories.map((subCategory) => {
+                  const currentSpending = spending.find(s => s.subCategoryId === subCategory.id)
+                  const amount = currentSpending?.monthlySpend || 0
+                  
+                  return (
+                    <div key={subCategory.id} className="p-4 bg-gray-50/50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600 ml-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <label className="block text-md font-medium text-gray-900 dark:text-white">
+                            📍 {subCategory.name}
+                          </label>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{subCategory.description}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                            {formatCurrency(amount)}
+                          </p>
+                        </div>
+                      </div>
 
-                {/* Text Input */}
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Exact:</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="25"
-                    value={amount || ''}
-                    onChange={(e) => updateSpending(category.id, parseFloat(e.target.value) || 0)}
-                    className="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                    placeholder="0"
-                  />
-                </div>
+                      <div className="space-y-2">
+                        <Slider
+                          value={amount}
+                          onValueChange={(value) => updateSpending(subCategory.id, value, true)}
+                          min={0}
+                          max={2000}
+                          step={25}
+                          className="py-1"
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          step="25"
+                          value={amount || ''}
+                          onChange={(e) => updateSpending(subCategory.id, parseFloat(e.target.value) || 0, true)}
+                          className="w-full px-2 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
-            )
-          })}
+            ))
+          ) : (
+            // Standard category mode
+            categories.map((category) => {
+              const currentSpending = spending.find(s => s.categoryId === category.id)
+              const amount = currentSpending?.monthlySpend || 0
+              
+              return (
+                <div key={category.id} className="space-y-4 p-6 bg-gray-50/50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <label className="block text-lg font-semibold text-gray-900 dark:text-white">
+                        {category.name}
+                      </label>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{category.description}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                        {formatCurrency(amount)}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">per month</p>
+                    </div>
+                  </div>
+
+                  {/* Slider */}
+                  <div className="space-y-3">
+                    <Slider
+                      value={amount}
+                      onValueChange={(value) => updateSpending(category.id, value, false)}
+                      min={0}
+                      max={2000}
+                      step={25}
+                      className="py-2"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                      <span>$0</span>
+                      <span>$1000</span>
+                      <span>$2000+</span>
+                    </div>
+                  </div>
+
+                  {/* Text Input */}
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Exact:</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="25"
+                      value={amount || ''}
+                      onChange={(e) => updateSpending(category.id, parseFloat(e.target.value) || 0, false)}
+                      className="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+              )
+            })
+          )}
         </div>
         
         <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-600 rounded-xl border border-blue-200 dark:border-gray-600">
@@ -513,7 +687,11 @@ export function SpendingForm() {
                               'General': '💳'
                             };
                             const icon = categoryIcons[breakdown.categoryName] || '💳';
-                            const rewardRate = breakdown.rewardRate * 100;
+                            
+                            // Format reward rate properly for points vs cashback
+                            const rewardDisplay = rec.rewardType === 'points' 
+                              ? `${breakdown.rewardRate}x` 
+                              : `${(breakdown.rewardRate * 100).toFixed(1)}%`;
                             
                             return (
                               <div 
@@ -529,7 +707,7 @@ export function SpendingForm() {
                                   </div>
                                   <div className="text-right">
                                     <div className="text-lg font-bold text-green-600 dark:text-green-400">
-                                      {rewardRate}%
+                                      {rewardDisplay}
                                     </div>
                                     <div className="text-xs text-gray-500 dark:text-gray-400">
                                       {rec.rewardType === 'points' ? 'points' : 'cashback'}

@@ -53,9 +53,11 @@ model User {
   // Credit card app specific fields
   rewardPreference String @default("cashback") // "cashback" or "points"
   pointValue       Float  @default(0.01) // How much user values 1 point in dollars
+  enableSubCategories Boolean @default(false) // Whether user wants to use subcategories
   
   // Relationships
   spendingCategories UserSpendingCategory[]
+  spendingSubCategories UserSpendingSubCategory[]
   ownedCards        UserCard[]
   benefitValuations UserBenefitValuation[]
   
@@ -110,24 +112,43 @@ model SpendingCategory {
   // Relationships
   userSpending    UserSpendingCategory[]
   categoryRewards CategoryReward[]
+  subCategories   SubCategory[]
   
   createdAt DateTime @default(now())
+}
+
+model SubCategory {
+  id          String @id @default(cuid())
+  name        String
+  description String?
+  parentCategoryId String
+  
+  // Relationships
+  parentCategory SpendingCategory @relation(fields: [parentCategoryId], references: [id], onDelete: Cascade)
+  userSpending   UserSpendingSubCategory[]
+  categoryRewards CategoryReward[]
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([parentCategoryId, name])
 }
 
 model CategoryReward {
   id         String @id @default(cuid())
   cardId     String
-  categoryId String
+  categoryId String?     // Can be null if subcategoryId is set
+  subCategoryId String?  // Can be null if categoryId is set
   rewardRate Float // Multiplier (e.g., 3x = 3.0)
   
   // Optional constraints
   maxReward  Float? // Maximum reward per period
   period     String? // "monthly", "quarterly", "yearly"
   
-  card     CreditCard      @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  category SpendingCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  card        CreditCard      @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  category    SpendingCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  subCategory SubCategory?     @relation(fields: [subCategoryId], references: [id], onDelete: Cascade)
   
-  @@unique([cardId, categoryId])
+  @@unique([cardId, categoryId, subCategoryId])
 }
 
 model CardBenefit {
@@ -157,6 +178,18 @@ model UserSpendingCategory {
   category SpendingCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   
   @@unique([userId, categoryId])
+}
+
+model UserSpendingSubCategory {
+  id           String @id @default(cuid())
+  userId       String
+  subCategoryId String
+  monthlySpend Float
+  
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subCategory SubCategory @relation(fields: [subCategoryId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, subCategoryId])
 }
 
 model UserBenefitValuation {

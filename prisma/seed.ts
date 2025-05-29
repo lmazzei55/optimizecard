@@ -14,87 +14,126 @@ const SPENDING_CATEGORIES = [
   { name: 'Other', description: 'All other purchases' },
 ] as const
 
+// Subcategories Data
+const SUBCATEGORIES = [
+  // Online Shopping
+  { name: 'Amazon', description: 'Amazon.com purchases', parent: 'Online Shopping' },
+  { name: 'Whole Foods', description: 'Whole Foods Market', parent: 'Groceries' },
+  { name: 'Walmart.com', description: 'Walmart.com purchases', parent: 'Online Shopping' },
+  // Travel
+  { name: 'Airfare', description: 'Airline tickets and airfare', parent: 'Travel' },
+  { name: 'Hotels', description: 'Hotel bookings', parent: 'Travel' },
+  { name: 'Car Rental', description: 'Car rental agencies', parent: 'Travel' },
+  { name: 'Rideshare', description: 'Uber, Lyft, and other rideshare', parent: 'Travel' },
+  // Entertainment
+  { name: 'Streaming', description: 'Video and music streaming services', parent: 'Entertainment' },
+  // Dining
+  { name: 'Fast Food', description: 'Fast food restaurants', parent: 'Dining' },
+  { name: 'Coffee Shops', description: 'Coffee shops and cafes', parent: 'Dining' },
+] as const
+
 // Card Benefits Data
 const CARD_BENEFITS = {
   'chase-sapphire-reserve': [
     {
-      name: 'Travel Credit',
-      description: '$300 annual travel credit for travel purchases',
+      name: '$300 Annual Travel Credit',
+      description: 'Automatic statement credit for travel purchases',
       annualValue: 300,
       category: 'travel',
       isRecurring: true,
     },
     {
       name: 'Priority Pass Lounge Access',
-      description: 'Unlimited Priority Pass lounge access worldwide',
+      description: 'Unlimited airport lounge access worldwide (Priority Pass Select)',
       annualValue: 429, // Value of Priority Pass Select membership
       category: 'travel',
       isRecurring: true,
     },
     {
       name: 'TSA PreCheck/Global Entry Credit',
-      description: '$100 credit for TSA PreCheck or Global Entry application',
-      annualValue: 20, // Amortized over 5 years
+      description: '$100 credit every 4 years for application fee',
+      annualValue: 25, // $100 every 4 years
       category: 'travel',
       isRecurring: true,
     },
     {
       name: 'Primary Rental Car Insurance',
-      description: 'Primary auto rental collision damage waiver',
-      annualValue: 150, // Estimated value
+      description: 'Primary auto rental collision damage waiver worldwide',
+      annualValue: 150, // Estimated value for frequent travelers
+      category: 'insurance',
+      isRecurring: true,
+    },
+    {
+      name: 'Trip Protection Insurance',
+      description: 'Trip cancellation/interruption and baggage delay protection',
+      annualValue: 100,
       category: 'insurance',
       isRecurring: true,
     },
   ],
   'capital-one-venture-x': [
     {
-      name: 'Travel Credit',
-      description: '$300 annual travel credit for travel purchases',
+      name: '$300 Annual Travel Credit',
+      description: 'Annual travel credit for any travel purchases',
       annualValue: 300,
       category: 'travel',
       isRecurring: true,
     },
     {
       name: 'Priority Pass Lounge Access',
-      description: 'Unlimited Priority Pass lounge access worldwide',
+      description: 'Unlimited airport lounge access worldwide (Priority Pass Select)',
       annualValue: 429,
       category: 'travel',
       isRecurring: true,
     },
     {
       name: 'TSA PreCheck/Global Entry Credit',
-      description: '$100 credit for TSA PreCheck or Global Entry application',
-      annualValue: 20,
+      description: '$100 credit every 4 years for application fee',
+      annualValue: 25,
       category: 'travel',
       isRecurring: true,
     },
     {
-      name: 'Capital One Travel Portal Bonus',
-      description: '5x miles on hotel and rental car bookings through Capital One Travel',
-      annualValue: 100, // Estimated value for moderate users
+      name: 'Capital One Travel Portal Benefits',
+      description: '10x miles on hotels and car rentals through Capital One Travel',
+      annualValue: 75, // Conservative estimate for moderate users
       category: 'travel',
+      isRecurring: true,
+    },
+    {
+      name: 'Travel Insurance',
+      description: 'Trip cancellation/interruption and rental car coverage',
+      annualValue: 100,
+      category: 'insurance',
       isRecurring: true,
     },
   ],
   'amex-gold': [
     {
-      name: 'Dining Credit',
-      description: '$120 annual Uber Cash ($10 monthly) for Uber rides and Uber Eats',
+      name: '$120 Uber Cash',
+      description: '$10 monthly Uber Cash for Uber rides and Uber Eats',
       annualValue: 120,
       category: 'dining',
       isRecurring: true,
     },
     {
-      name: 'Entertainment Credit',
-      description: '$120 annual Entertainment Credit for eligible streaming subscriptions',
+      name: '$120 Entertainment Credit',
+      description: '$10 monthly credit for eligible entertainment subscriptions',
       annualValue: 120,
       category: 'entertainment',
       isRecurring: true,
     },
     {
-      name: 'Hotel Status',
+      name: 'Dining Credits with Grubhub+',
+      description: 'Complimentary Grubhub+ membership and monthly credits',
+      annualValue: 60,
+      category: 'dining',
+      isRecurring: true,
+    },
+    {
+      name: 'Hotel Elite Status',
       description: 'Hilton Honors Gold Status and Marriott Bonvoy Gold Elite Status',
-      annualValue: 200, // Estimated value
+      annualValue: 150, // Conservative estimate
       category: 'travel',
       isRecurring: true,
     },
@@ -103,19 +142,77 @@ const CARD_BENEFITS = {
     {
       name: 'Primary Rental Car Insurance',
       description: 'Primary auto rental collision damage waiver',
-      annualValue: 150,
+      annualValue: 120, // Lower value than Reserve
       category: 'insurance',
       isRecurring: true,
     },
     {
-      name: 'Trip Protection',
-      description: 'Trip cancellation and interruption insurance',
-      annualValue: 100,
+      name: 'Trip Protection Insurance',
+      description: 'Trip cancellation/interruption and baggage delay protection',
+      annualValue: 80,
+      category: 'insurance',
+      isRecurring: true,
+    },
+    {
+      name: 'Extended Warranty Protection',
+      description: 'Extends manufacturer warranty by up to 1 year',
+      annualValue: 50,
       category: 'insurance',
       isRecurring: true,
     },
   ],
+  'amex-platinum': [
+    {
+      name: '$200 Hotel Credit',
+      description: 'Annual credit for prepaid Fine Hotels + Resorts or The Hotel Collection bookings',
+      annualValue: 200,
+      category: 'travel',
+      isRecurring: true,
+    },
+    {
+      name: '$200 Airline Fee Credit',
+      description: 'Annual credit for incidental fees with selected airline',
+      annualValue: 200,
+      category: 'travel',
+      isRecurring: true,
+    },
+    {
+      name: '$189 CLEAR Credit',
+      description: 'Annual credit for CLEAR membership',
+      annualValue: 189,
+      category: 'travel',
+      isRecurring: true,
+    },
+    {
+      name: 'Centurion Lounge Access',
+      description: 'Access to Amex Centurion Lounges and Priority Pass Select',
+      annualValue: 500, // Premium value for Centurion access
+      category: 'travel',
+      isRecurring: true,
+    },
+    {
+      name: 'TSA PreCheck/Global Entry Credit',
+      description: '$100 credit every 4 years for application fee',
+      annualValue: 25,
+      category: 'travel',
+      isRecurring: true,
+    },
+    {
+      name: 'Hotel Elite Status',
+      description: 'Hilton Honors Gold, Marriott Bonvoy Gold Elite Status',
+      annualValue: 200,
+      category: 'travel',
+      isRecurring: true,
+    },
+  ],
 } as const
+
+// Update the type for categoryRewards
+// Now supports: { category: string, rewardRate: number, maxReward?: number, period?: string } | { subCategory: string, rewardRate: number, maxReward?: number, period?: string }
+
+type CategoryRewardSeed =
+  | { category: string; rewardRate: number; maxReward?: number; period?: string }
+  | { subCategory: string; rewardRate: number; maxReward?: number; period?: string }
 
 // Credit Cards Data
 const CREDIT_CARDS = [
@@ -133,7 +230,7 @@ const CREDIT_CARDS = [
     categoryRewards: [
       { category: 'Dining', rewardRate: 3.0 },
       { category: 'Travel', rewardRate: 2.0 },
-    ],
+    ] as CategoryRewardSeed[],
   },
   {
     id: 'chase-sapphire-reserve',
@@ -149,7 +246,10 @@ const CREDIT_CARDS = [
     categoryRewards: [
       { category: 'Dining', rewardRate: 3.0 },
       { category: 'Travel', rewardRate: 3.0 },
-    ],
+      { subCategory: 'Hotels', rewardRate: 10.0 }, // Example: 10x on hotels booked through portal
+      { subCategory: 'Car Rental', rewardRate: 10.0 },
+      { subCategory: 'Airfare', rewardRate: 5.0 },
+    ] as CategoryRewardSeed[],
   },
   {
     id: 'chase-freedom-unlimited',
@@ -175,7 +275,10 @@ const CREDIT_CARDS = [
     signupBonus: 75000,
     signupSpend: 4000,
     signupTimeframe: 3,
-    categoryRewards: [],
+    categoryRewards: [
+      { subCategory: 'Hotels', rewardRate: 5.0 },
+      { subCategory: 'Car Rental', rewardRate: 5.0 },
+    ] as CategoryRewardSeed[],
   },
   {
     id: 'amex-gold',
@@ -234,6 +337,39 @@ const CREDIT_CARDS = [
     signupTimeframe: 3,
     categoryRewards: [],
   },
+  {
+    id: 'amazon-prime-card',
+    name: 'Amazon Prime Rewards Visa',
+    issuer: 'Chase',
+    annualFee: 0,
+    baseReward: 0.01,
+    rewardType: 'cashback' as const,
+    pointValue: null,
+    signupBonus: 200,
+    signupSpend: 500,
+    signupTimeframe: 3,
+    categoryRewards: [
+      { subCategory: 'Amazon', rewardRate: 0.05 }, // 5% on Amazon purchases
+      { subCategory: 'Whole Foods', rewardRate: 0.05 }, // 5% at Whole Foods
+      { category: 'Dining', rewardRate: 0.02 }, // 2% at restaurants
+      { category: 'Gas', rewardRate: 0.02 }, // 2% at gas stations
+    ] as CategoryRewardSeed[],
+  },
+  {
+    id: 'amex-platinum',
+    name: 'American Express Platinum',
+    issuer: 'American Express',
+    annualFee: 695,
+    baseReward: 1,
+    rewardType: 'points' as const,
+    pointValue: 0.01,
+    signupBonus: 80000,
+    signupSpend: 6000,
+    signupTimeframe: 6,
+    categoryRewards: [
+      { subCategory: 'Airfare', rewardRate: 5.0 }, // 5x on flights booked directly with airlines
+    ] as CategoryRewardSeed[],
+  },
 ] as const
 
 async function main() {
@@ -250,6 +386,27 @@ async function main() {
       create: category,
     })
     categoryMap.set(category.name, created.id)
+  }
+
+  // Create subcategories
+  console.log('📝 Creating subcategories...')
+  const subCategoryMap = new Map<string, string>()
+  for (const sub of SUBCATEGORIES) {
+    const parentCategoryId = categoryMap.get(sub.parent)
+    if (!parentCategoryId) {
+      console.warn(`⚠️  Parent category ${sub.parent} not found for subcategory ${sub.name}`)
+      continue
+    }
+    const created = await prisma.subCategory.upsert({
+      where: { parentCategoryId_name: { parentCategoryId, name: sub.name } },
+      update: {},
+      create: {
+        name: sub.name,
+        description: sub.description,
+        parentCategoryId,
+      },
+    })
+    subCategoryMap.set(sub.name, created.id)
   }
 
   // Create credit cards with their benefits and rewards
@@ -285,24 +442,46 @@ async function main() {
     })
 
     // Create category rewards
-    for (const reward of cardData.categoryRewards) {
-      const categoryId = categoryMap.get(reward.category)
-      if (!categoryId) {
-        console.warn(`⚠️  Category ${reward.category} not found for card ${cardData.name}`)
-        continue
+    console.log(`Creating rewards for ${cardData.name}...`)
+    for (const reward of cardData.categoryRewards as CategoryRewardSeed[]) {
+      try {
+        if ('subCategory' in reward) {
+          console.log(`  Looking for subcategory: ${reward.subCategory}`)
+          const subCategoryId = subCategoryMap.get(reward.subCategory)
+          console.log(`  Found subcategory ID: ${subCategoryId}`)
+          if (!subCategoryId) continue
+          await prisma.categoryReward.create({
+            data: {
+              cardId: card.id,
+              categoryId: null,
+              subCategoryId,
+              rewardRate: reward.rewardRate,
+              maxReward: reward.maxReward || null,
+              period: reward.period || null,
+            },
+          })
+          console.log(`  ✅ Created subcategory reward: ${reward.subCategory} = ${reward.rewardRate}x`)
+        } else if ('category' in reward) {
+          console.log(`  Looking for category: ${reward.category}`)
+          const categoryId = categoryMap.get(reward.category)
+          console.log(`  Found category ID: ${categoryId}`)
+          if (!categoryId) continue
+          await prisma.categoryReward.create({
+            data: {
+              cardId: card.id,
+              categoryId,
+              subCategoryId: null,
+              rewardRate: reward.rewardRate,
+              maxReward: reward.maxReward || null,
+              period: reward.period || null,
+            },
+          })
+          console.log(`  ✅ Created category reward: ${reward.category} = ${reward.rewardRate}x`)
+        }
+      } catch (error) {
+        // Skip duplicates
+        console.log(`  ⚠️  Skipping duplicate reward for ${cardData.name}: ${error}`)
       }
-
-      await prisma.categoryReward.upsert({
-        where: { cardId_categoryId: { cardId: card.id, categoryId } },
-        update: {},
-        create: {
-          cardId: card.id,
-          categoryId,
-          rewardRate: reward.rewardRate,
-          maxReward: (reward as any).maxReward || null,
-          period: (reward as any).period || null,
-        },
-      })
     }
 
     // Create card benefits

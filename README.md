@@ -11,12 +11,15 @@ A modern web application that helps users maximize their credit card rewards thr
 
 ### 🎯 Core Functionality
 - **Smart Recommendations**: Mathematical algorithm analyzes spending patterns and ranks credit cards by net annual value
-- **Category-Based Analysis**: Input spending across 8 categories (Dining, Travel, Gas, Groceries, etc.)
+- **Subcategory Precision**: Toggle between basic categories and detailed subcategories (Amazon, Whole Foods, Hotels, Car Rental, etc.) for merchant-specific optimization
+- **Category-Based Analysis**: Input spending across 8 categories (Dining, Travel, Gas, Groceries, etc.) with optional subcategory breakdowns
+- **Advanced Reward Mapping**: Intelligent fallback system - prioritizes subcategory-specific rewards, falls back to parent category rates
 - **Card Benefits Valuation**: Personalize benefit values (travel credits, lounge access, etc.) based on your actual usage
 - **Dual Input Methods**: Interactive sliders for quick adjustment + precise text inputs for exact amounts
 - **Reward Preference**: Choose between cashback or points-based rewards with custom point valuations
 - **Real-time Calculations**: Instant updates as you adjust spending amounts and benefit valuations
 - **Detailed Breakdowns**: See category-by-category reward calculations, benefits breakdown, and effective rates
+- **Proper Display Formatting**: Points cards show "5x points", cashback cards show "5.0% cashback"
 
 ### 🎨 User Experience
 - **Dark/Light Mode**: Fully functional theme toggle with localStorage persistence (Tailwind CSS v4)
@@ -68,23 +71,33 @@ A modern web application that helps users maximize their credit card rewards thr
 ## 📱 How to Use
 
 ### 1. 💳 Input Your Spending
+- **Subcategory Toggle**: Enable detailed subcategories for merchant-specific precision (Amazon, Whole Foods, Hotels, etc.)
 - Use intuitive sliders or precise text inputs for each spending category
+- **Smart Organization**: Categories are grouped with subcategories indented and highlighted in purple
 - Sliders provide quick adjustment ($0-$2000+ range)
 - Text inputs allow exact dollar amounts
 - See real-time totals for monthly and annual spending
 
 ### 2. ⚙️ Set Preferences  
-- Choose between **Cashback** 💵 or **Points** 🎯 rewards
+- Choose between **Cashback** 💵, **Points** 🎯, or **Best Overall** 🏆 recommendations
 - For points: Set your valuation (e.g., 1.2¢ per Chase UR point, 1.0¢ per Amex MR)
 - Visual selection buttons with hover effects
+- Initial calculation uses 1¢ per point baseline
 
-### 3. 🎁 Value Card Benefits
+### 3. 🎁 Customize Card Benefits
+- Click "Customize Card" on any recommendation to personalize benefits
+- Adjust benefit values based on your personal usage patterns
+- Example: $300 travel credit → $200 if you only travel that much annually
+- Enable/disable specific benefits you don't use
+- Set custom point valuations per card for precise optimization
+
+### 4. 🎁 Value Card Benefits
 - Review pre-filled benefit values (travel credits, lounge access, insurance, etc.)
 - Adjust values based on your personal usage patterns
 - Example: $300 travel credit → $200 if you only travel that much annually
 - Expand/collapse cards to see detailed benefit breakdowns
 
-### 4. 🏆 Get Recommendations
+### 5. 🏆 Get Recommendations
 - Click "Get My Recommendations" to see mathematically ranked results
 - View detailed breakdowns: net annual value, total rewards, annual fees, benefits value
 - See category-by-category reward calculations and personal benefits breakdown
@@ -117,9 +130,9 @@ document.documentElement.classList.add('dark')
 
 ### Database Schema
 ```
-SpendingCategory → CategoryReward → CreditCard
-├── id, name, description     ├── categoryId, rewardRate     ├── name, issuer, fees
-└── category mappings         └── reward multipliers         └── base rewards
+SpendingCategory → SubCategory → CategoryReward → CreditCard
+├── id, name, description    ├── parentCategoryId      ├── categoryId OR subCategoryId    ├── name, issuer, fees
+└── category mappings        └── specific merchants    └── reward multipliers              └── base rewards
 ```
 
 ## 💡 Algorithm Details
@@ -127,33 +140,45 @@ SpendingCategory → CategoryReward → CreditCard
 The recommendation engine calculates net annual value through:
 
 1. **Base Rewards**: Applies each card's base reward rate (1-2%) to all spending
-2. **Category Multipliers**: Applies enhanced rates (2-4x) for matching categories  
-3. **Point Valuations**: Converts points to cash value based on user-defined rates
-4. **Benefits Valuation**: Adds user's personal valuation of card benefits (travel credits, lounge access, etc.)
-5. **Annual Fee Deduction**: Subtracts annual fees from total rewards and benefits
-6. **Category Limits**: Respects quarterly/annual spending caps where applicable
-7. **Ranking**: Sorts by highest net annual value for optimal recommendations
+2. **Subcategory Priority**: Checks for subcategory-specific rewards first (Amazon 5%, Hotels 10x, etc.)
+3. **Category Fallback**: Falls back to parent category rates if no subcategory match exists
+4. **Point Valuations**: Converts points to cash value based on user-defined rates
+5. **Benefits Valuation**: Adds user's personal valuation of card benefits (travel credits, lounge access, etc.)
+6. **Annual Fee Deduction**: Subtracts annual fees from total rewards and benefits
+7. **Category Limits**: Respects quarterly/annual spending caps where applicable
+8. **Ranking**: Sorts by highest net annual value for optimal recommendations
 
 ### Example Calculation
 ```typescript
-// For $500/month dining on Chase Sapphire Preferred + $200 personal benefit value
+// For $500/month Amazon spending on Amazon Prime card + subcategory optimization
 const baseReward = 500 * 12 * 0.01           // $60 (1% base)
-const categoryBonus = 500 * 12 * 0.03        // $180 (3x dining)
-const pointValue = 180 * 1.25                // $225 (1.25¢/point)
-const benefitsValue = 200                     // $200 (personal valuation)
-const netValue = 225 + 200 - 95              // $330 (rewards + benefits - annual fee)
+const subcategoryBonus = 500 * 12 * 0.05     // $300 (5% Amazon subcategory)
+const benefitsValue = 0                       // $0 (no annual fee card)
+const netValue = 300 + 0 - 0                 // $300 (subcategory rewards + benefits - fee)
+
+// Fallback example: $500/month general groceries on Amazon Prime card
+const baseReward = 500 * 12 * 0.01           // $60 (1% base - no subcategory match, no general groceries rate)
 ```
 
 ## 🃏 Included Credit Cards
 
-- **Chase Sapphire Preferred**: 3x dining & travel, 1x everything else ($95 AF) + rental car insurance, trip protection
-- **Chase Sapphire Reserve**: 3x dining & travel, 1x everything else ($550 AF) + $300 travel credit, Priority Pass, TSA PreCheck credit, rental car insurance  
-- **Chase Freedom Unlimited**: 1.5x everything, no annual fee
-- **Capital One Venture X**: 2x everything, 5x travel booked through portal ($395 AF) + $300 travel credit, Priority Pass, TSA PreCheck credit
-- **American Express Gold**: 4x dining & groceries, 1x everything else ($250 AF) + $120 Uber credit, $120 entertainment credit, hotel status
+- **Chase Sapphire Preferred**: 3x dining & travel, 1x everything else ($95 AF) + rental car insurance, trip protection, extended warranty
+- **Chase Sapphire Reserve**: 3x dining & travel, 10x hotels/car rental through portal, 5x airfare, 1x everything else ($550 AF) + $300 travel credit, Priority Pass, TSA PreCheck credit, travel insurance
+- **Chase Freedom Unlimited**: 1.5% everything, no annual fee
+- **Capital One Venture X**: 2x everything, 5x hotels/car rental through portal ($395 AF) + $300 travel credit, Priority Pass, TSA PreCheck credit, travel insurance
+- **American Express Gold**: 4x dining & groceries, 1x everything else ($250 AF) + $120 Uber credit, $120 entertainment credit, Grubhub+ credits, hotel status
+- **American Express Platinum**: 5x airfare, 1x everything else ($695 AF) + $200 hotel credit, $200 airline credit, $189 CLEAR credit, Centurion lounge access, hotel status
 - **Citi Double Cash**: 2% everything (1% purchase + 1% payment), no annual fee
 - **Discover it Cash Back**: 5% rotating categories, 1% everything else, no annual fee
 - **Wells Fargo Active Cash**: 2% everything, no annual fee
+- **Amazon Prime Rewards Visa**: 5% Amazon & Whole Foods, 2% dining & gas, 1% everything else, no annual fee
+
+### Subcategory Specialization
+- **Amazon**: Amazon Prime card (5%)
+- **Whole Foods**: Amazon Prime card (5%)
+- **Hotels**: Chase Sapphire Reserve (10x), Capital One Venture X (5x)
+- **Car Rental**: Chase Sapphire Reserve (10x), Capital One Venture X (5x)  
+- **Airfare**: Chase Sapphire Reserve (5x), Amex Platinum (5x)
 
 *Premium cards include detailed benefits data for accurate personal valuation*
 
@@ -181,8 +206,12 @@ const netValue = 225 + 200 - 95              // $330 (rewards + benefits - annua
 
 ### Current Status
 ✅ **Fully Functional**: Homepage, dashboard, calculations, dark mode  
-✅ **API Working**: Categories, recommendations with proper error handling  
-✅ **UI Complete**: Modern design with responsive layout  
+✅ **Subcategory System**: Complete merchant-specific optimization with 10 subcategories
+✅ **Advanced Rewards Logic**: Subcategory priority with category fallback system
+✅ **Card Customization**: Per-card benefit and point value customization
+✅ **Accurate Card Data**: Updated benefits with realistic valuations and proper display formatting
+✅ **API Working**: Categories, subcategories, recommendations with proper error handling  
+✅ **UI Complete**: Modern design with responsive layout and subcategory toggle
 ✅ **Type Safe**: Comprehensive TypeScript interfaces  
 ✅ **Admin Tools**: Complete admin API for managing cards and benefits
 
