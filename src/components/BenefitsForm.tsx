@@ -79,6 +79,20 @@ export function BenefitsForm({ onBenefitValuationsChange }: BenefitsFormProps) {
     )
   }
 
+  const toggleBenefitEnabled = (benefitId: string, isEnabled: boolean, officialValue: number) => {
+    if (isEnabled) {
+      // Enable: set to official value
+      updateBenefitValuation(benefitId, officialValue)
+    } else {
+      // Disable: set to 0
+      updateBenefitValuation(benefitId, 0)
+    }
+  }
+
+  const isBenefitEnabled = (benefitId: string): boolean => {
+    return getBenefitValuation(benefitId) > 0
+  }
+
   const toggleCardExpansion = (cardId: string) => {
     setExpandedCards(prev => {
       const newSet = new Set(prev)
@@ -189,18 +203,29 @@ export function BenefitsForm({ onBenefitValuationsChange }: BenefitsFormProps) {
                       return (
                         <div key={benefit.id} className="space-y-4 p-4 bg-gray-50/50 dark:bg-gray-700/50 rounded-lg">
                           <div className="flex justify-between items-start">
-                            <div className="flex-1 mr-4">
-                              <h4 className="font-semibold text-gray-900 dark:text-white">
-                                {benefit.name}
-                              </h4>
-                              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                                {benefit.description}
-                              </p>
-                              <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                <span>Official value: {formatCurrency(benefit.annualValue)}</span>
-                                <span className="px-2 py-1 bg-gray-200 dark:bg-gray-600 rounded">
-                                  {benefit.category}
-                                </span>
+                            <div className="flex items-start space-x-3 flex-1 mr-4">
+                              <div className="flex items-center mt-1">
+                                <input
+                                  type="checkbox"
+                                  id={`benefit-${benefit.id}`}
+                                  checked={isBenefitEnabled(benefit.id)}
+                                  onChange={(e) => toggleBenefitEnabled(benefit.id, e.target.checked, benefit.annualValue)}
+                                  className="w-4 h-4 text-blue-600 bg-gray-100 dark:bg-gray-600 border-gray-300 dark:border-gray-500 rounded focus:ring-blue-500 focus:ring-2"
+                                />
+                              </div>
+                              <div className="flex-1">
+                                <label htmlFor={`benefit-${benefit.id}`} className="font-semibold text-gray-900 dark:text-white cursor-pointer">
+                                  {benefit.name}
+                                </label>
+                                <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                                  {benefit.description}
+                                </p>
+                                <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                  <span>Official value: {formatCurrency(benefit.annualValue)}</span>
+                                  <span className="px-2 py-1 bg-gray-200 dark:bg-gray-600 rounded">
+                                    {benefit.category}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                             <div className="text-right min-w-[100px]">
@@ -211,36 +236,41 @@ export function BenefitsForm({ onBenefitValuationsChange }: BenefitsFormProps) {
                             </div>
                           </div>
 
-                          {/* Slider */}
-                          <div className="space-y-3">
-                            <Slider
-                              value={personalValue}
-                              onValueChange={(value) => updateBenefitValuation(benefit.id, value)}
-                              min={0}
-                              max={Math.max(benefit.annualValue * 1.2, 500)} // Allow 20% over official value or $500 min
-                              step={10}
-                              className="py-2"
-                            />
-                            <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                              <span>$0</span>
-                              <span>{formatCurrency(benefit.annualValue)}</span>
-                              <span>{formatCurrency(Math.max(benefit.annualValue * 1.2, 500))}</span>
+                          {/* Slider - only show when benefit is enabled */}
+                          {isBenefitEnabled(benefit.id) && (
+                            <div className="space-y-3">
+                              <Slider
+                                value={personalValue}
+                                onValueChange={(value) => updateBenefitValuation(benefit.id, value)}
+                                min={0}
+                                max={benefit.annualValue} // Fixed: max is now just the official value
+                                step={10}
+                                className="py-2"
+                              />
+                              <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                                <span>$0</span>
+                                <span>{formatCurrency(benefit.annualValue / 2)}</span>
+                                <span>{formatCurrency(benefit.annualValue)}</span>
+                              </div>
                             </div>
-                          </div>
+                          )}
 
-                          {/* Text Input */}
-                          <div className="flex items-center space-x-2">
-                            <span className="text-sm text-gray-500 dark:text-gray-400">Exact:</span>
-                            <input
-                              type="number"
-                              min="0"
-                              step="10"
-                              value={personalValue || ''}
-                              onChange={(e) => updateBenefitValuation(benefit.id, parseFloat(e.target.value) || 0)}
-                              className="flex-1 max-w-32 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                              placeholder="0"
-                            />
-                          </div>
+                          {/* Text Input - only show when benefit is enabled */}
+                          {isBenefitEnabled(benefit.id) && (
+                            <div className="flex items-center space-x-2">
+                              <span className="text-sm text-gray-500 dark:text-gray-400">Exact:</span>
+                              <input
+                                type="number"
+                                min="0"
+                                max={benefit.annualValue}
+                                step="10"
+                                value={personalValue || ''}
+                                onChange={(e) => updateBenefitValuation(benefit.id, Math.min(parseFloat(e.target.value) || 0, benefit.annualValue))}
+                                className="flex-1 max-w-32 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                placeholder="0"
+                              />
+                            </div>
+                          )}
                         </div>
                       )
                     })}
