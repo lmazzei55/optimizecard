@@ -98,11 +98,15 @@ export async function calculateCardRecommendations(
       }
 
       // Calculate monthly and annual value
-      let monthlyValue = spending.monthlySpend * rewardRate
+      let monthlyValue: number
       
-      // For points cards, convert to dollar value
       if (card.rewardType === 'points') {
-        monthlyValue = monthlyValue * effectivePointValue
+        // For points cards: baseReward is the points multiplier
+        const pointsEarned = spending.monthlySpend * rewardRate
+        monthlyValue = pointsEarned * effectivePointValue
+      } else {
+        // For cashback cards: baseReward is the cash percentage
+        monthlyValue = spending.monthlySpend * rewardRate
       }
 
       // Apply category limits if they exist
