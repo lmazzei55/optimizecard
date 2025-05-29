@@ -57,6 +57,7 @@ model User {
   // Relationships
   spendingCategories UserSpendingCategory[]
   ownedCards        UserCard[]
+  benefitValuations UserBenefitValuation[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -83,6 +84,9 @@ model CreditCard {
   
   // Category bonuses
   categoryRewards CategoryReward[]
+  
+  // Card benefits and perks
+  benefits       CardBenefit[]
   
   // Additional features
   signupBonus    Float?
@@ -126,6 +130,23 @@ model CategoryReward {
   @@unique([cardId, categoryId])
 }
 
+model CardBenefit {
+  id          String @id @default(cuid())
+  cardId      String
+  name        String // e.g., "Travel Credit", "Priority Pass"
+  description String // Detailed description
+  annualValue Float  // Official annual value in dollars
+  category    String // e.g., "travel", "dining", "entertainment", "insurance"
+  isRecurring Boolean @default(true) // True for annual benefits, false for one-time
+  
+  card CreditCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  userBenefitValuations UserBenefitValuation[]
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([cardId, name])
+}
+
 model UserSpendingCategory {
   id         String @id @default(cuid())
   userId     String
@@ -136,6 +157,18 @@ model UserSpendingCategory {
   category SpendingCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   
   @@unique([userId, categoryId])
+}
+
+model UserBenefitValuation {
+  id        String @id @default(cuid())
+  userId    String
+  benefitId String
+  personalValue Float // How much the user personally values this benefit annually
+  
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  benefit CardBenefit @relation(fields: [benefitId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, benefitId])
 }
 
 model UserCard {

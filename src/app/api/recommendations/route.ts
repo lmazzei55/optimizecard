@@ -4,7 +4,7 @@ import { calculateCardRecommendations } from '@/lib/recommendation-engine'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { userSpending, rewardPreference, pointValue } = body
+    const { userSpending, rewardPreference, pointValue, benefitValuations } = body
 
     // Validate input
     if (!userSpending || !Array.isArray(userSpending)) {
@@ -21,11 +21,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Validate benefit valuations if provided
+    if (benefitValuations && !Array.isArray(benefitValuations)) {
+      return NextResponse.json(
+        { error: 'Invalid benefit valuations data' },
+        { status: 400 }
+      )
+    }
+
     // Calculate recommendations
     const recommendations = await calculateCardRecommendations({
       userSpending,
       rewardPreference,
-      pointValue: pointValue || 0.01
+      pointValue: pointValue || 0.01,
+      benefitValuations: benefitValuations || []
     })
 
     return NextResponse.json(recommendations)

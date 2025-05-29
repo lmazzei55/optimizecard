@@ -6,6 +6,11 @@ export interface UserSpending {
   monthlySpend: number
 }
 
+export interface BenefitValuation {
+  benefitId: string
+  personalValue: number // How much the user values this benefit annually
+}
+
 export interface CardRecommendation {
   cardId: string
   cardName: string
@@ -13,13 +18,20 @@ export interface CardRecommendation {
   annualFee: number
   rewardType: 'cashback' | 'points'
   totalAnnualValue: number
-  netAnnualValue: number // After annual fee
+  benefitsValue: number // Total value of benefits user can utilize
+  netAnnualValue: number // After annual fee, including benefits
   categoryBreakdown: {
     categoryName: string
     monthlySpend: number
     rewardRate: number
     monthlyValue: number
     annualValue: number
+  }[]
+  benefitsBreakdown: {
+    benefitName: string
+    officialValue: number
+    personalValue: number
+    category: string
   }[]
   signupBonus?: {
     amount: number
@@ -32,15 +44,22 @@ export interface RecommendationOptions {
   userSpending: UserSpending[]
   rewardPreference: 'cashback' | 'points'
   pointValue?: number // For points cards, how much user values 1 point
+  benefitValuations?: BenefitValuation[] // User's personal valuation of benefits
   ownedCardIds?: string[]
 }
 
 export async function calculateCardRecommendations(
   options: RecommendationOptions
 ): Promise<CardRecommendation[]> {
-  const { userSpending, rewardPreference, pointValue = 0.01, ownedCardIds = [] } = options
+  const { 
+    userSpending, 
+    rewardPreference, 
+    pointValue = 0.01, 
+    benefitValuations = [],
+    ownedCardIds = [] 
+  } = options
 
-  // Get all active credit cards with their category rewards
+  // Get all active credit cards with their category rewards and benefits
   const cards = await prisma.creditCard.findMany({
     where: { isActive: true },
     include: {
@@ -49,6 +68,7 @@ export async function calculateCardRecommendations(
           category: true,
         },
       },
+      benefits: true,
     },
   })
 
@@ -105,7 +125,28 @@ export async function calculateCardRecommendations(
       })
     }
 
-    const netAnnualValue = totalAnnualValue - card.annualFee
+    // Calculate benefits value
+    let benefitsValue = 0
+    const benefitsBreakdown: CardRecommendation['benefitsBreakdown'] = []
+
+    for (const benefit of card.benefits) {
+      // Find user's personal valuation for this benefit
+      const userValuation = benefitValuations.find(
+        (val) => val.benefitId === benefit.id
+      )
+      
+      const personalValue = userValuation?.personalValue ?? 0 // Default to 0 if not specified
+      benefitsValue += personalValue
+
+      benefitsBreakdown.push({
+        benefitName: benefit.name,
+        officialValue: benefit.annualValue,
+        personalValue,
+        category: benefit.category,
+      })
+    }
+
+    const netAnnualValue = totalAnnualValue + benefitsValue - card.annualFee
 
     const recommendation: CardRecommendation = {
       cardId: card.id,
@@ -114,8 +155,10 @@ export async function calculateCardRecommendations(
       annualFee: card.annualFee,
       rewardType: card.rewardType as 'cashback' | 'points',
       totalAnnualValue,
+      benefitsValue,
       netAnnualValue,
       categoryBreakdown,
+      benefitsBreakdown,
     }
 
     // Add signup bonus information if available
