@@ -12,10 +12,11 @@ A modern web application that helps users maximize their credit card rewards thr
 ### 🎯 Core Functionality
 - **Smart Recommendations**: Mathematical algorithm analyzes spending patterns and ranks credit cards by net annual value
 - **Category-Based Analysis**: Input spending across 8 categories (Dining, Travel, Gas, Groceries, etc.)
+- **Card Benefits Valuation**: Personalize benefit values (travel credits, lounge access, etc.) based on your actual usage
 - **Dual Input Methods**: Interactive sliders for quick adjustment + precise text inputs for exact amounts
 - **Reward Preference**: Choose between cashback or points-based rewards with custom point valuations
-- **Real-time Calculations**: Instant updates as you adjust spending amounts
-- **Detailed Breakdowns**: See category-by-category reward calculations and effective rates
+- **Real-time Calculations**: Instant updates as you adjust spending amounts and benefit valuations
+- **Detailed Breakdowns**: See category-by-category reward calculations, benefits breakdown, and effective rates
 
 ### 🎨 User Experience
 - **Dark/Light Mode**: Fully functional theme toggle with localStorage persistence (Tailwind CSS v4)
@@ -77,10 +78,16 @@ A modern web application that helps users maximize their credit card rewards thr
 - For points: Set your valuation (e.g., 1.2¢ per Chase UR point, 1.0¢ per Amex MR)
 - Visual selection buttons with hover effects
 
-### 3. 🏆 Get Recommendations
+### 3. 🎁 Value Card Benefits
+- Review pre-filled benefit values (travel credits, lounge access, insurance, etc.)
+- Adjust values based on your personal usage patterns
+- Example: $300 travel credit → $200 if you only travel that much annually
+- Expand/collapse cards to see detailed benefit breakdowns
+
+### 4. 🏆 Get Recommendations
 - Click "Get My Recommendations" to see mathematically ranked results
-- View detailed breakdowns: net annual value, total rewards, annual fees
-- See category-by-category reward calculations
+- View detailed breakdowns: net annual value, total rewards, annual fees, benefits value
+- See category-by-category reward calculations and personal benefits breakdown
 - Understand effective reward rates for your spending patterns
 - Discover signup bonus opportunities
 
@@ -122,29 +129,33 @@ The recommendation engine calculates net annual value through:
 1. **Base Rewards**: Applies each card's base reward rate (1-2%) to all spending
 2. **Category Multipliers**: Applies enhanced rates (2-4x) for matching categories  
 3. **Point Valuations**: Converts points to cash value based on user-defined rates
-4. **Annual Fee Deduction**: Subtracts annual fees from total rewards
-5. **Category Limits**: Respects quarterly/annual spending caps where applicable
-6. **Ranking**: Sorts by highest net annual value for optimal recommendations
+4. **Benefits Valuation**: Adds user's personal valuation of card benefits (travel credits, lounge access, etc.)
+5. **Annual Fee Deduction**: Subtracts annual fees from total rewards and benefits
+6. **Category Limits**: Respects quarterly/annual spending caps where applicable
+7. **Ranking**: Sorts by highest net annual value for optimal recommendations
 
 ### Example Calculation
 ```typescript
-// For $500/month dining on Chase Sapphire Preferred
+// For $500/month dining on Chase Sapphire Preferred + $200 personal benefit value
 const baseReward = 500 * 12 * 0.01           // $60 (1% base)
 const categoryBonus = 500 * 12 * 0.03        // $180 (3x dining)
 const pointValue = 180 * 1.25                // $225 (1.25¢/point)
-const netValue = 225 - 95                    // $130 (minus annual fee)
+const benefitsValue = 200                     // $200 (personal valuation)
+const netValue = 225 + 200 - 95              // $330 (rewards + benefits - annual fee)
 ```
 
 ## 🃏 Included Credit Cards
 
-- **Chase Sapphire Preferred**: 3x dining & travel, 1x everything else ($95 AF)
-- **Chase Sapphire Reserve**: 3x dining & travel, 1x everything else ($550 AF)  
+- **Chase Sapphire Preferred**: 3x dining & travel, 1x everything else ($95 AF) + rental car insurance, trip protection
+- **Chase Sapphire Reserve**: 3x dining & travel, 1x everything else ($550 AF) + $300 travel credit, Priority Pass, TSA PreCheck credit, rental car insurance  
 - **Chase Freedom Unlimited**: 1.5x everything, no annual fee
-- **Capital One Venture X**: 2x everything, 5x travel booked through portal ($395 AF)
-- **American Express Gold**: 4x dining & groceries, 1x everything else ($250 AF)
+- **Capital One Venture X**: 2x everything, 5x travel booked through portal ($395 AF) + $300 travel credit, Priority Pass, TSA PreCheck credit
+- **American Express Gold**: 4x dining & groceries, 1x everything else ($250 AF) + $120 Uber credit, $120 entertainment credit, hotel status
 - **Citi Double Cash**: 2% everything (1% purchase + 1% payment), no annual fee
 - **Discover it Cash Back**: 5% rotating categories, 1% everything else, no annual fee
 - **Wells Fargo Active Cash**: 2% everything, no annual fee
+
+*Premium cards include detailed benefits data for accurate personal valuation*
 
 ## 🔮 Future Enhancements
 

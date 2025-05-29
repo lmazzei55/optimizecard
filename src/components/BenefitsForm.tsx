@@ -53,11 +53,11 @@ export function BenefitsForm({ onBenefitValuationsChange }: BenefitsFormProps) {
       if (data.success) {
         setBenefitsByCard(data.data.benefitsByCard)
         
-        // Initialize all benefit valuations to 0
+        // Initialize all benefit valuations to their full official value
         const allBenefits = data.data.benefits
         const initialValuations = allBenefits.map((benefit: CardBenefit) => ({
           benefitId: benefit.id,
-          personalValue: 0
+          personalValue: benefit.annualValue // Default to full value instead of 0
         }))
         setBenefitValuations(initialValuations)
       }
@@ -92,7 +92,15 @@ export function BenefitsForm({ onBenefitValuationsChange }: BenefitsFormProps) {
   }
 
   const getBenefitValuation = (benefitId: string): number => {
-    return benefitValuations.find(val => val.benefitId === benefitId)?.personalValue || 0
+    const valuation = benefitValuations.find(val => val.benefitId === benefitId)
+    if (valuation !== undefined) {
+      return valuation.personalValue
+    }
+    
+    // If no valuation found, find the benefit and return its official value as default
+    const allBenefits = Object.values(benefitsByCard).flatMap(cardData => cardData.benefits)
+    const benefit = allBenefits.find(b => b.id === benefitId)
+    return benefit?.annualValue || 0
   }
 
   const getCardTotalBenefitsValue = (cardId: string): number => {
@@ -126,9 +134,18 @@ export function BenefitsForm({ onBenefitValuationsChange }: BenefitsFormProps) {
       <h2 className="text-3xl font-semibold text-gray-900 dark:text-white mb-4 text-center">
         🎁 Card Benefits Valuation
       </h2>
-      <p className="text-gray-600 dark:text-gray-300 text-center mb-8 max-w-3xl mx-auto">
-        How much can you personally utilize each benefit? For example, if a card offers $300 travel credit but you only travel $200/year, set your personal value to $200.
-      </p>
+      <div className="text-center mb-8 max-w-4xl mx-auto">
+        <p className="text-gray-600 dark:text-gray-300 mb-4">
+          How much can you personally utilize each benefit? We've pre-filled each benefit at its full official value, 
+          but you should adjust these based on your actual usage patterns.
+        </p>
+        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+          <p className="text-sm text-blue-800 dark:text-blue-300">
+            💡 <strong>Tip:</strong> For example, if a card offers $300 travel credit but you only spend $200/year on travel, 
+            adjust your personal value to $200. If you never use Priority Pass lounges, set that value to $0.
+          </p>
+        </div>
+      </div>
       
       <div className="space-y-6">
         {cardsWithBenefits.map((cardData) => {
@@ -238,10 +255,10 @@ export function BenefitsForm({ onBenefitValuationsChange }: BenefitsFormProps) {
       <div className="mt-8 p-6 bg-gradient-to-r from-green-50 to-blue-50 dark:from-gray-700 dark:to-gray-600 rounded-xl border border-green-200 dark:border-gray-600">
         <div className="text-center">
           <p className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            Total Benefits Value: {formatCurrency(benefitValuations.reduce((sum, val) => sum + val.personalValue, 0))}
+            Total Personal Benefits Value: {formatCurrency(benefitValuations.reduce((sum, val) => sum + val.personalValue, 0))}
           </p>
           <p className="text-sm text-gray-600 dark:text-gray-300">
-            This will be added to your card recommendations
+            This represents your personal valuation of all card benefits and will be included in your recommendations
           </p>
         </div>
       </div>
