@@ -59,6 +59,7 @@ interface CardRecommendation {
   issuer: string
   annualFee: number
   rewardType: 'cashback' | 'points'
+  applicationUrl?: string
   totalAnnualValue: number
   benefitsValue: number
   netAnnualValue: number
@@ -623,14 +624,25 @@ export function SpendingForm() {
                         <div className="text-right">
                           <div className="text-3xl font-bold">{formatCurrency(rec.netAnnualValue)}</div>
                           <div className="text-lg opacity-90">net annual value</div>
-                          <Button
-                            onClick={() => openCardCustomization(rec.cardId)}
-                            variant="outline"
-                            size="sm"
-                            className="mt-3 bg-white/10 border-white/30 text-white hover:bg-white/20 backdrop-blur-sm"
-                          >
-                            ⚙️ Customize Card
-                          </Button>
+                          <div className="flex flex-col space-y-2 mt-3">
+                            {rec.applicationUrl && (
+                              <Button
+                                onClick={() => window.open(rec.applicationUrl, '_blank')}
+                                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white border-0 shadow-lg transform hover:scale-105 transition-all duration-200 font-semibold"
+                                size="sm"
+                              >
+                                🚀 Apply Now
+                              </Button>
+                            )}
+                            <Button
+                              onClick={() => openCardCustomization(rec.cardId)}
+                              variant="outline"
+                              size="sm"
+                              className="bg-white/10 border-white/30 text-white hover:bg-white/20 backdrop-blur-sm"
+                            >
+                              ⚙️ Customize Card
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>

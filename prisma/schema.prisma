@@ -78,6 +78,7 @@ model CreditCard {
   name        String
   issuer      String
   annualFee   Float
+  applicationUrl String? // URL for "Apply Now" button
   
   // Reward structure
   baseReward     Float // Base reward rate (e.g., 1% = 0.01)

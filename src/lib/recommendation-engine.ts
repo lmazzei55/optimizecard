@@ -18,6 +18,7 @@ export interface CardRecommendation {
   issuer: string
   annualFee: number
   rewardType: 'cashback' | 'points'
+  applicationUrl?: string
   totalAnnualValue: number
   benefitsValue: number // Total value of benefits user can utilize
   netAnnualValue: number // After annual fee, including benefits
@@ -214,6 +215,7 @@ export async function calculateCardRecommendations(
         issuer: card.issuer,
         annualFee: card.annualFee,
         rewardType: card.rewardType as 'cashback' | 'points',
+        applicationUrl: card.applicationUrl || undefined,
         totalAnnualValue,
         benefitsValue,
         netAnnualValue,

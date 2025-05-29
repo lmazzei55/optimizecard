@@ -227,6 +227,7 @@ const CREDIT_CARDS = [
     signupBonus: 60000,
     signupSpend: 4000,
     signupTimeframe: 3,
+    applicationUrl: 'https://creditcards.chase.com/rewards-credit-cards/sapphire-preferred',
     categoryRewards: [
       { category: 'Dining', rewardRate: 3.0 },
       { category: 'Travel', rewardRate: 2.0 },
@@ -243,6 +244,7 @@ const CREDIT_CARDS = [
     signupBonus: 60000,
     signupSpend: 4000,
     signupTimeframe: 3,
+    applicationUrl: 'https://creditcards.chase.com/rewards-credit-cards/sapphire-reserve',
     categoryRewards: [
       { category: 'Dining', rewardRate: 3.0 },
       { category: 'Travel', rewardRate: 3.0 },
@@ -262,6 +264,7 @@ const CREDIT_CARDS = [
     signupBonus: 200,
     signupSpend: 500,
     signupTimeframe: 3,
+    applicationUrl: 'https://creditcards.chase.com/cash-back-credit-cards/freedom-unlimited',
     categoryRewards: [],
   },
   {
@@ -275,6 +278,7 @@ const CREDIT_CARDS = [
     signupBonus: 75000,
     signupSpend: 4000,
     signupTimeframe: 3,
+    applicationUrl: 'https://www.capitalone.com/credit-cards/venture-x/',
     categoryRewards: [
       { subCategory: 'Hotels', rewardRate: 5.0 },
       { subCategory: 'Car Rental', rewardRate: 5.0 },
@@ -291,6 +295,7 @@ const CREDIT_CARDS = [
     signupBonus: 60000,
     signupSpend: 4000,
     signupTimeframe: 6,
+    applicationUrl: 'https://www.americanexpress.com/us/credit-cards/card/gold-card/',
     categoryRewards: [
       { category: 'Dining', rewardRate: 4.0 },
       { category: 'Groceries', rewardRate: 4.0, maxReward: 25000, period: 'yearly' },
@@ -307,6 +312,7 @@ const CREDIT_CARDS = [
     signupBonus: null,
     signupSpend: null,
     signupTimeframe: null,
+    applicationUrl: 'https://www.citi.com/credit-cards/citi-double-cash-credit-card',
     categoryRewards: [],
   },
   {
@@ -320,6 +326,7 @@ const CREDIT_CARDS = [
     signupBonus: 0,
     signupSpend: null,
     signupTimeframe: null,
+    applicationUrl: 'https://www.discover.com/credit-cards/cash-back/it-card.html',
     categoryRewards: [
       { category: 'Gas', rewardRate: 5.0, maxReward: 75, period: 'quarterly' },
     ],
@@ -335,6 +342,7 @@ const CREDIT_CARDS = [
     signupBonus: 200,
     signupSpend: 1000,
     signupTimeframe: 3,
+    applicationUrl: 'https://www.wellsfargo.com/credit-cards/active-cash/',
     categoryRewards: [],
   },
   {
@@ -348,6 +356,7 @@ const CREDIT_CARDS = [
     signupBonus: 200,
     signupSpend: 500,
     signupTimeframe: 3,
+    applicationUrl: 'https://www.chase.com/personal/credit-cards/amazon-rewards',
     categoryRewards: [
       { subCategory: 'Amazon', rewardRate: 0.05 }, // 5% on Amazon purchases
       { subCategory: 'Whole Foods', rewardRate: 0.05 }, // 5% at Whole Foods
@@ -366,6 +375,7 @@ const CREDIT_CARDS = [
     signupBonus: 80000,
     signupSpend: 6000,
     signupTimeframe: 6,
+    applicationUrl: 'https://www.americanexpress.com/us/credit-cards/card/platinum-card/',
     categoryRewards: [
       { subCategory: 'Airfare', rewardRate: 5.0 }, // 5x on flights booked directly with airlines
     ] as CategoryRewardSeed[],
@@ -420,6 +430,7 @@ async function main() {
         name: cardData.name,
         issuer: cardData.issuer,
         annualFee: cardData.annualFee,
+        applicationUrl: cardData.applicationUrl,
         baseReward: cardData.baseReward,
         rewardType: cardData.rewardType,
         pointValue: cardData.pointValue,
@@ -432,6 +443,7 @@ async function main() {
         name: cardData.name,
         issuer: cardData.issuer,
         annualFee: cardData.annualFee,
+        applicationUrl: cardData.applicationUrl,
         baseReward: cardData.baseReward,
         rewardType: cardData.rewardType,
         pointValue: cardData.pointValue,
@@ -446,9 +458,7 @@ async function main() {
     for (const reward of cardData.categoryRewards as CategoryRewardSeed[]) {
       try {
         if ('subCategory' in reward) {
-          console.log(`  Looking for subcategory: ${reward.subCategory}`)
           const subCategoryId = subCategoryMap.get(reward.subCategory)
-          console.log(`  Found subcategory ID: ${subCategoryId}`)
           if (!subCategoryId) continue
           await prisma.categoryReward.create({
             data: {
@@ -460,11 +470,8 @@ async function main() {
               period: reward.period || null,
             },
           })
-          console.log(`  ✅ Created subcategory reward: ${reward.subCategory} = ${reward.rewardRate}x`)
         } else if ('category' in reward) {
-          console.log(`  Looking for category: ${reward.category}`)
           const categoryId = categoryMap.get(reward.category)
-          console.log(`  Found category ID: ${categoryId}`)
           if (!categoryId) continue
           await prisma.categoryReward.create({
             data: {
@@ -476,11 +483,9 @@ async function main() {
               period: reward.period || null,
             },
           })
-          console.log(`  ✅ Created category reward: ${reward.category} = ${reward.rewardRate}x`)
         }
       } catch (error) {
-        // Skip duplicates
-        console.log(`  ⚠️  Skipping duplicate reward for ${cardData.name}: ${error}`)
+        // Skip duplicates quietly
       }
     }
 
@@ -508,7 +513,7 @@ async function main() {
       }
     }
 
-    console.log(`  ✅ Created ${cardData.name} with ${cardData.categoryRewards.length} category rewards and ${benefits?.length || 0} benefits`)
+    console.log(`✅ Created ${cardData.name}`)
   }
 
   console.log('🎉 Seed data created successfully!')
