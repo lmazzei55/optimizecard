@@ -139,24 +139,37 @@ export async function calculateCardRecommendations(
           finalPointValue = effectivePointValue
         }
 
-        // Calculate monthly and annual value
+        // Calculate monthly and annual value with proper tiered rewards
         let monthlyValue: number
         
-        if (card.rewardType === 'points') {
-          // For points cards: rewardRate is the points multiplier
-          const pointsEarned = spending.monthlySpend * rewardRate
-          monthlyValue = pointsEarned * finalPointValue
-        } else {
-          // For cashback cards: rewardRate is the cash percentage
-          monthlyValue = spending.monthlySpend * rewardRate
-        }
-
-        // Apply category limits if they exist
+        // Check if there are spending caps that affect this category
         if (categoryReward?.maxReward && categoryReward?.period) {
+          // Calculate the spending cap per month
           const periodMultiplier = categoryReward.period === 'monthly' ? 1 : 
                                   categoryReward.period === 'quarterly' ? 3 : 12
-          const maxMonthlyValue = categoryReward.maxReward / periodMultiplier
-          monthlyValue = Math.min(monthlyValue, maxMonthlyValue)
+          const maxSpendingPerMonth = categoryReward.maxReward / (categoryReward.rewardRate * periodMultiplier)
+          
+          // Calculate tiered rewards
+          const cappedSpending = Math.min(spending.monthlySpend, maxSpendingPerMonth)
+          const overageSpending = Math.max(0, spending.monthlySpend - maxSpendingPerMonth)
+          
+          if (card.rewardType === 'points') {
+            // Bonus rate on capped amount + base rate on overage
+            const cappedPoints = cappedSpending * rewardRate * finalPointValue
+            const overagePoints = overageSpending * card.baseReward * finalPointValue
+            monthlyValue = cappedPoints + overagePoints
+          } else {
+            // Cashback: bonus rate on capped amount + base rate on overage
+            monthlyValue = (cappedSpending * rewardRate) + (overageSpending * card.baseReward)
+          }
+        } else {
+          // No spending caps - use full bonus rate
+          if (card.rewardType === 'points') {
+            const pointsEarned = spending.monthlySpend * rewardRate
+            monthlyValue = pointsEarned * finalPointValue
+          } else {
+            monthlyValue = spending.monthlySpend * rewardRate
+          }
         }
 
         const annualValue = monthlyValue * 12

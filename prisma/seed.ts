@@ -205,6 +205,29 @@ const CARD_BENEFITS = {
       isRecurring: true,
     },
   ],
+  'blue-cash-preferred': [
+    {
+      name: 'Cell Phone Protection',
+      description: 'Up to $800 coverage against damage and theft when you pay your cell phone bill with the card',
+      annualValue: 100, // Conservative estimate
+      category: 'insurance',
+      isRecurring: true,
+    },
+    {
+      name: 'Purchase Protection',
+      description: 'Coverage for eligible purchases against accidental damage or theft',
+      annualValue: 75,
+      category: 'insurance',
+      isRecurring: true,
+    },
+    {
+      name: 'Extended Warranty',
+      description: 'Extends manufacturer warranty by up to 1 year',
+      annualValue: 50,
+      category: 'insurance',
+      isRecurring: true,
+    },
+  ],
 } as const
 
 // Update the type for categoryRewards
@@ -328,7 +351,7 @@ const CREDIT_CARDS = [
     signupTimeframe: null,
     applicationUrl: 'https://www.discover.com/credit-cards/cash-back/it-card.html',
     categoryRewards: [
-      { category: 'Gas', rewardRate: 5.0, maxReward: 75, period: 'quarterly' },
+      { category: 'Gas', rewardRate: 0.05, maxReward: 75, period: 'quarterly' }, // 5% up to $1,500/quarter, then 1%
     ],
   },
   {
@@ -358,10 +381,28 @@ const CREDIT_CARDS = [
     signupTimeframe: 3,
     applicationUrl: 'https://www.chase.com/personal/credit-cards/amazon-rewards',
     categoryRewards: [
-      { subCategory: 'Amazon', rewardRate: 0.05 }, // 5% on Amazon purchases
-      { subCategory: 'Whole Foods', rewardRate: 0.05 }, // 5% at Whole Foods
+      { subCategory: 'Amazon', rewardRate: 0.05 }, // 5% on Amazon purchases - no cap
+      { subCategory: 'Whole Foods', rewardRate: 0.05 }, // 5% at Whole Foods - no cap
       { category: 'Dining', rewardRate: 0.02 }, // 2% at restaurants
       { category: 'Gas', rewardRate: 0.02 }, // 2% at gas stations
+    ] as CategoryRewardSeed[],
+  },
+  {
+    id: 'blue-cash-preferred',
+    name: 'Blue Cash Preferred',
+    issuer: 'American Express',
+    annualFee: 95,
+    baseReward: 0.01,
+    rewardType: 'cashback' as const,
+    pointValue: null,
+    signupBonus: 350,
+    signupSpend: 3000,
+    signupTimeframe: 6,
+    applicationUrl: 'https://www.americanexpress.com/us/credit-cards/card/blue-cash-preferred-card/',
+    categoryRewards: [
+      { category: 'Groceries', rewardRate: 0.06, maxReward: 360, period: 'yearly' }, // 6% up to $6,000/year, then 1%
+      { category: 'Gas', rewardRate: 0.03, maxReward: 180, period: 'yearly' }, // 3% up to $6,000/year, then 1%
+      { subCategory: 'Streaming', rewardRate: 0.06, maxReward: 120, period: 'yearly' }, // 6% up to $2,000/year, then 1%
     ] as CategoryRewardSeed[],
   },
   {
