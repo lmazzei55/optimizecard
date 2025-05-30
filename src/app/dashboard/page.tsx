@@ -1,38 +1,11 @@
 "use client"
 
 import { SpendingForm } from "@/components/SpendingForm"
+import { Header } from "@/components/Header"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { useState, useEffect } from "react"
-import { Moon, Sun } from "lucide-react"
 
 export default function Dashboard() {
-  const [isDark, setIsDark] = useState(false)
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-    // Check for saved theme preference
-    const savedTheme = localStorage.getItem('theme')
-    if (savedTheme === 'dark') {
-      setIsDark(true)
-      document.documentElement.classList.add('dark')
-    }
-  }, [])
-
-  const toggleTheme = () => {
-    const newIsDark = !isDark
-    setIsDark(newIsDark)
-    
-    if (newIsDark) {
-      document.documentElement.classList.add('dark')
-      localStorage.setItem('theme', 'dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-      localStorage.setItem('theme', 'light')
-    }
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-indigo-900 relative overflow-hidden">
       {/* Background decorative elements */}
@@ -40,36 +13,7 @@ export default function Dashboard() {
       <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-purple-200/30 to-pink-200/30 dark:from-purple-800/30 dark:to-pink-800/30 rounded-full blur-3xl translate-x-32 -translate-y-32"></div>
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-br from-blue-200/30 to-indigo-200/30 dark:from-blue-800/30 dark:to-indigo-800/30 rounded-full blur-3xl -translate-x-32 translate-y-32"></div>
       
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl border-b border-white/20 dark:border-gray-700/20 shadow-lg">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <Link href="/" className="flex items-center space-x-3 group">
-            <div className="bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-2xl p-2 shadow-lg group-hover:scale-110 transition-transform duration-300">
-              <span className="text-xl">💳</span>
-            </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-              Credit Card Optimizer
-            </span>
-          </Link>
-          
-          {/* Theme Toggle - only render after mounted */}
-          {mounted && (
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={toggleTheme}
-              className="relative h-12 w-12 rounded-2xl border-2 border-white/30 dark:border-gray-600/30 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:bg-white dark:hover:bg-gray-700 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-110"
-            >
-              {isDark ? (
-                <Sun className="h-5 w-5 text-yellow-500" />
-              ) : (
-                <Moon className="h-5 w-5 text-indigo-600" />
-              )}
-              <span className="sr-only">Toggle theme</span>
-            </Button>
-          )}
-        </div>
-      </header>
+      <Header />
 
       <main className="py-12 relative z-10">
         <div className="container mx-auto px-4">

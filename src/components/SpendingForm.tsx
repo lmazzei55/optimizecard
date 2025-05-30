@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { formatCurrency } from "@/lib/utils"
@@ -75,6 +76,7 @@ interface CardCustomization {
 }
 
 export function SpendingForm() {
+  const { data: session } = useSession()
   const [categories, setCategories] = useState<SpendingCategory[]>([])
   const [spending, setSpending] = useState<UserSpending[]>([])
   const [rewardPreference, setRewardPreference] = useState<'cashback' | 'points' | 'best_overall'>('best_overall')
@@ -93,6 +95,48 @@ export function SpendingForm() {
   const [cardCustomizations, setCardCustomizations] = useState<{
     [cardId: string]: CardCustomization
   }>({})
+
+  // Load user preferences from session
+  useEffect(() => {
+    if (session?.user) {
+      const newRewardPreference = session.user.rewardPreference as any || 'best_overall'
+      const newPointValue = session.user.pointValue || 0.01
+      const newEnableSubcategories = session.user.enableSubCategories || false
+      
+      // Only update if values have actually changed to avoid unnecessary re-renders
+      if (rewardPreference !== newRewardPreference) {
+        setRewardPreference(newRewardPreference)
+      }
+      if (pointValue !== newPointValue) {
+        setPointValue(newPointValue)
+      }
+      if (enableSubcategories !== newEnableSubcategories) {
+        setEnableSubcategories(newEnableSubcategories)
+      }
+    }
+  }, [session, session?.user?.rewardPreference, session?.user?.pointValue, session?.user?.enableSubCategories])
+
+  // Check for preference updates from localStorage
+  useEffect(() => {
+    const checkForUpdates = () => {
+      const lastUpdate = localStorage.getItem('preferences-updated')
+      if (lastUpdate) {
+        const updateTime = parseInt(lastUpdate)
+        const now = Date.now()
+        // If preferences were updated in the last 5 seconds, reload the page to get fresh session
+        if (now - updateTime < 5000) {
+          localStorage.removeItem('preferences-updated')
+          window.location.reload()
+        }
+      }
+    }
+
+    // Check immediately and set up an interval
+    checkForUpdates()
+    const interval = setInterval(checkForUpdates, 1000)
+    
+    return () => clearInterval(interval)
+  }, [])
 
   // Fetch spending categories
   useEffect(() => {

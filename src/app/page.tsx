@@ -1,10 +1,13 @@
 import { Button } from "@/components/ui/button"
 import { formatCurrency } from "@/lib/utils"
+import { Header } from "@/components/Header"
 import Link from "next/link"
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-indigo-900">
+      <Header />
+
       <main className="min-h-screen relative overflow-hidden">
         {/* Background decorative elements */}
         <div className="absolute inset-0 bg-gradient-to-br from-blue-100/20 via-purple-100/20 to-pink-100/20 dark:from-blue-900/20 dark:via-purple-900/20 dark:to-pink-900/20"></div>

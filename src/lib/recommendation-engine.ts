@@ -72,7 +72,11 @@ export async function calculateCardRecommendations(
   } = options
 
   // Get all active credit cards with their category rewards and benefits
-  let whereClause: any = { isActive: true }
+  let whereClause: any = { 
+    isActive: true,
+    // Exclude owned cards from recommendations
+    ...(ownedCardIds.length > 0 && { id: { notIn: ownedCardIds } })
+  }
   
   // Filter by reward type based on user preference
   if (rewardPreference === 'cashback') {

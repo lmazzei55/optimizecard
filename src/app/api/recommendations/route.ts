@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { calculateCardRecommendations } from '@/lib/recommendation-engine'
+import { auth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,13 +39,30 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Get user's owned cards to exclude from recommendations
+    let ownedCardIds: string[] = []
+    try {
+      const session = await auth()
+      if (session?.user?.id) {
+        const ownedCards = await prisma.userCard.findMany({
+          where: { userId: session.user.id },
+          select: { cardId: true }
+        })
+        ownedCardIds = ownedCards.map(uc => uc.cardId)
+      }
+    } catch (error) {
+      console.error('Error fetching owned cards:', error)
+      // Continue without excluding cards if there's an error
+    }
+
     // Calculate recommendations
     const recommendations = await calculateCardRecommendations({
       userSpending,
       rewardPreference,
       pointValue: pointValue || 0.01,
       benefitValuations: benefitValuations || [],
-      cardCustomizations: cardCustomizations || {}
+      cardCustomizations: cardCustomizations || {},
+      ownedCardIds
     })
 
     return NextResponse.json(recommendations)
