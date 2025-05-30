@@ -62,6 +62,17 @@ export function Header() {
               Dashboard
             </Link>
             
+            <Link 
+              href="/pricing" 
+              className={`font-medium px-4 py-2 rounded-lg transition-all duration-200 ${
+                isActive('/pricing')
+                  ? 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20'
+                  : 'text-gray-600 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+              }`}
+            >
+              Pricing
+            </Link>
+            
             {/* Theme Toggle - only render after mounted */}
             {mounted && (
               <Button

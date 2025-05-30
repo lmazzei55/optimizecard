@@ -39,30 +39,43 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get user's owned cards to exclude from recommendations
+    // Get user's owned cards and subscription tier
     let ownedCardIds: string[] = []
+    let userSubscriptionTier = 'free' // Default to free tier
+    
     try {
       const session = await auth()
-      if (session?.user?.id) {
-        const ownedCards = await prisma.userCard.findMany({
-          where: { userId: session.user.id },
-          select: { cardId: true }
+      if (session?.user?.email) {
+        // Get user data including subscription tier and owned cards
+        const user = await prisma.user.findUnique({
+          where: { email: session.user.email },
+          select: {
+            subscriptionTier: true,
+            ownedCards: {
+              select: { cardId: true }
+            }
+          }
         })
-        ownedCardIds = ownedCards.map(uc => uc.cardId)
+        
+        if (user) {
+          userSubscriptionTier = user.subscriptionTier
+          ownedCardIds = user.ownedCards.map(uc => uc.cardId)
+        }
       }
     } catch (error) {
-      console.error('Error fetching owned cards:', error)
-      // Continue without excluding cards if there's an error
+      console.error('Error fetching user data:', error)
+      // Continue with default free tier if there's an error
     }
 
-    // Calculate recommendations
+    // Calculate recommendations with subscription tier filtering
     const recommendations = await calculateCardRecommendations({
       userSpending,
       rewardPreference,
       pointValue: pointValue || 0.01,
       benefitValuations: benefitValuations || [],
       cardCustomizations: cardCustomizations || {},
-      ownedCardIds
+      ownedCardIds,
+      subscriptionTier: userSubscriptionTier
     })
 
     return NextResponse.json(recommendations)

@@ -55,6 +55,15 @@ model User {
   pointValue       Float  @default(0.01) // How much user values 1 point in dollars
   enableSubCategories Boolean @default(false) // Whether user wants to use subcategories
   
+  // Freemium subscription fields
+  subscriptionTier String @default("free") // "free" or "premium"
+  subscriptionStatus String @default("active") // "active", "canceled", "past_due"
+  subscriptionId String? // Stripe subscription ID
+  customerId String? // Stripe customer ID
+  subscriptionStartDate DateTime?
+  subscriptionEndDate DateTime?
+  trialEndDate DateTime?
+  
   // Relationships
   spendingCategories UserSpendingCategory[]
   spendingSubCategories UserSpendingSubCategory[]
@@ -79,6 +88,9 @@ model CreditCard {
   issuer      String
   annualFee   Float
   applicationUrl String? // URL for "Apply Now" button
+  
+  // Freemium tier (based on annual fee)
+  tier        String @default("free") // "free" (no annual fee) or "premium" (has annual fee)
   
   // Reward structure
   baseReward     Float // Base reward rate (e.g., 1% = 0.01)

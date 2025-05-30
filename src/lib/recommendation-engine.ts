@@ -57,6 +57,7 @@ export interface RecommendationOptions {
     }
   }
   ownedCardIds?: string[]
+  subscriptionTier?: 'free' | 'premium' // Freemium filtering
 }
 
 export async function calculateCardRecommendations(
@@ -68,7 +69,8 @@ export async function calculateCardRecommendations(
     pointValue = 0.01, 
     benefitValuations = [],
     cardCustomizations = {},
-    ownedCardIds = [] 
+    ownedCardIds = [],
+    subscriptionTier = 'free'
   } = options
 
   // Get all active credit cards with their category rewards and benefits
@@ -85,6 +87,15 @@ export async function calculateCardRecommendations(
     whereClause.rewardType = 'points'
   }
   // For 'best_overall', show all cards (no additional filter)
+
+  // Apply subscription tier filter
+  if (subscriptionTier === 'free') {
+    // Free tier: only show no annual fee cards
+    whereClause.tier = 'free'
+  } else if (subscriptionTier === 'premium') {
+    // Premium tier: show all cards (both free and premium)
+    // No additional filter needed
+  }
 
   try {
     const cards = await prisma.creditCard.findMany({
