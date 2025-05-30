@@ -24,11 +24,15 @@ A modern web application that helps users maximize their credit card rewards thr
 - **Proper Display Formatting**: Points cards show "5x points", cashback cards show "5.0% cashback"
 
 ### 👤 User Accounts & Personalization
-- **NextAuth.js Authentication**: Demo account system for testing, easily extensible to Google/social providers
+- **Production-Ready Authentication**: NextAuth.js v5 with multiple sign-in options:
+  - **OAuth Providers**: Google, GitHub, Meta (Facebook), X (Twitter)
+  - **Magic Links**: Passwordless email authentication via Resend
+  - **Demo Mode**: Development-only demo accounts for testing
 - **User Profiles**: Save reward preferences, point valuations, and subcategory settings
 - **Owned Cards Management**: Visual interface to select and manage your existing credit cards
 - **Preference Syncing**: Settings saved in profile automatically apply across the application
 - **Personalized Dashboard**: Your preferences persist across sessions for a tailored experience
+- **Security**: Secure session management with JWT tokens and CSRF protection
 
 ### 🎨 User Experience
 - **Unified Navigation**: Consistent header across all pages with smart information architecture
@@ -65,27 +69,37 @@ A modern web application that helps users maximize their credit card rewards thr
    npm install
    ```
 
-3. **Set up the database**
+3. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   ```
+   **For production OAuth setup**: See `ENV_SETUP.md` for detailed configuration of Google, GitHub, Meta, X (Twitter), and Resend email providers.
+
+4. **Set up the database**
    ```bash
    npx prisma db push
    npm run db:seed
    ```
 
-4. **Start development server**
+5. **Start development server**
    ```bash
    npm run dev
    ```
 
-5. **Open your browser**
+6. **Open your browser**
    Navigate to `http://localhost:3000`
 
 ## 📱 How to Use
 
 ### 0. 🔐 Get Started with Authentication
-- Visit the homepage and click "Sign In" or use the demo account system
-- Enter any email address for demo purposes (e.g., `demo@example.com`)
-- Quick demo buttons available: `cashback.user@demo.com` or `points.user@demo.com`
-- Your preferences will be saved and persist across sessions
+**Choose your preferred sign-in method:**
+- **OAuth Providers**: Sign in with Google, GitHub, Meta (Facebook), or X (Twitter)
+- **Magic Links**: Enter your email to receive a passwordless sign-in link
+- **Demo Mode** (Development only): Quick demo accounts for testing
+  - `cashback.user@demo.com` - Pre-configured for cashback preferences
+  - `points.user@demo.com` - Pre-configured for points preferences
+
+Your preferences will be saved and persist across sessions.
 
 ### 1. ⚙️ Set Your Profile (First Time)
 - Click your user avatar → "Settings" to access your profile
