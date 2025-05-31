@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { stripe } from '@/lib/stripe'
+import { stripe, isStripeConfigured } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if Stripe is configured
+    if (!isStripeConfigured || !stripe) {
+      return NextResponse.json({ 
+        error: 'Payment processing is not configured. Please set up Stripe environment variables.' 
+      }, { status: 503 })
+    }
+
     const session = await auth()
-    
     if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
     // Get user from database
@@ -21,18 +27,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No customer found' }, { status: 404 })
     }
 
-    // Create portal session
+    // Create customer portal session
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: user.customerId,
-      return_url: `${request.headers.get('origin')}/pricing`,
+      return_url: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/pricing`,
     })
 
-    return NextResponse.json({ 
-      success: true, 
-      portalUrl: portalSession.url 
-    })
+    return NextResponse.json({ portalUrl: portalSession.url })
   } catch (error) {
-    console.error('Error creating portal session:', error)
+    console.error('Stripe portal error:', error)
     return NextResponse.json(
       { error: 'Failed to create portal session' },
       { status: 500 }

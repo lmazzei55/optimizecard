@@ -5,14 +5,17 @@ import { Header } from "@/components/Header"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useSearchParams } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 
-export default function Dashboard() {
+// Prevent static generation to avoid useSearchParams issues
+export const dynamic = 'force-dynamic'
+
+function DashboardContent() {
   const searchParams = useSearchParams()
   const [showUpgradeSuccess, setShowUpgradeSuccess] = useState(false)
 
   useEffect(() => {
-    if (searchParams.get('upgraded') === 'true') {
+    if (searchParams?.get('upgraded') === 'true') {
       setShowUpgradeSuccess(true)
       // Auto-hide after 5 seconds
       setTimeout(() => setShowUpgradeSuccess(false), 5000)
@@ -129,5 +132,13 @@ export default function Dashboard() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function Dashboard() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <DashboardContent />
+    </Suspense>
   )
 } 

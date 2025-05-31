@@ -34,6 +34,14 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    if (!stripe) {
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Stripe not configured',
+        subscriptionTier: 'free'
+      })
+    }
+
     // Get active subscriptions from Stripe
     const subscriptions = await stripe.subscriptions.list({
       customer: user.customerId,

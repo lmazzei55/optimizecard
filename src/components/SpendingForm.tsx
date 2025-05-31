@@ -163,7 +163,9 @@ export function SpendingForm() {
           const response = await fetch('/api/user/subscription')
           if (response.ok) {
             const data = await response.json()
-            setUserSubscriptionTier(data.subscriptionTier || 'free')
+            const newTier = data.data?.subscriptionTier || 'free'
+            console.log('🔍 Subscription tier check:', newTier)
+            setUserSubscriptionTier(newTier)
           }
         } catch (error) {
           console.error('Error checking subscription tier:', error)
@@ -173,6 +175,40 @@ export function SpendingForm() {
     }
     
     checkSubscriptionTier()
+    
+    // Also check every 30 seconds to catch updates
+    const interval = setInterval(checkSubscriptionTier, 30000)
+    return () => clearInterval(interval)
+  }, [session])
+
+  // Add a manual refresh function for subscription tier
+  const refreshSubscriptionTier = async () => {
+    if (session?.user?.email) {
+      try {
+        const response = await fetch('/api/user/subscription')
+        if (response.ok) {
+          const data = await response.json()
+          const newTier = data.data?.subscriptionTier || 'free'
+          console.log('🔄 Manual subscription tier refresh:', newTier)
+          setUserSubscriptionTier(newTier)
+        }
+      } catch (error) {
+        console.error('Error refreshing subscription tier:', error)
+      }
+    }
+  }
+
+  // Listen for subscription updates (you can call this after sync)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'subscription-updated') {
+        console.log('🔄 Storage event detected - refreshing subscription')
+        refreshSubscriptionTier()
+      }
+    }
+    
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
   }, [session])
 
   // Load subcategory preference from localStorage and session

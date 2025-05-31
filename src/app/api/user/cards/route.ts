@@ -32,7 +32,7 @@ export async function GET() {
       select: { cardId: true }
     })
 
-    const ownedCardIds = ownedCards.map(uc => uc.cardId)
+    const ownedCardIds = ownedCards.map((uc: { cardId: string }) => uc.cardId)
 
     return NextResponse.json({
       allCards,

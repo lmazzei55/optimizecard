@@ -4,11 +4,12 @@ import { prisma } from '@/lib/prisma'
 // GET /api/admin/benefits/[id] - Get specific benefit
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const benefit = await prisma.cardBenefit.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         card: {
           select: {
@@ -43,9 +44,10 @@ export async function GET(
 // PUT /api/admin/benefits/[id] - Update benefit
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
     const {
       name,
@@ -57,7 +59,7 @@ export async function PUT(
 
     // Check if benefit exists
     const existingBenefit = await prisma.cardBenefit.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!existingBenefit) {
@@ -69,7 +71,7 @@ export async function PUT(
 
     // Update the benefit
     const updatedBenefit = await prisma.cardBenefit.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name: name || existingBenefit.name,
         description: description || existingBenefit.description,
@@ -104,12 +106,13 @@ export async function PUT(
 // DELETE /api/admin/benefits/[id] - Delete benefit
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     // Check if benefit exists
     const existingBenefit = await prisma.cardBenefit.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!existingBenefit) {
@@ -121,12 +124,12 @@ export async function DELETE(
 
     // Delete user benefit valuations first (if any exist)
     await prisma.userBenefitValuation.deleteMany({
-      where: { benefitId: params.id },
+      where: { benefitId: id },
     })
 
     // Delete the benefit
     await prisma.cardBenefit.delete({
-      where: { id: params.id },
+      where: { id },
     })
 
     return NextResponse.json({

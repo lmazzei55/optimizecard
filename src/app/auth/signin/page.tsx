@@ -1,17 +1,20 @@
 'use client'
 
 import { signIn } from "next-auth/react"
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 
-export default function SignIn() {
+// Prevent static generation to avoid useSearchParams issues
+export const dynamic = 'force-dynamic'
+
+function SignInContent() {
   const [email, setEmail] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [emailLoading, setEmailLoading] = useState(false)
   const searchParams = useSearchParams()
-  const error = searchParams.get("error")
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard"
+  const error = searchParams?.get("error") || null
+  const callbackUrl = searchParams?.get("callbackUrl") || "/dashboard"
 
   const handleOAuthSignIn = async (provider: string) => {
     setIsLoading(true)
@@ -270,5 +273,13 @@ export default function SignIn() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function SignIn() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SignInContent />
+    </Suspense>
   )
 } 

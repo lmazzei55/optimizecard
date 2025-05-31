@@ -130,14 +130,14 @@ export async function calculateCardRecommendations(
         if (spending.subCategoryId) {
           // Look for subcategory-specific reward first
           categoryReward = card.categoryRewards.find(
-            (reward) => reward.subCategoryId === spending.subCategoryId
+            (reward: any) => reward.subCategoryId === spending.subCategoryId
           )
         }
         
         if (!categoryReward && spending.categoryId) {
           // Fall back to category-level reward
           categoryReward = card.categoryRewards.find(
-            (reward) => reward.categoryId === spending.categoryId
+            (reward: any) => reward.categoryId === spending.categoryId
           )
         }
 

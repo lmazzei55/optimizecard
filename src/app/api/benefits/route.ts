@@ -21,7 +21,19 @@ export async function GET() {
     })
 
     // Group benefits by card for easier frontend consumption
-    const benefitsByCard = benefits.reduce((acc, benefit) => {
+    type BenefitsByCard = Record<string, {
+      card: { id: string; name: string; issuer: string };
+      benefits: Array<{
+        id: string;
+        name: string;
+        description: string | null;
+        annualValue: number | null;
+        category: string;
+        isRecurring: boolean;
+      }>;
+    }>;
+
+    const benefitsByCard = benefits.reduce((acc: BenefitsByCard, benefit: (typeof benefits)[0]) => {
       const cardId = benefit.cardId
       if (!acc[cardId]) {
         acc[cardId] = {
@@ -38,7 +50,7 @@ export async function GET() {
         isRecurring: benefit.isRecurring,
       })
       return acc
-    }, {} as Record<string, any>)
+    }, {} as BenefitsByCard)
 
     return NextResponse.json({
       success: true,

@@ -1,11 +1,16 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Header } from "@/components/Header"
 import { Button } from '@/components/ui/button'
+import { CheckoutButton } from '@/components/CheckoutButton'
+import { DebugCustomerInfo } from '@/components/DebugCustomerInfo'
+
+// Prevent static generation to avoid useSearchParams issues
+export const dynamic = 'force-dynamic'
 
 interface SubscriptionData {
   subscriptionTier: string
@@ -15,11 +20,14 @@ interface SubscriptionData {
   trialEndDate?: string
 }
 
-export default function PricingPage() {
+function PricingContent() {
   const { data: session } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showSuccess, setShowSuccess] = useState(false)
+  const [showCanceled, setShowCanceled] = useState(false)
 
   useEffect(() => {
     if (session?.user) {
@@ -29,16 +37,15 @@ export default function PricingPage() {
     }
   }, [session])
 
-  // Check for successful upgrade from URL params
+  // Check for success/cancel from Stripe
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search)
-    if (urlParams.get('upgraded') === 'true' && session?.user) {
-      // Wait a moment for webhook to process, then verify subscription with Stripe
-      setTimeout(async () => {
-        await verifySubscription()
-      }, 2000)
+    if (searchParams?.get('success') === 'true') {
+      setShowSuccess(true)
     }
-  }, [session])
+    if (searchParams?.get('canceled') === 'true') {
+      setShowCanceled(true)
+    }
+  }, [searchParams])
 
   const fetchSubscription = async () => {
     try {
@@ -52,26 +59,6 @@ export default function PricingPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const verifySubscription = async () => {
-    try {
-      const response = await fetch('/api/stripe/verify-subscription', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      })
-      
-      if (response.ok) {
-        const data = await response.json()
-        console.log('Subscription verified:', data.message)
-        // Refresh subscription data
-        await fetchSubscription()
-        return data
-      }
-    } catch (error) {
-      console.error('Error verifying subscription:', error)
-    }
-    return null
   }
 
   const handleUpgrade = async () => {
@@ -104,23 +91,73 @@ export default function PricingPage() {
     // Open Stripe customer portal
     try {
       setLoading(true)
+      console.log('Opening customer portal for user:', session?.user?.email)
+      
       const response = await fetch('/api/stripe/portal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       })
 
       const data = await response.json()
+      console.log('Portal response:', data)
 
       if (response.ok && data.portalUrl) {
         // Redirect to Stripe customer portal
         window.location.href = data.portalUrl
       } else {
         console.error('Error creating portal session:', data.error)
-        alert('Failed to open billing portal. Please try again.')
+        // More specific error messages
+        if (data.error === 'No customer found') {
+          alert('No Stripe customer found. Please contact support or try subscribing again.')
+        } else if (data.error === 'Payment processing is not configured') {
+          alert('Payment system is not configured. Please try again later.')
+        } else {
+          alert(`Failed to open billing portal: ${data.error}`)
+        }
       }
     } catch (error) {
       console.error('Error opening portal:', error)
       alert('Failed to open billing portal. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSyncSubscription = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/stripe/sync-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        console.log('Sync result:', data)
+        alert(`Subscription synced: ${data.subscriptionTier} (${data.subscriptionStatus})`)
+        
+        // Trigger a refresh in other components
+        localStorage.setItem('subscription-updated', Date.now().toString())
+        window.dispatchEvent(new StorageEvent('storage', {
+          key: 'subscription-updated',
+          newValue: Date.now().toString()
+        }))
+        
+        // Refresh subscription data
+        await fetchSubscription()
+        
+        // Force a page refresh to ensure all components update
+        setTimeout(() => {
+          window.location.reload()
+        }, 1000)
+      } else {
+        console.error('Error syncing subscription:', data.error)
+        alert('Failed to sync subscription. Please try again.')
+      }
+    } catch (error) {
+      console.error('Error syncing subscription:', error)
+      alert('Failed to sync subscription. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -141,6 +178,54 @@ export default function PricingPage() {
       <Header />
       
       <div className="container mx-auto px-6 py-16">
+        {/* Success/Cancel Messages */}
+        {showSuccess && (
+          <div className="max-w-md mx-auto mb-8 p-6 bg-green-500/20 border border-green-500/30 rounded-lg backdrop-blur-sm">
+            <h3 className="text-green-600 dark:text-green-400 font-semibold mb-2">🎉 Welcome to Premium!</h3>
+            <p className="text-green-700 dark:text-green-300 text-sm">
+              Your 7-day free trial has started. Enjoy unlimited access to all premium features!
+            </p>
+            <div className="mt-4 space-y-2">
+              <Link href="/dashboard" className="inline-block text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 underline text-sm">
+                Return to Dashboard →
+              </Link>
+              <br />
+              <button
+                onClick={handleSyncSubscription}
+                disabled={loading}
+                className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded"
+              >
+                {loading ? 'Syncing...' : 'Sync Subscription Status'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Debug Sync Button for all users */}
+        {session && !showSuccess && (
+          <div className="max-w-md mx-auto mb-8 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg backdrop-blur-sm">
+            <p className="text-sm text-blue-600 dark:text-blue-400 mb-2">
+              Debug: If you just completed a payment, click here to sync your subscription status:
+            </p>
+            <button
+              onClick={handleSyncSubscription}
+              disabled={loading}
+              className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded"
+            >
+              {loading ? 'Syncing...' : 'Sync Subscription Status'}
+            </button>
+          </div>
+        )}
+
+        {showCanceled && (
+          <div className="max-w-md mx-auto mb-8 p-6 bg-yellow-500/20 border border-yellow-500/30 rounded-lg backdrop-blur-sm">
+            <h3 className="text-yellow-600 dark:text-yellow-400 font-semibold mb-2">Checkout Canceled</h3>
+            <p className="text-yellow-700 dark:text-yellow-300 text-sm">
+              No worries! You can upgrade anytime to unlock premium features.
+            </p>
+          </div>
+        )}
+
         {/* Header */}
         <div className="text-center mb-16">
           <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-green-600 bg-clip-text text-transparent mb-6">
@@ -251,9 +336,27 @@ export default function PricingPage() {
               </div>
             </div>
             
-            <Button className="w-full bg-white text-purple-600 hover:bg-gray-100 font-semibold">
-              Start Free Trial
-            </Button>
+            {isPremium ? (
+              <div className="space-y-4">
+                <div className="bg-green-500/20 border border-green-500/30 rounded-lg p-4 text-center">
+                  <div className="text-green-300 font-semibold">✅ Active Premium</div>
+                  <div className="text-green-200 text-sm">
+                    {subscription?.subscriptionStatus === 'trialing' ? 'Free trial active' : 'Full access enabled'}
+                  </div>
+                </div>
+                <Button 
+                  onClick={handleManageSubscription}
+                  disabled={loading}
+                  className="w-full bg-white/20 hover:bg-white/30 text-white border border-white/30"
+                >
+                  Manage Subscription
+                </Button>
+              </div>
+            ) : (
+              <CheckoutButton className="w-full">
+                Start 7-Day Free Trial
+              </CheckoutButton>
+            )}
           </div>
         </div>
 
@@ -302,6 +405,17 @@ export default function PricingPage() {
           </div>
         </div>
       </div>
+      
+      {/* Debug Component (development only) */}
+      <DebugCustomerInfo />
     </div>
+  )
+}
+
+export default function PricingPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <PricingContent />
+    </Suspense>
   )
 } 

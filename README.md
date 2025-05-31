@@ -84,6 +84,8 @@ A modern web application that helps users maximize their credit card rewards thr
    cp .env.example .env
    ```
    **For production OAuth setup**: See `ENV_SETUP.md` for detailed configuration of Google, GitHub, Meta, X (Twitter), and Resend email providers.
+   
+   **For Stripe payments**: See `STRIPE_SETUP.md` for detailed Stripe configuration and payment setup.
 
 4. **Set up the database**
    ```bash
@@ -245,12 +247,24 @@ const baseReward = 500 * 12 * 0.01           // $60 (1% base - no subcategory ma
 - [x] Save spending preferences (reward type, point values, subcategories)
 - [x] Track owned cards (visual management interface)
 - [x] User profile management with real-time syncing
+- [x] Spending data persistence (localStorage + account storage)
+- [x] Smart parent/subcategory summing logic
+- [x] Multi-card strategy upgrade prompts
 
-### Phase 3: Enhanced Authentication & Social Providers
-- [ ] Google OAuth integration
-- [ ] GitHub and Discord OAuth
-- [ ] Email magic links
-- [ ] Account deletion and data export
+### 🐛 Known Issues
+- **Spending Persistence**: Amounts reset on page navigation due to hydration mismatch
+  - Data saves/loads correctly in localStorage and database
+  - Issue is client-side state not reflecting loaded values
+  - Subcategory toggle persists correctly
+
+### Phase 3: Payment Integration & Revenue (IN PROGRESS)
+- [x] Stripe integration for premium subscriptions
+- [x] Payment flow and subscription management
+- [x] Trial period handling (7-day free trial)
+- [x] Subscription status enforcement
+- [x] Customer portal for subscription management
+- [x] Webhook handling for subscription events
+- [ ] Production deployment and testing
 
 ### Phase 4: Advanced Optimization Features
 - [ ] Multiple card strategies (optimal 2-3 card combinations)

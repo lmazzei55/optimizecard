@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     // Get user's owned cards and subscription tier
     let ownedCardIds: string[] = []
-    let userSubscriptionTier = 'free' // Default to free tier
+    let userSubscriptionTier: 'free' | 'premium' = 'free' // Default to free tier
     
     try {
       const session = await auth()
@@ -58,8 +58,8 @@ export async function POST(request: NextRequest) {
         })
         
         if (user) {
-          userSubscriptionTier = user.subscriptionTier
-          ownedCardIds = user.ownedCards.map(uc => uc.cardId)
+          userSubscriptionTier = (user.subscriptionTier as 'free' | 'premium') || 'free'
+          ownedCardIds = user.ownedCards.map((uc: { cardId: string }) => uc.cardId)
         }
       }
     } catch (error) {

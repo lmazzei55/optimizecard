@@ -17,6 +17,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No signature provided' }, { status: 400 })
   }
 
+  if (!stripe) {
+    console.log('ERROR: Stripe not configured')
+    return NextResponse.json({ error: 'Stripe not configured' }, { status: 503 })
+  }
+
   let event: Stripe.Event
 
   try {
@@ -122,6 +127,11 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   
   if (!userId) {
     console.error('No userId found in checkout session metadata')
+    return
+  }
+
+  if (!stripe) {
+    console.error('Stripe not configured')
     return
   }
 

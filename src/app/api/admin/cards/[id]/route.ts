@@ -4,11 +4,12 @@ import { prisma } from '@/lib/prisma'
 // GET /api/admin/cards/[id] - Get specific card
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const card = await prisma.creditCard.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         categoryRewards: {
           include: {
@@ -42,9 +43,10 @@ export async function GET(
 // PUT /api/admin/cards/[id] - Update card
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
     const {
       name,
@@ -62,7 +64,7 @@ export async function PUT(
 
     // Check if card exists
     const existingCard = await prisma.creditCard.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!existingCard) {
@@ -74,7 +76,7 @@ export async function PUT(
 
     // Update the card
     const updatedCard = await prisma.creditCard.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name: name || existingCard.name,
         issuer: issuer || existingCard.issuer,
@@ -93,7 +95,7 @@ export async function PUT(
     if (categoryRewards.length > 0) {
       // Delete existing category rewards
       await prisma.categoryReward.deleteMany({
-        where: { cardId: params.id },
+        where: { cardId: id },
       })
 
       // Create new category rewards
@@ -105,7 +107,7 @@ export async function PUT(
         if (category) {
           await prisma.categoryReward.create({
             data: {
-              cardId: params.id,
+              cardId: id,
               categoryId: category.id,
               rewardRate: reward.rewardRate,
               maxReward: reward.maxReward || null,
@@ -118,7 +120,7 @@ export async function PUT(
 
     // Fetch the complete updated card
     const card = await prisma.creditCard.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         categoryRewards: {
           include: {
@@ -145,12 +147,13 @@ export async function PUT(
 // DELETE /api/admin/cards/[id] - Delete card
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     // Check if card exists
     const existingCard = await prisma.creditCard.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!existingCard) {
@@ -162,16 +165,16 @@ export async function DELETE(
 
     // Delete related records first (due to foreign key constraints)
     await prisma.categoryReward.deleteMany({
-      where: { cardId: params.id },
+      where: { cardId: id },
     })
 
     await prisma.cardBenefit.deleteMany({
-      where: { cardId: params.id },
+      where: { cardId: id },
     })
 
     // Delete the card
     await prisma.creditCard.delete({
-      where: { id: params.id },
+      where: { id },
     })
 
     return NextResponse.json({

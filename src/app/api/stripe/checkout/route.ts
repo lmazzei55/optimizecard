@@ -1,55 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { stripe, PREMIUM_PRICE_ID } from '@/lib/stripe'
+import { stripe, STRIPE_CONFIG, isStripeConfigured } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth()
-    
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Check if Stripe is configured
+    if (!isStripeConfigured || !stripe) {
+      return NextResponse.json({ 
+        error: 'Payment processing is not configured. Please set up Stripe environment variables.' 
+      }, { status: 503 })
     }
 
-    // Get user from database
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { 
-        id: true, 
-        email: true, 
-        customerId: true,
-        subscriptionTier: true 
-      }
+    const session = await auth()
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const { plan = 'monthly' } = body
+
+    // Get or create Stripe customer
+    let customer = await stripe.customers.list({
+      email: session.user.email,
+      limit: 1,
     })
 
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
-
-    // Check if user is already premium
-    if (user.subscriptionTier === 'premium') {
-      return NextResponse.json({ error: 'User is already premium' }, { status: 400 })
-    }
-
-    let customerId = user.customerId
-
-    // Create Stripe customer if one doesn't exist
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email,
+    let customerId: string
+    if (customer.data.length === 0) {
+      // Create new customer
+      const newCustomer = await stripe.customers.create({
+        email: session.user.email,
+        name: session.user.name || undefined,
         metadata: {
-          userId: user.id,
+          userId: session.user.id || '',
         },
       })
-      
-      customerId = customer.id
-      
-      // Update user with customer ID
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { customerId }
-      })
+      customerId = newCustomer.id
+    } else {
+      customerId = customer.data[0].id
     }
+
+    // Update user with customer ID
+    await prisma.user.update({
+      where: { email: session.user.email },
+      data: { customerId },
+    })
 
     // Create checkout session
     const checkoutSession = await stripe.checkout.sessions.create({
@@ -58,28 +54,29 @@ export async function POST(request: NextRequest) {
       payment_method_types: ['card'],
       line_items: [
         {
-          price: PREMIUM_PRICE_ID,
+          price: STRIPE_CONFIG.products.premium.monthly.priceId,
           quantity: 1,
         },
       ],
-      success_url: `${request.headers.get('origin')}/dashboard?upgraded=true`,
-      cancel_url: `${request.headers.get('origin')}/pricing?canceled=true`,
+      success_url: STRIPE_CONFIG.successUrl,
+      cancel_url: STRIPE_CONFIG.cancelUrl,
+      allow_promotion_codes: true,
       metadata: {
-        userId: user.id,
+        userId: session.user.id || '',
+        plan,
       },
       subscription_data: {
+        trial_period_days: 7, // 7-day free trial
         metadata: {
-          userId: user.id,
+          userId: session.user.id || '',
+          plan,
         },
       },
     })
 
-    return NextResponse.json({ 
-      success: true, 
-      checkoutUrl: checkoutSession.url 
-    })
+    return NextResponse.json({ sessionId: checkoutSession.id })
   } catch (error) {
-    console.error('Error creating checkout session:', error)
+    console.error('Stripe checkout error:', error)
     return NextResponse.json(
       { error: 'Failed to create checkout session' },
       { status: 500 }

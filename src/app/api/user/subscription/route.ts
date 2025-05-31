@@ -3,12 +3,12 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
 // GET /api/user/subscription - Get user's subscription status
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await auth()
     
     if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
     const user = await prisma.user.findUnique({
