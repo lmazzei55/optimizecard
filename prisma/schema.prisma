@@ -51,9 +51,10 @@ model User {
   sessions      Session[]
   
   // Credit card app specific fields
-  rewardPreference String @default("cashback") // "cashback" or "points"
+  rewardPreference String @default("cashback") // "cashback" or "points" or "best_overall"
   pointValue       Float  @default(0.01) // How much user values 1 point in dollars
   enableSubCategories Boolean @default(false) // Whether user wants to use subcategories
+  spendingData     String? // JSON string of spending data for persistence
   
   // Freemium subscription fields
   subscriptionTier String @default("free") // "free" or "premium"

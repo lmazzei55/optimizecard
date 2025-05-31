@@ -9,9 +9,10 @@ interface MultiCardStrategiesProps {
   benefitValuations?: any[]
   rewardPreference: 'cashback' | 'points' | 'best_overall'
   onError?: (error: string) => void
+  onUpgradePrompt?: () => void
 }
 
-export function MultiCardStrategies({ userSpending, benefitValuations, rewardPreference, onError }: MultiCardStrategiesProps) {
+export function MultiCardStrategies({ userSpending, benefitValuations, rewardPreference, onError, onUpgradePrompt }: MultiCardStrategiesProps) {
   const [strategies, setStrategies] = useState<MultiCardStrategy[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -41,8 +42,8 @@ export function MultiCardStrategies({ userSpending, benefitValuations, rewardPre
       if (!response.ok) {
         const errorData = await response.json()
         if (response.status === 403) {
-          setError(errorData.message || 'Premium subscription required')
-          onError?.(errorData.message || 'Premium subscription required')
+          onUpgradePrompt?.()
+          return
         } else {
           setError(errorData.error || 'Failed to fetch strategies')
         }

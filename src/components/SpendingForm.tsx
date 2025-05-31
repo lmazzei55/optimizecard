@@ -7,6 +7,7 @@ import { Slider } from "@/components/ui/slider"
 import { formatCurrency } from "@/lib/utils"
 import { CardCustomizationModal } from "@/components/CardCustomizationModal"
 import { MultiCardStrategies } from './MultiCardStrategies'
+import { UpgradePrompt } from './UpgradePrompt'
 
 interface SpendingCategory {
   id: string
@@ -80,7 +81,7 @@ export function SpendingForm() {
   const { data: session } = useSession()
   const [categories, setCategories] = useState<SpendingCategory[]>([])
   const [spending, setSpending] = useState<UserSpending[]>([])
-  const [rewardPreference, setRewardPreference] = useState<'cashback' | 'points' | 'best_overall'>('best_overall')
+  const [rewardPreference, setRewardPreference] = useState<'cashback' | 'points' | 'best_overall'>('cashback')
   const [pointValue, setPointValue] = useState(0.01)
   const [loading, setLoading] = useState(true)
   const [calculating, setCalculating] = useState(false)
@@ -97,10 +98,25 @@ export function SpendingForm() {
     [cardId: string]: CardCustomization
   }>({})
 
+  // Upgrade prompt state
+  const [upgradePromptOpen, setUpgradePromptOpen] = useState(false)
+  const [upgradePromptFeature, setUpgradePromptFeature] = useState('')
+  const [upgradePromptDescription, setUpgradePromptDescription] = useState('')
+  const [userSubscriptionTier, setUserSubscriptionTier] = useState<'free' | 'premium'>('free')
+
+  // Track if we've loaded initial data to prevent conflicts
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
+
+  // Handle hydration by waiting for mount
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
   // Load user preferences from session
   useEffect(() => {
     if (session?.user) {
-      const newRewardPreference = session.user.rewardPreference as any || 'best_overall'
+      const newRewardPreference = session.user.rewardPreference as any || 'cashback'
       const newPointValue = session.user.pointValue || 0.01
       const newEnableSubcategories = session.user.enableSubCategories || false
       
@@ -139,10 +155,171 @@ export function SpendingForm() {
     return () => clearInterval(interval)
   }, [])
 
+  // Check user subscription tier
+  useEffect(() => {
+    const checkSubscriptionTier = async () => {
+      if (session?.user?.email) {
+        try {
+          const response = await fetch('/api/user/subscription')
+          if (response.ok) {
+            const data = await response.json()
+            setUserSubscriptionTier(data.subscriptionTier || 'free')
+          }
+        } catch (error) {
+          console.error('Error checking subscription tier:', error)
+          setUserSubscriptionTier('free')
+        }
+      }
+    }
+    
+    checkSubscriptionTier()
+  }, [session])
+
+  // Load subcategory preference from localStorage and session
+  useEffect(() => {
+    if (!isMounted) return // Wait for hydration
+    
+    // First check localStorage for immediate persistence
+    const savedSubcategoryPref = localStorage.getItem('enableSubcategories')
+    if (savedSubcategoryPref !== null) {
+      setEnableSubcategories(JSON.parse(savedSubcategoryPref))
+    }
+    
+    // Then override with user session preference if available
+    if (session?.user?.enableSubCategories !== undefined) {
+      setEnableSubcategories(session.user.enableSubCategories)
+    }
+  }, [session, isMounted])
+
+  // Save subcategory preference to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('enableSubcategories', JSON.stringify(enableSubcategories))
+    console.log('💾 Saved subcategory preference:', enableSubcategories)
+  }, [enableSubcategories])
+
   // Fetch spending categories
   useEffect(() => {
     fetchCategories()
   }, [enableSubcategories])
+
+  // Load saved spending data
+  useEffect(() => {
+    const loadSpendingData = async () => {
+      // Skip if we've already loaded initial data or if spending array is empty
+      if (initialDataLoaded || spending.length === 0 || !isMounted) return
+      
+      console.log('🚀 Starting data loading process...')
+      let savedSpending = []
+      
+      // First, try to load from localStorage (session persistence)
+      const localSpending = localStorage.getItem('spending-data')
+      if (localSpending) {
+        try {
+          const parsedSpending = JSON.parse(localSpending)
+          if (Array.isArray(parsedSpending)) {
+            savedSpending = parsedSpending
+            console.log('📂 Loaded ALL spending data from localStorage:', savedSpending)
+            console.log('📂 Non-zero spending data:', savedSpending.filter((s: any) => s.monthlySpend > 0))
+          }
+        } catch (error) {
+          console.error('Error parsing local spending data:', error)
+        }
+      } else {
+        console.log('📂 No spending data found in localStorage')
+      }
+
+      // If user is logged in, load from their account (only if it has meaningful data)
+      if (session?.user?.email) {
+        try {
+          const response = await fetch('/api/user/spending')
+          if (response.ok) {
+            const data = await response.json()
+            if (data.spending && Array.isArray(data.spending)) {
+              // Only override localStorage if account data has meaningful spending (not all zeros)
+              const hasNonZeroSpending = data.spending.some((item: any) => item.monthlySpend > 0)
+              if (hasNonZeroSpending || savedSpending.length === 0) {
+                savedSpending = data.spending
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error loading user spending data:', error)
+        }
+      }
+
+      // Merge saved spending with current category structure
+      if (savedSpending.length > 0) {
+        console.log('🔀 Starting merge process')
+        console.log('🔀 Current spending structure:', spending)
+        console.log('🔀 Saved spending to merge:', savedSpending)
+        
+        const mergedSpending = spending.map(currentItem => {
+          const savedItem = savedSpending.find((saved: UserSpending) => {
+            // Match by categoryId or subCategoryId
+            if (currentItem.categoryId && saved.categoryId) {
+              return currentItem.categoryId === saved.categoryId
+            }
+            if (currentItem.subCategoryId && saved.subCategoryId) {
+              return currentItem.subCategoryId === saved.subCategoryId
+            }
+            // Fallback to name matching
+            return currentItem.categoryName === saved.categoryName
+          })
+          
+          const result = savedItem ? { ...currentItem, monthlySpend: savedItem.monthlySpend } : currentItem
+          if (savedItem && savedItem.monthlySpend > 0) {
+            console.log('🔀 Merged item:', { from: currentItem, to: result, savedItem })
+          }
+          return result
+        })
+        
+        console.log('🔀 Final merged spending:', mergedSpending.filter(s => s.monthlySpend > 0))
+        
+        // Apply parent category summing if in subcategory mode
+        const finalSpending = enableSubcategories ? updateParentCategorySums(mergedSpending) : mergedSpending
+        console.log('🔀 After parent sums (if applicable):', finalSpending.filter(s => s.monthlySpend > 0))
+        setSpending(finalSpending)
+      }
+      
+      // Mark initial data as loaded
+      setInitialDataLoaded(true)
+    }
+
+    // Load data when we have categories and spending array ready AND component is mounted
+    if (!loading && categories.length > 0 && spending.length > 0 && isMounted) {
+      loadSpendingData()
+    }
+  }, [loading, categories.length, spending.length, session?.user?.email, enableSubcategories, initialDataLoaded, isMounted])
+
+  // Save spending data (debounced)
+  useEffect(() => {
+    const saveSpendingData = async () => {
+      // Only save if we have meaningful data and initial data has been loaded
+      if (!initialDataLoaded || spending.length === 0) return
+      
+      // Always save to localStorage for session persistence
+      localStorage.setItem('spending-data', JSON.stringify(spending))
+      console.log('💾 Saved spending data to localStorage:', spending.filter(s => s.monthlySpend > 0))
+
+      // If user is logged in, also save to their account
+      if (session?.user?.email) {
+        try {
+          await fetch('/api/user/spending', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ spending })
+          })
+          console.log('💾 Saved spending data to user account')
+        } catch (error) {
+          console.error('Error saving user spending data:', error)
+        }
+      }
+    }
+
+    // Debounce saving to avoid too many API calls
+    const timeoutId = setTimeout(saveSpendingData, 1000)
+    return () => clearTimeout(timeoutId)
+  }, [spending, session, initialDataLoaded]) // Added initialDataLoaded dependency
 
   const fetchCategories = async () => {
     try {
@@ -151,39 +328,124 @@ export function SpendingForm() {
       const data = await response.json()
       setCategories(data)
       
-      // Initialize spending based on subcategory mode
-      if (enableSubcategories) {
-        // Create spending entries for both categories and subcategories
-        const spendingEntries: UserSpending[] = []
-        
-        data.forEach((cat: SpendingCategory) => {
-          // Add main category
-          spendingEntries.push({
+      // Check if we have saved data that we should preserve
+      const localSpending = localStorage.getItem('spending-data')
+      const hasSavedData = localSpending && JSON.parse(localSpending).length > 0
+      console.log('🔍 Checking for saved data in fetchCategories:', hasSavedData)
+      
+      // Only initialize spending if we don't already have data AND no saved data exists
+      if (spending.length === 0 && !hasSavedData) {
+        console.log('🆕 Initializing fresh spending data')
+        // Initialize spending based on subcategory mode
+        if (enableSubcategories) {
+          // Create spending entries for both categories and subcategories
+          const spendingEntries: UserSpending[] = []
+          
+          data.forEach((cat: SpendingCategory) => {
+            // Add main category
+            spendingEntries.push({
+              categoryId: cat.id,
+              categoryName: cat.name,
+              monthlySpend: 0
+            })
+            
+            // Add subcategories if they exist
+            if (cat.subCategories && cat.subCategories.length > 0) {
+              cat.subCategories.forEach((sub: SubCategory) => {
+                spendingEntries.push({
+                  subCategoryId: sub.id,
+                  categoryName: `${cat.name} → ${sub.name}`,
+                  monthlySpend: 0
+                })
+              })
+            }
+          })
+          
+          setSpending(spendingEntries)
+        } else {
+          // Standard category mode
+          setSpending(data.map((cat: SpendingCategory) => ({
             categoryId: cat.id,
             categoryName: cat.name,
             monthlySpend: 0
-          })
-          
-          // Add subcategories if they exist
-          if (cat.subCategories && cat.subCategories.length > 0) {
-            cat.subCategories.forEach((sub: SubCategory) => {
-              spendingEntries.push({
-                subCategoryId: sub.id,
-                categoryName: `${cat.name} → ${sub.name}`,
-                monthlySpend: 0
-              })
-            })
-          }
-        })
+          })))
+        }
+      } else if (spending.length > 0) {
+        console.log('🔄 Adapting existing spending data to new category structure')
+        // If we have existing spending data, we need to adapt it to the new category structure
+        // This handles switching between standard and subcategory modes
+        let newSpendingStructure: UserSpending[] = []
         
-        setSpending(spendingEntries)
+        if (enableSubcategories) {
+          // Create spending entries for both categories and subcategories
+          data.forEach((cat: SpendingCategory) => {
+            // Find existing parent category data
+            const existingParent = spending.find(s => s.categoryId === cat.id)
+            
+            // Add main category (preserve existing data)
+            newSpendingStructure.push({
+              categoryId: cat.id,
+              categoryName: cat.name,
+              monthlySpend: existingParent?.monthlySpend || 0
+            })
+            
+            // Add subcategories if they exist
+            if (cat.subCategories && cat.subCategories.length > 0) {
+              cat.subCategories.forEach((sub: SubCategory) => {
+                // Find existing subcategory data
+                const existingSub = spending.find(s => s.subCategoryId === sub.id)
+                
+                newSpendingStructure.push({
+                  subCategoryId: sub.id,
+                  categoryName: `${cat.name} → ${sub.name}`,
+                  monthlySpend: existingSub?.monthlySpend || 0
+                })
+              })
+            }
+          })
+        } else {
+          // Standard category mode - preserve existing parent category data
+          newSpendingStructure = data.map((cat: SpendingCategory) => {
+            const existing = spending.find(s => s.categoryId === cat.id)
+            return {
+              categoryId: cat.id,
+              categoryName: cat.name,
+              monthlySpend: existing?.monthlySpend || 0
+            }
+          })
+        }
+        
+        setSpending(newSpendingStructure)
       } else {
-        // Standard category mode
-        setSpending(data.map((cat: SpendingCategory) => ({
-          categoryId: cat.id,
-          categoryName: cat.name,
-          monthlySpend: 0
-        })))
+        console.log('⏳ Saved data exists, will be loaded by useEffect')
+        // If we have saved data but no current spending, just set up empty structure
+        // The saved data will be loaded by the useEffect
+        if (enableSubcategories) {
+          const spendingEntries: UserSpending[] = []
+          data.forEach((cat: SpendingCategory) => {
+            spendingEntries.push({
+              categoryId: cat.id,
+              categoryName: cat.name,
+              monthlySpend: 0
+            })
+            if (cat.subCategories && cat.subCategories.length > 0) {
+              cat.subCategories.forEach((sub: SubCategory) => {
+                spendingEntries.push({
+                  subCategoryId: sub.id,
+                  categoryName: `${cat.name} → ${sub.name}`,
+                  monthlySpend: 0
+                })
+              })
+            }
+          })
+          setSpending(spendingEntries)
+        } else {
+          setSpending(data.map((cat: SpendingCategory) => ({
+            categoryId: cat.id,
+            categoryName: cat.name,
+            monthlySpend: 0
+          })))
+        }
       }
       
       setLoading(false)
@@ -194,12 +456,54 @@ export function SpendingForm() {
   }
 
   const updateSpending = (id: string, amount: number, isSubcategory: boolean = false) => {
-    setSpending(prev => prev.map(s => {
-      const matchId = isSubcategory ? s.subCategoryId : s.categoryId
-      return matchId === id 
-        ? { ...s, monthlySpend: amount }
-        : s
-    }))
+    console.log('🖊️ User input:', { id, amount, isSubcategory })
+    setSpending(prev => {
+      const updated = prev.map(s => {
+        const matchId = isSubcategory ? s.subCategoryId : s.categoryId
+        return matchId === id 
+          ? { ...s, monthlySpend: amount }
+          : s
+      })
+      
+      console.log('📝 Updated spending state:', updated.filter(s => s.monthlySpend > 0))
+      
+      // If we're in subcategory mode and this is a subcategory update, 
+      // update the parent category to be the sum of all its subcategories
+      if (enableSubcategories && isSubcategory) {
+        const final = updateParentCategorySums(updated)
+        console.log('🔄 After parent sum update:', final.filter(s => s.monthlySpend > 0))
+        return final
+      }
+      
+      return updated
+    })
+  }
+
+  // Helper function to update parent category sums
+  const updateParentCategorySums = (spendingData: UserSpending[]) => {
+    return spendingData.map(item => {
+      // Only update parent categories (those with categoryId, not subCategoryId)
+      if (!item.categoryId || item.subCategoryId) {
+        return item
+      }
+      
+      // Find the corresponding category in our categories data
+      const category = categories.find(cat => cat.id === item.categoryId)
+      if (!category?.subCategories || category.subCategories.length === 0) {
+        return item
+      }
+      
+      // Sum all subcategories for this parent
+      const subcategorySum = spendingData
+        .filter(s => s.subCategoryId && category.subCategories!.some(sub => sub.id === s.subCategoryId))
+        .reduce((sum, s) => sum + s.monthlySpend, 0)
+      
+      // Use MAX of current parent amount and subcategory sum
+      // This allows parent to have additional spending beyond subcategories
+      const newAmount = Math.max(item.monthlySpend, subcategorySum)
+      
+      return { ...item, monthlySpend: newAmount }
+    })
   }
 
   const openCardCustomization = (cardId: string) => {
@@ -277,6 +581,17 @@ export function SpendingForm() {
       
       const data = await response.json()
       setRecommendations(data)
+      
+      // Show upgrade prompt for free users if they got limited results
+      if (userSubscriptionTier === 'free' && data.length > 0) {
+        // Add a small delay so user sees their results first
+        setTimeout(() => {
+          setUpgradePromptFeature('Premium Credit Cards')
+          setUpgradePromptDescription('You\'re seeing no-annual-fee cards only. Upgrade to access premium cards like Chase Sapphire, Amex Gold/Platinum, and Capital One Venture X for potentially higher rewards.')
+          setUpgradePromptOpen(true)
+        }, 3000) // Show after 3 seconds
+      }
+      
     } catch (error) {
       console.error('Error recalculating recommendations:', error)
     } finally {
@@ -302,6 +617,16 @@ export function SpendingForm() {
       const data = await response.json()
       setRecommendations(data)
       
+      // Show upgrade prompt for free users if they got limited results
+      if (userSubscriptionTier === 'free' && data.length > 0) {
+        // Add a small delay so user sees their results first
+        setTimeout(() => {
+          setUpgradePromptFeature('Premium Credit Cards')
+          setUpgradePromptDescription('You\'re seeing no-annual-fee cards only. Upgrade to access premium cards like Chase Sapphire, Amex Gold/Platinum, and Capital One Venture X for potentially higher rewards.')
+          setUpgradePromptOpen(true)
+        }, 3000) // Show after 3 seconds
+      }
+      
     } catch (error) {
       console.error('Error calculating recommendations:', error)
     } finally {
@@ -310,6 +635,22 @@ export function SpendingForm() {
   }
 
   const totalMonthlySpend = spending.reduce((sum, s) => sum + s.monthlySpend, 0)
+
+  const handleRewardPreferenceChange = (newPreference: 'cashback' | 'points' | 'best_overall') => {
+    // Check if user is trying to access premium features without subscription
+    if (userSubscriptionTier === 'free' && (newPreference === 'points' || newPreference === 'best_overall')) {
+      setUpgradePromptFeature(newPreference === 'points' ? 'Points Optimization' : 'Best Overall Analysis')
+      setUpgradePromptDescription(
+        newPreference === 'points' 
+          ? 'Access premium travel and points cards with advanced optimization for maximum point earning potential.'
+          : 'Compare both cashback and points cards to find the absolute best option for your spending patterns.'
+      )
+      setUpgradePromptOpen(true)
+      return
+    }
+    
+    setRewardPreference(newPreference)
+  }
 
   if (loading) {
     return (
@@ -340,6 +681,11 @@ export function SpendingForm() {
               <p className="text-sm text-gray-600 dark:text-gray-300">
                 Get more precise recommendations with specific subcategories like Amazon, Whole Foods, Hotels, etc.
               </p>
+              {enableSubcategories && (
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium">
+                  💡 Parent categories show the higher of: your input OR sum of subcategories
+                </p>
+              )}
             </div>
             <button
               onClick={() => setEnableSubcategories(!enableSubcategories)}
@@ -544,7 +890,7 @@ export function SpendingForm() {
             </label>
             <div className="grid grid-cols-3 gap-4">
               <button
-                onClick={() => setRewardPreference('cashback')}
+                onClick={() => handleRewardPreferenceChange('cashback')}
                 className={`p-4 rounded-xl border-2 transition-all duration-200 ${
                   rewardPreference === 'cashback'
                     ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
@@ -559,7 +905,7 @@ export function SpendingForm() {
               </button>
               
               <button
-                onClick={() => setRewardPreference('points')}
+                onClick={() => handleRewardPreferenceChange('points')}
                 className={`p-4 rounded-xl border-2 transition-all duration-200 ${
                   rewardPreference === 'points'
                     ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300'
@@ -574,7 +920,7 @@ export function SpendingForm() {
               </button>
 
               <button
-                onClick={() => setRewardPreference('best_overall')}
+                onClick={() => handleRewardPreferenceChange('best_overall')}
                 className={`p-4 rounded-xl border-2 transition-all duration-200 ${
                   rewardPreference === 'best_overall'
                     ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
@@ -595,6 +941,46 @@ export function SpendingForm() {
               <p className="text-sm text-blue-700 dark:text-blue-300">
                 📊 <strong>Initial calculation will use 1¢ per point.</strong><br/>
                 You'll be able to adjust point valuations for your top card recommendations after seeing the results.
+              </p>
+            </div>
+          )}
+
+          {/* Testing Tools (only in development) */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-xl p-4 border border-yellow-200 dark:border-yellow-600">
+              <h4 className="font-semibold text-yellow-800 dark:text-yellow-300 mb-2">🧪 Testing Tools</h4>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={() => {
+                    localStorage.removeItem('spending-data')
+                    setSpending(prev => prev.map(s => ({ ...s, monthlySpend: 0 })))
+                    if (session?.user?.email) {
+                      fetch('/api/user/spending', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ spending: spending.map(s => ({ ...s, monthlySpend: 0 })) })
+                      })
+                    }
+                  }}
+                  className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Clear All Spending Data
+                </button>
+                <button
+                  onClick={() => {
+                    const testSpending = spending.map((s, index) => ({ 
+                      ...s, 
+                      monthlySpend: [500, 300, 200, 150, 100, 75, 50, 25][index] || 0 
+                    }))
+                    setSpending(testSpending)
+                  }}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Load Test Data
+                </button>
+              </div>
+              <p className="text-xs text-yellow-700 dark:text-yellow-400 mt-2">
+                These buttons help test spending persistence when navigating between pages.
               </p>
             </div>
           )}
@@ -630,6 +1016,22 @@ export function SpendingForm() {
             <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
               Based on your {formatCurrency(totalMonthlySpend)} monthly spending across {spending.filter(s => s.monthlySpend > 0).length} categories
             </p>
+            {userSubscriptionTier === 'free' && (
+              <div className="mt-4 inline-flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-4 py-2 rounded-full text-sm">
+                <span>💳</span>
+                <span>Showing no-annual-fee cards only</span>
+                <button
+                  onClick={() => {
+                    setUpgradePromptFeature('Premium Credit Cards')
+                    setUpgradePromptDescription('Access premium cards like Chase Sapphire, Amex Gold/Platinum, and Capital One Venture X for potentially higher rewards.')
+                    setUpgradePromptOpen(true)
+                  }}
+                  className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 font-medium underline ml-1"
+                >
+                  Upgrade for more
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Cards Grid */}
@@ -873,6 +1275,11 @@ export function SpendingForm() {
           onError={(error) => {
             console.error('Multi-card strategies error:', error)
           }}
+          onUpgradePrompt={() => {
+            setUpgradePromptFeature('Multi-Card Strategies')
+            setUpgradePromptDescription('Optimize 2-3 card combinations for maximum rewards across all categories with smart diversification and category allocation.')
+            setUpgradePromptOpen(true)
+          }}
         />
       )}
       
@@ -893,6 +1300,16 @@ export function SpendingForm() {
             })) || []
           }}
           currentCustomization={cardCustomizations[editingCardId]}
+        />
+      )}
+
+      {/* Upgrade Prompt */}
+      {upgradePromptOpen && (
+        <UpgradePrompt
+          isOpen={upgradePromptOpen}
+          onClose={() => setUpgradePromptOpen(false)}
+          feature={upgradePromptFeature}
+          description={upgradePromptDescription}
         />
       )}
     </div>

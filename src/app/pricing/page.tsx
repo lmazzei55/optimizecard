@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Header } from "@/components/Header"
+import { Button } from '@/components/ui/button'
 
 interface SubscriptionData {
   subscriptionTier: string
@@ -139,224 +140,163 @@ export default function PricingPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <Header />
       
-      <div className="container mx-auto px-4 py-16">
+      <div className="container mx-auto px-6 py-16">
         {/* Header */}
         <div className="text-center mb-16">
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
-            Choose Your Plan
+          <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-green-600 bg-clip-text text-transparent mb-6">
+            Upgrade to Premium
           </h1>
-          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-            Start with our free tier featuring popular no annual fee cards, or upgrade to premium for access to all premium cards and advanced features.
+          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+            Unlock access to premium credit cards and advanced optimization features
           </p>
         </div>
 
-        {/* Current Status */}
-        {session?.user && subscription && (
-          <div className="max-w-md mx-auto mb-12">
-            <div className={`p-4 rounded-xl border ${isPremium 
-              ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800' 
-              : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
-            }`}>
-              <div className="flex items-center space-x-2">
-                <span className="text-2xl">{isPremium ? '👑' : '🆓'}</span>
-                <div>
-                  <h3 className={`font-semibold ${isPremium 
-                    ? 'text-purple-800 dark:text-purple-300' 
-                    : 'text-blue-800 dark:text-blue-300'
-                  }`}>
-                    Current Plan: {isPremium ? 'Premium' : 'Free'}
-                  </h3>
-                  <p className={`text-sm ${isPremium 
-                    ? 'text-purple-600 dark:text-purple-400' 
-                    : 'text-blue-600 dark:text-blue-400'
-                  }`}>
-                    {isPremium ? 'Access to all premium cards' : 'No annual fee cards only'}
-                  </p>
-                </div>
-                <button
-                  onClick={verifySubscription}
-                  className="ml-auto text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 px-3 py-1 rounded-lg transition-colors"
-                  title="Refresh subscription status"
-                >
-                  🔄
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-          {/* Free Tier */}
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">
+        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-16">
+          {/* Free Plan */}
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Free</h2>
-              <div className="text-4xl font-bold text-gray-900 dark:text-white mb-2">$0</div>
-              <p className="text-gray-600 dark:text-gray-400">Perfect for getting started</p>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Free</h3>
+              <div className="text-4xl font-bold text-gray-900 dark:text-white mb-1">$0</div>
+              <div className="text-gray-600 dark:text-gray-400">Forever</div>
             </div>
-
+            
             <div className="space-y-4 mb-8">
-              <div className="flex items-start space-x-3">
-                <span className="text-green-500 text-xl">✓</span>
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-white">12-15 Popular No Annual Fee Cards</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Chase Freedom, Citi Double Cash, Discover it, etc.</p>
+              <div className="flex items-center space-x-3">
+                <div className="bg-green-500 rounded-full p-1">
+                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
                 </div>
+                <span className="text-gray-700 dark:text-gray-300">No-annual-fee credit cards</span>
               </div>
-              <div className="flex items-start space-x-3">
-                <span className="text-green-500 text-xl">✓</span>
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-white">Unlimited Recommendations</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">No usage limits or restrictions</p>
+              <div className="flex items-center space-x-3">
+                <div className="bg-green-500 rounded-full p-1">
+                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
                 </div>
+                <span className="text-gray-700 dark:text-gray-300">Cashback optimization</span>
               </div>
-              <div className="flex items-start space-x-3">
-                <span className="text-green-500 text-xl">✓</span>
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-white">Basic Spending Categories</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Dining, travel, gas, groceries, and more</p>
+              <div className="flex items-center space-x-3">
+                <div className="bg-green-500 rounded-full p-1">
+                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
                 </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <span className="text-green-500 text-xl">✓</span>
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-white">Subcategory Optimization</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Amazon, Whole Foods, hotels, car rental</p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <span className="text-green-500 text-xl">✓</span>
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-white">User Profiles & Preferences</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Save settings and owned cards</p>
-                </div>
+                <span className="text-gray-700 dark:text-gray-300">Basic subcategories</span>
               </div>
             </div>
-
-            <button 
-              disabled={!session?.user || subscription?.subscriptionTier === 'free'}
-              className="w-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 font-semibold py-3 px-4 rounded-xl cursor-not-allowed"
-            >
-              {!session?.user ? 'Sign In to Get Started' : 'Current Plan'}
-            </button>
+            
+            <Link href="/dashboard">
+              <Button className="w-full bg-gray-600 hover:bg-gray-700 text-white">
+                Continue with Free
+              </Button>
+            </Link>
           </div>
 
-          {/* Premium Tier */}
-          <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl shadow-xl p-8 text-white relative overflow-hidden">
-            <div className="absolute top-4 right-4 bg-yellow-400 text-purple-900 px-3 py-1 rounded-full text-sm font-semibold">
+          {/* Premium Plan */}
+          <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl shadow-2xl p-8 text-white relative overflow-hidden">
+            <div className="absolute top-4 right-4 bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-sm font-semibold">
               Most Popular
             </div>
             
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold mb-2">Premium</h2>
-              <div className="text-4xl font-bold mb-2">$9.99</div>
-              <p className="text-purple-100">per month</p>
+              <h3 className="text-2xl font-bold mb-2">Premium</h3>
+              <div className="text-4xl font-bold mb-1">$9.99</div>
+              <div className="text-blue-100">per month</div>
+              <div className="text-sm text-blue-100 mt-2">7-day free trial</div>
             </div>
-
+            
             <div className="space-y-4 mb-8">
-              <div className="flex items-start space-x-3">
-                <span className="text-yellow-300 text-xl">✓</span>
-                <div>
-                  <p className="font-medium">Everything in Free, plus:</p>
+              <div className="flex items-center space-x-3">
+                <div className="bg-white/20 rounded-full p-1">
+                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
                 </div>
+                <span>All free features</span>
               </div>
-              <div className="flex items-start space-x-3">
-                <span className="text-yellow-300 text-xl">✓</span>
-                <div>
-                  <p className="font-medium">All Premium Annual Fee Cards</p>
-                  <p className="text-sm text-purple-100">Chase Sapphire, Amex Gold/Platinum, Capital One Venture X</p>
+              <div className="flex items-center space-x-3">
+                <div className="bg-white/20 rounded-full p-1">
+                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
                 </div>
+                <span>Premium annual fee cards</span>
               </div>
-              <div className="flex items-start space-x-3">
-                <span className="text-yellow-300 text-xl">✓</span>
-                <div>
-                  <p className="font-medium">Advanced Benefits Optimization</p>
-                  <p className="text-sm text-purple-100">Travel credits, lounge access, hotel status</p>
+              <div className="flex items-center space-x-3">
+                <div className="bg-white/20 rounded-full p-1">
+                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
                 </div>
+                <span>Points & travel optimization</span>
               </div>
-              <div className="flex items-start space-x-3">
-                <span className="text-yellow-300 text-xl">✓</span>
-                <div>
-                  <p className="font-medium">Multi-Card Strategies</p>
-                  <p className="text-sm text-purple-100">Optimize 2-3 card combinations</p>
+              <div className="flex items-center space-x-3">
+                <div className="bg-white/20 rounded-full p-1">
+                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
                 </div>
+                <span>Multi-card strategies</span>
               </div>
-              <div className="flex items-start space-x-3">
-                <span className="text-yellow-300 text-xl">✓</span>
-                <div>
-                  <p className="font-medium">Business Credit Cards</p>
-                  <p className="text-sm text-purple-100">Separate business spending optimization</p>
+              <div className="flex items-center space-x-3">
+                <div className="bg-white/20 rounded-full p-1">
+                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
                 </div>
-              </div>
-              <div className="flex items-start space-x-3">
-                <span className="text-yellow-300 text-xl">✓</span>
-                <div>
-                  <p className="font-medium">Priority Support</p>
-                  <p className="text-sm text-purple-100">Email support with faster response times</p>
-                </div>
+                <span>Advanced benefit customization</span>
               </div>
             </div>
-
-            {session?.user ? (
-              isPremium ? (
-                <button 
-                  onClick={handleManageSubscription}
-                  disabled={loading}
-                  className="w-full bg-white/20 text-white font-semibold py-3 px-4 rounded-xl hover:bg-white/30 transition-all duration-200"
-                >
-                  {loading ? 'Loading...' : 'Manage Subscription'}
-                </button>
-              ) : (
-                <button 
-                  onClick={handleUpgrade}
-                  disabled={loading}
-                  className="w-full bg-white text-purple-600 font-semibold py-3 px-4 rounded-xl hover:bg-gray-100 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                >
-                  {loading ? 'Loading...' : 'Upgrade to Premium'}
-                </button>
-              )
-            ) : (
-              <Link 
-                href="/auth/signin"
-                className="block w-full bg-white text-purple-600 font-semibold py-3 px-4 rounded-xl hover:bg-gray-100 transition-all duration-200 transform hover:scale-105 text-center"
-              >
-                Sign In to Upgrade
-              </Link>
-            )}
+            
+            <Button className="w-full bg-white text-purple-600 hover:bg-gray-100 font-semibold">
+              Start Free Trial
+            </Button>
           </div>
         </div>
 
+        {/* Back to Dashboard */}
+        <div className="text-center">
+          <Link href="/dashboard">
+            <Button variant="outline" className="px-8 py-3">
+              ← Back to Dashboard
+            </Button>
+          </Link>
+        </div>
+
         {/* FAQ Section */}
-        <div className="max-w-3xl mx-auto mt-16">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white text-center mb-8">
+        <div className="mt-20 max-w-3xl mx-auto">
+          <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white mb-12">
             Frequently Asked Questions
           </h2>
           
           <div className="space-y-6">
-            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-                Why are premium cards behind a paywall?
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                What's the difference between free and premium cards?
               </h3>
-              <p className="text-gray-600 dark:text-gray-400">
-                Premium cards with annual fees require sophisticated optimization of benefits like travel credits, lounge access, and hotel status. Our premium tier provides the advanced tools needed to maximize these complex reward structures.
+              <p className="text-gray-600 dark:text-gray-300">
+                Free tier includes no-annual-fee cards like Chase Freedom Unlimited and Citi Double Cash. Premium unlocks cards like Chase Sapphire, Amex Gold/Platinum, and Capital One Venture X.
               </p>
             </div>
             
-            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 Can I cancel anytime?
               </h3>
-              <p className="text-gray-600 dark:text-gray-400">
-                Yes! You can cancel your premium subscription at any time. You'll continue to have access to premium features until the end of your billing period, then automatically return to the free tier.
+              <p className="text-gray-600 dark:text-gray-300">
+                Yes! You can cancel your subscription at any time. You'll retain premium access until the end of your billing period.
               </p>
             </div>
             
-            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-                What if I'm new to credit cards?
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                How does the 7-day free trial work?
               </h3>
-              <p className="text-gray-600 dark:text-gray-400">
-                Our free tier is perfect for beginners! It includes all the popular no annual fee cards that are ideal for building credit history. You can always upgrade later when you're ready for premium cards.
+              <p className="text-gray-600 dark:text-gray-300">
+                You get full access to all premium features for 7 days. If you don't cancel before the trial ends, you'll be charged $9.99/month.
               </p>
             </div>
           </div>

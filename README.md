@@ -12,6 +12,7 @@ A modern web application that helps users maximize their credit card rewards thr
 
 ### 🎯 Core Functionality
 - **Smart Recommendations**: Mathematical algorithm analyzes spending patterns and ranks credit cards by net annual value
+- **Multi-Card Strategies** (Premium): Optimize 2-3 card combinations for maximum rewards across all categories with smart diversification
 - **Owned Cards Exclusion**: Never get recommended cards you already have - manage your owned cards in your profile
 - **Subcategory Precision**: Toggle between basic categories and detailed subcategories (Amazon, Whole Foods, Hotels, Car Rental, etc.) for merchant-specific optimization
 - **Category-Based Analysis**: Input spending across 8 categories (Dining, Travel, Gas, Groceries, etc.) with optional subcategory breakdowns
@@ -49,6 +50,15 @@ A modern web application that helps users maximize their credit card rewards thr
 - **Error Handling**: Robust error boundaries and validation
 - **Type Safety**: Full TypeScript implementation with proper interfaces
 - **Real-time Updates**: Automatic preference synchronization across pages
+
+### 💰 Freemium Model & Conversion Optimization
+- **Free Tier**: Access to no-annual-fee credit cards (Chase Freedom Unlimited, Citi Double Cash, Discover it, etc.)
+- **Premium Tier ($9.99/month)**: All premium annual fee cards (Chase Sapphire, Amex Gold/Platinum, Capital One Venture X, etc.)
+- **Smart Upgrade Prompts**: Beautiful modal prompts when free users try premium features (points optimization, best overall analysis)
+- **Conversion Indicators**: Subtle notifications showing free users they're seeing limited results with upgrade options
+- **No Account Required**: Users can try the app immediately, with gentle encouragement to sign up for saved preferences
+- **Delayed Prompts**: Upgrade prompts appear after users see value (3 seconds after getting results)
+- **Feature-Specific Messaging**: Contextual upgrade prompts explain exactly what premium features unlock
 
 ## 🚀 Quick Start
 
