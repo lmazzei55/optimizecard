@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { Header } from "@/components/Header"
 
 interface SubscriptionData {
   subscriptionTier: string
@@ -27,6 +28,17 @@ export default function PricingPage() {
     }
   }, [session])
 
+  // Check for successful upgrade from URL params
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    if (urlParams.get('upgraded') === 'true' && session?.user) {
+      // Wait a moment for webhook to process, then verify subscription with Stripe
+      setTimeout(async () => {
+        await verifySubscription()
+      }, 2000)
+    }
+  }, [session])
+
   const fetchSubscription = async () => {
     try {
       const response = await fetch('/api/user/subscription')
@@ -41,26 +53,75 @@ export default function PricingPage() {
     }
   }
 
-  const handleUpgrade = async () => {
-    // For now, just simulate upgrading to premium
-    // In production, this would integrate with Stripe
+  const verifySubscription = async () => {
     try {
-      const response = await fetch('/api/user/subscription', {
+      const response = await fetch('/api/stripe/verify-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subscriptionTier: 'premium',
-          subscriptionStatus: 'active',
-          subscriptionStartDate: new Date().toISOString(),
-        })
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log('Subscription verified:', data.message)
+        // Refresh subscription data
+        await fetchSubscription()
+        return data
+      }
+    } catch (error) {
+      console.error('Error verifying subscription:', error)
+    }
+    return null
+  }
+
+  const handleUpgrade = async () => {
+    // Create Stripe checkout session
+    try {
+      setLoading(true)
+      const response = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
       })
 
-      if (response.ok) {
-        setSubscription(prev => prev ? { ...prev, subscriptionTier: 'premium' } : null)
-        router.push('/dashboard?upgraded=true')
+      const data = await response.json()
+
+      if (response.ok && data.checkoutUrl) {
+        // Redirect to Stripe checkout
+        window.location.href = data.checkoutUrl
+      } else {
+        console.error('Error creating checkout session:', data.error)
+        alert('Failed to start checkout. Please try again.')
       }
     } catch (error) {
       console.error('Error upgrading subscription:', error)
+      alert('Failed to start checkout. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleManageSubscription = async () => {
+    // Open Stripe customer portal
+    try {
+      setLoading(true)
+      const response = await fetch('/api/stripe/portal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.portalUrl) {
+        // Redirect to Stripe customer portal
+        window.location.href = data.portalUrl
+      } else {
+        console.error('Error creating portal session:', data.error)
+        alert('Failed to open billing portal. Please try again.')
+      }
+    } catch (error) {
+      console.error('Error opening portal:', error)
+      alert('Failed to open billing portal. Please try again.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -76,6 +137,8 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <Header />
+      
       <div className="container mx-auto px-4 py-16">
         {/* Header */}
         <div className="text-center mb-16">
@@ -110,6 +173,13 @@ export default function PricingPage() {
                     {isPremium ? 'Access to all premium cards' : 'No annual fee cards only'}
                   </p>
                 </div>
+                <button
+                  onClick={verifySubscription}
+                  className="ml-auto text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 px-3 py-1 rounded-lg transition-colors"
+                  title="Refresh subscription status"
+                >
+                  🔄
+                </button>
               </div>
             </div>
           </div>
@@ -229,15 +299,20 @@ export default function PricingPage() {
 
             {session?.user ? (
               isPremium ? (
-                <button className="w-full bg-white/20 text-white font-semibold py-3 px-4 rounded-xl cursor-not-allowed">
-                  Current Plan
+                <button 
+                  onClick={handleManageSubscription}
+                  disabled={loading}
+                  className="w-full bg-white/20 text-white font-semibold py-3 px-4 rounded-xl hover:bg-white/30 transition-all duration-200"
+                >
+                  {loading ? 'Loading...' : 'Manage Subscription'}
                 </button>
               ) : (
                 <button 
                   onClick={handleUpgrade}
-                  className="w-full bg-white text-purple-600 font-semibold py-3 px-4 rounded-xl hover:bg-gray-100 transition-all duration-200 transform hover:scale-105"
+                  disabled={loading}
+                  className="w-full bg-white text-purple-600 font-semibold py-3 px-4 rounded-xl hover:bg-gray-100 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
-                  Upgrade to Premium
+                  {loading ? 'Loading...' : 'Upgrade to Premium'}
                 </button>
               )
             ) : (

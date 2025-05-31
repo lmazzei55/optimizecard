@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from 'react'
 import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { formatCurrency } from "@/lib/utils"
 import { CardCustomizationModal } from "@/components/CardCustomizationModal"
+import { MultiCardStrategies } from './MultiCardStrategies'
 
 interface SpendingCategory {
   id: string
@@ -859,6 +860,20 @@ export function SpendingForm() {
             })}
           </div>
         </div>
+      )}
+
+      {/* Multi-Card Strategies - Premium Feature */}
+      {recommendations.length > 0 && (
+        <MultiCardStrategies 
+          userSpending={spending.filter(s => s.monthlySpend > 0).map(s => ({
+            categoryName: s.categoryName,
+            monthlySpend: s.monthlySpend
+          }))}
+          rewardPreference={rewardPreference}
+          onError={(error) => {
+            console.error('Multi-card strategies error:', error)
+          }}
+        />
       )}
       
       {/* Card Customization Modal */}

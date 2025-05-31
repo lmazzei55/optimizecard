@@ -10,6 +10,12 @@ DATABASE_URL="file:./dev.db"
 NEXTAUTH_SECRET="your-nextauth-secret-key-here"
 NEXTAUTH_URL="http://localhost:3001"
 
+# Stripe Configuration (Get from Stripe Dashboard)
+STRIPE_SECRET_KEY="sk_test_your-stripe-secret-key"
+STRIPE_PUBLISHABLE_KEY="pk_test_your-stripe-publishable-key"
+STRIPE_WEBHOOK_SECRET="whsec_your-webhook-secret"
+STRIPE_PREMIUM_PRICE_ID="price_your-premium-price-id"
+
 # Google OAuth (Get from Google Cloud Console)
 GOOGLE_CLIENT_ID="your-google-client-id"
 GOOGLE_CLIENT_SECRET="your-google-client-secret"
@@ -82,6 +88,33 @@ Or use this online generator: https://generate-secret.vercel.app/32
 4. Add callback URL: `http://localhost:3001/api/auth/callback/twitter`
 5. Generate your **Client ID** and **Client Secret**
 6. Make sure to enable "Request email from users" in permissions
+
+### **Stripe Setup (Payment Processing)**
+1. Go to [Stripe Dashboard](https://dashboard.stripe.com/)
+2. Create a new account or sign in
+3. Get your API keys:
+   - Go to "Developers" → "API keys"
+   - Copy your **Publishable key** (starts with `pk_test_`)
+   - Copy your **Secret key** (starts with `sk_test_`)
+4. Create a Premium subscription product:
+   - Go to "Products" → "Add product"
+   - Name: "Premium Subscription"
+   - Pricing: $9.99/month recurring
+   - Copy the **Price ID** (starts with `price_`)
+5. Set up webhooks:
+   - Go to "Developers" → "Webhooks" → "Add endpoint"
+   - URL: `https://yourdomain.com/api/webhooks/stripe` (or localhost for dev)
+   - Events: Select all `customer.subscription.*` events
+   - Copy the **Webhook secret** (starts with `whsec_`)
+
+**⚠️ IMPORTANT for Development:**
+- For local testing, webhooks won't work with `localhost` URLs
+- Use [ngrok](https://ngrok.com/) or similar to expose your local server:
+  ```bash
+  ngrok http 3000
+  ```
+- Then use the ngrok URL in your webhook endpoint: `https://your-ngrok-url.ngrok.io/api/webhooks/stripe`
+- Alternatively, use the "Verify Subscription" button on the pricing page to manually sync subscription status
 
 ### **Resend (Email) Setup**
 1. Go to [Resend.com](https://resend.com/)
