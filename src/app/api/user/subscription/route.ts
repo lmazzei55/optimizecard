@@ -1,53 +1,66 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { withRetry } from '@/lib/prisma'
 
 // GET /api/user/subscription - Get user's subscription status
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await auth()
     
     if (!session?.user?.email) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Test database connection first
-    await prisma.$queryRawUnsafe('SELECT 1')
+    const subscription = await withRetry(async () => {
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email! },
+        include: {
+          subscription: true
+        }
+      })
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: {
-        subscriptionTier: true,
-        subscriptionStatus: true,
-        subscriptionStartDate: true,
-        subscriptionEndDate: true,
-        trialEndDate: true,
+      if (!user) {
+        throw new Error('User not found')
       }
+
+      return user.subscription
     })
 
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    if (!subscription) {
+      return NextResponse.json({
+        tier: 'free',
+        status: 'inactive',
+        stripeCustomerId: null,
+        stripeSubscriptionId: null
+      })
     }
 
     return NextResponse.json({
-      success: true,
-      data: user
+      tier: subscription.tier,
+      status: subscription.status,
+      stripeCustomerId: subscription.stripeCustomerId,
+      stripeSubscriptionId: subscription.stripeSubscriptionId,
+      currentPeriodEnd: subscription.currentPeriodEnd,
+      currentPeriodStart: subscription.currentPeriodStart
     })
   } catch (error: any) {
-    console.error("Error fetching subscription:", error)
+    console.error('❌ Subscription API Error:', error)
     
-    // If it's a database connection error, return a service unavailable error
-    // instead of 500 to prevent authentication corruption
-    if (error?.code === 'P2010' || error?.message?.includes('prepared statement')) {
-      console.error('Database connection pool issue in subscription API')
+    // Return 503 for database connection issues
+    if (error?.code === 'P2010' || error?.message?.includes('prepared statement') || error?.message?.includes('connection')) {
       return NextResponse.json(
-        { error: "Database temporarily unavailable", code: 'DB_POOL_ERROR' },
+        { 
+          error: 'Database temporarily unavailable', 
+          tier: 'free',  // Fallback to free tier
+          status: 'inactive'
+        },
         { status: 503 }
       )
     }
     
     return NextResponse.json(
-      { error: "Failed to fetch subscription", details: error?.message || 'Unknown error' },
+      { error: 'Failed to fetch subscription', details: error?.message || 'Unknown error' },
       { status: 500 }
     )
   }
