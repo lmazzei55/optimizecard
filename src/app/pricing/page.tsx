@@ -228,7 +228,7 @@ function PricingContent() {
 
         {/* Header */}
         <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-green-600 bg-clip-text text-transparent mb-6">
+          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-green-600 bg-clip-text text-transparent mb-6 leading-relaxed">
             Upgrade to Premium
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
@@ -363,9 +363,9 @@ function PricingContent() {
         {/* Back to Dashboard */}
         <div className="text-center">
           <Link href="/dashboard">
-            <Button variant="outline" className="px-8 py-3">
+            <button className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-700 text-gray-900 dark:text-white px-8 py-3 rounded-full font-semibold shadow-lg transform hover:scale-105 transition-all duration-200">
               ← Back to Dashboard
-            </Button>
+            </button>
           </Link>
         </div>
 
