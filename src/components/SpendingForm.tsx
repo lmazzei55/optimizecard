@@ -158,38 +158,43 @@ export function SpendingForm() {
   // Check user subscription tier
   useEffect(() => {
     const checkSubscriptionTier = async () => {
-      if (session?.user?.email) {
-        try {
-          const response = await fetch('/api/user/subscription', {
-            headers: {
-              'Cache-Control': 'no-cache',
-            }
-          })
-          if (response.ok) {
-            const data = await response.json()
-            const newTier = data.data?.subscriptionTier || 'free'
-            console.log('🔍 Subscription tier check:', newTier)
-            setUserSubscriptionTier(newTier)
-          } else if (response.status === 401) {
-            console.warn('⚠️ Authentication error in subscription check - skipping')
-            // Don't set tier to avoid clearing valid data, just skip this check
-            return
-          } else {
-            console.warn('⚠️ Subscription check failed with status:', response.status)
-            setUserSubscriptionTier('free')
+      // Only check if we have a valid session, but don't block if session is loading
+      if (!session?.user?.email) {
+        return // Simply return without setting anything if no session yet
+      }
+      
+      try {
+        const response = await fetch('/api/user/subscription', {
+          headers: {
+            'Cache-Control': 'no-cache',
           }
-        } catch (error) {
-          console.error('Error checking subscription tier:', error)
-          // Don't immediately set to 'free' on network errors, keep existing value
+        })
+        if (response.ok) {
+          const data = await response.json()
+          const newTier = data.data?.subscriptionTier || 'free'
+          console.log('🔍 Subscription tier check:', newTier)
+          setUserSubscriptionTier(newTier)
+        } else if (response.status === 401) {
+          console.warn('⚠️ Authentication error in subscription check - skipping')
+          // Don't set tier to avoid clearing valid data, just skip this check
+          return
+        } else {
+          console.warn('⚠️ Subscription check failed with status:', response.status)
+          setUserSubscriptionTier('free')
         }
+      } catch (error) {
+        console.error('Error checking subscription tier:', error)
+        // Don't immediately set to 'free' on network errors, keep existing value
       }
     }
     
     checkSubscriptionTier()
     
-    // Also check every 30 seconds to catch updates
-    const interval = setInterval(checkSubscriptionTier, 30000)
-    return () => clearInterval(interval)
+    // Only set up interval if we have a session
+    if (session?.user?.email) {
+      const interval = setInterval(checkSubscriptionTier, 30000)
+      return () => clearInterval(interval)
+    }
   }, [session])
 
   // Add a manual refresh function for subscription tier
@@ -379,12 +384,6 @@ export function SpendingForm() {
 
   const fetchCategories = async () => {
     try {
-      // Add session check before making API calls
-      if (!session?.user) {
-        console.log('⚠️ No session available for fetchCategories')
-        return
-      }
-
       const endpoint = enableSubcategories ? '/api/subcategories' : '/api/categories'
       const response = await fetch(endpoint, {
         headers: {
@@ -395,7 +394,7 @@ export function SpendingForm() {
       if (!response.ok) {
         if (response.status === 401) {
           console.error('Authentication error in fetchCategories')
-          // Don't set categories if authentication fails
+          // Don't set categories if authentication fails, but don't prevent loading either
           return
         }
         throw new Error(`HTTP error! status: ${response.status}`)
