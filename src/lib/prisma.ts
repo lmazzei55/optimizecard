@@ -4,18 +4,26 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient()
+export const prisma = globalForPrisma.prisma ?? new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL,
+    },
+  },
+  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+})
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
 
 // Initialize database schema if needed
 export async function initializeDatabase() {
   try {
-    // Test connection and ensure tables exist
-    await prisma.$queryRaw`SELECT 1;`
+    // Test connection with a simple query that doesn't use prepared statements
+    const result = await prisma.$queryRawUnsafe('SELECT 1 as test')
+    console.log('Database connection test successful')
+    return true
   } catch (error) {
-    console.log('Database not ready, this is expected on first deployment')
-    // In production, the tables will be created by Prisma migrations
-    // or by manual database setup
+    console.log('Database connection failed:', error)
+    return false
   }
 } 
