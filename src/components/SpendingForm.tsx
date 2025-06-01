@@ -160,16 +160,27 @@ export function SpendingForm() {
     const checkSubscriptionTier = async () => {
       if (session?.user?.email) {
         try {
-          const response = await fetch('/api/user/subscription')
+          const response = await fetch('/api/user/subscription', {
+            headers: {
+              'Cache-Control': 'no-cache',
+            }
+          })
           if (response.ok) {
             const data = await response.json()
             const newTier = data.data?.subscriptionTier || 'free'
             console.log('🔍 Subscription tier check:', newTier)
             setUserSubscriptionTier(newTier)
+          } else if (response.status === 401) {
+            console.warn('⚠️ Authentication error in subscription check - skipping')
+            // Don't set tier to avoid clearing valid data, just skip this check
+            return
+          } else {
+            console.warn('⚠️ Subscription check failed with status:', response.status)
+            setUserSubscriptionTier('free')
           }
         } catch (error) {
           console.error('Error checking subscription tier:', error)
-          setUserSubscriptionTier('free')
+          // Don't immediately set to 'free' on network errors, keep existing value
         }
       }
     }
@@ -185,12 +196,21 @@ export function SpendingForm() {
   const refreshSubscriptionTier = async () => {
     if (session?.user?.email) {
       try {
-        const response = await fetch('/api/user/subscription')
+        const response = await fetch('/api/user/subscription', {
+          headers: {
+            'Cache-Control': 'no-cache',
+          }
+        })
         if (response.ok) {
           const data = await response.json()
           const newTier = data.data?.subscriptionTier || 'free'
           console.log('🔄 Manual subscription tier refresh:', newTier)
           setUserSubscriptionTier(newTier)
+        } else if (response.status === 401) {
+          console.warn('⚠️ Authentication error in manual subscription refresh')
+          // Don't update tier on auth errors
+        } else {
+          console.warn('⚠️ Manual subscription refresh failed with status:', response.status)
         }
       } catch (error) {
         console.error('Error refreshing subscription tier:', error)
@@ -359,9 +379,36 @@ export function SpendingForm() {
 
   const fetchCategories = async () => {
     try {
+      // Add session check before making API calls
+      if (!session?.user) {
+        console.log('⚠️ No session available for fetchCategories')
+        return
+      }
+
       const endpoint = enableSubcategories ? '/api/subcategories' : '/api/categories'
-      const response = await fetch(endpoint)
+      const response = await fetch(endpoint, {
+        headers: {
+          'Cache-Control': 'no-cache',
+        }
+      })
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.error('Authentication error in fetchCategories')
+          // Don't set categories if authentication fails
+          return
+        }
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
       const data = await response.json()
+      
+      // Ensure data is an array before proceeding
+      if (!Array.isArray(data)) {
+        console.error('Categories API returned non-array data:', data)
+        return
+      }
+      
       setCategories(data)
       
       // Check if we have saved data that we should preserve

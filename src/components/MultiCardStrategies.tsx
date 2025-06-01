@@ -31,6 +31,7 @@ export function MultiCardStrategies({ userSpending, benefitValuations, rewardPre
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
         },
         body: JSON.stringify({
           userSpending,
@@ -43,6 +44,10 @@ export function MultiCardStrategies({ userSpending, benefitValuations, rewardPre
         const errorData = await response.json()
         if (response.status === 403) {
           onUpgradePrompt?.()
+          return
+        } else if (response.status === 401) {
+          setError('Authentication error - please refresh the page and try again')
+          console.warn('⚠️ Authentication error in multi-card strategies - not triggering logout')
           return
         } else {
           setError(errorData.error || 'Failed to fetch strategies')

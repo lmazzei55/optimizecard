@@ -226,22 +226,6 @@ function PricingContent() {
           </div>
         )}
 
-        {/* Debug Sync Button for all users */}
-        {session && !showSuccess && (
-          <div className="max-w-md mx-auto mb-8 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg backdrop-blur-sm">
-            <p className="text-sm text-blue-600 dark:text-blue-400 mb-2">
-              Debug: If you just completed a payment, click here to sync your subscription status:
-            </p>
-            <button
-              onClick={handleSyncSubscription}
-              disabled={loading}
-              className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded"
-            >
-              {loading ? 'Syncing...' : 'Sync Subscription Status'}
-            </button>
-          </div>
-        )}
-
         {showCanceled && (
           <div className="max-w-md mx-auto mb-8 p-6 bg-yellow-500/20 border border-yellow-500/30 rounded-lg backdrop-blur-sm">
             <h3 className="text-yellow-600 dark:text-yellow-400 font-semibold mb-2">Checkout Canceled</h3>
