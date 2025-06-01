@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, Suspense, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
@@ -28,6 +28,7 @@ function PricingContent() {
   const [loading, setLoading] = useState(true)
   const [showSuccess, setShowSuccess] = useState(false)
   const [showCanceled, setShowCanceled] = useState(false)
+  const syncTriggeredRef = useRef(false)
 
   useEffect(() => {
     if (session?.user) {
@@ -46,6 +47,44 @@ function PricingContent() {
       setShowCanceled(true)
     }
   }, [searchParams])
+
+  // Auto-sync subscription after successful payment
+  useEffect(() => {
+    if (showSuccess && session?.user && !loading && !syncTriggeredRef.current) {
+      syncTriggeredRef.current = true
+      const autoSync = async () => {
+        try {
+          setLoading(true)
+          const response = await fetch('/api/stripe/sync-subscription', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          })
+
+          const data = await response.json()
+
+          if (response.ok) {
+            console.log('Auto-sync result:', data)
+            // Trigger a refresh in other components
+            localStorage.setItem('subscription-updated', Date.now().toString())
+            window.dispatchEvent(new StorageEvent('storage', {
+              key: 'subscription-updated',
+              newValue: Date.now().toString()
+            }))
+            
+            // Refresh subscription data
+            await fetchSubscription()
+          } else {
+            console.error('Error auto-syncing subscription:', data.error)
+          }
+        } catch (error) {
+          console.error('Error auto-syncing subscription:', error)
+        } finally {
+          setLoading(false)
+        }
+      }
+      autoSync()
+    }
+  }, [showSuccess, session?.user, loading])
 
   const fetchSubscription = async () => {
     try {
@@ -135,7 +174,6 @@ function PricingContent() {
 
       if (response.ok) {
         console.log('Sync result:', data)
-        alert(`Subscription synced: ${data.subscriptionTier} (${data.subscriptionStatus})`)
         
         // Trigger a refresh in other components
         localStorage.setItem('subscription-updated', Date.now().toString())
@@ -146,11 +184,6 @@ function PricingContent() {
         
         // Refresh subscription data
         await fetchSubscription()
-        
-        // Force a page refresh to ensure all components update
-        setTimeout(() => {
-          window.location.reload()
-        }, 1000)
       } else {
         console.error('Error syncing subscription:', data.error)
         alert('Failed to sync subscription. Please try again.')
@@ -185,18 +218,10 @@ function PricingContent() {
             <p className="text-green-700 dark:text-green-300 text-sm">
               Your 7-day free trial has started. Enjoy unlimited access to all premium features!
             </p>
-            <div className="mt-4 space-y-2">
+            <div className="mt-4">
               <Link href="/dashboard" className="inline-block text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 underline text-sm">
                 Return to Dashboard →
               </Link>
-              <br />
-              <button
-                onClick={handleSyncSubscription}
-                disabled={loading}
-                className="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded"
-              >
-                {loading ? 'Syncing...' : 'Sync Subscription Status'}
-              </button>
             </div>
           </div>
         )}

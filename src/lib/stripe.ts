@@ -40,6 +40,6 @@ export const STRIPE_CONFIG = {
       }
     }
   },
-  successUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/dashboard?success=true`,
-  cancelUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/pricing?canceled=true`,
+  successUrl: `${process.env.NEXTAUTH_URL || 'https://optimizecard.com'}/pricing?success=true`,
+  cancelUrl: `${process.env.NEXTAUTH_URL || 'https://optimizecard.com'}/pricing?canceled=true`,
 } 
