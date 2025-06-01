@@ -4,25 +4,33 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
+// Use direct connection for production to avoid pooling issues
+const getDatabaseUrl = () => {
+  if (process.env.NODE_ENV === 'production') {
+    // Use direct connection in production to avoid Supabase pooling issues
+    return process.env.DIRECT_DATABASE_URL || process.env.DATABASE_URL
+  }
+  return process.env.DATABASE_URL
+}
+
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({
   datasources: {
     db: {
-      url: process.env.DATABASE_URL,
+      url: getDatabaseUrl(),
     },
   },
   log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  // Add connection pool settings for better Vercel compatibility
+  // Simplified configuration for direct connection
   ...(process.env.NODE_ENV === 'production' && {
     transactionOptions: {
-      timeout: 15000, // 15 seconds
-      maxWait: 10000, // 10 seconds
+      timeout: 20000, // 20 seconds for direct connection
     },
   }),
 })
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
 
-// Force disconnect on serverless functions to prevent connection leaks
+// Simplified connection management for direct connection
 if (process.env.NODE_ENV === 'production') {
   // Auto-disconnect after requests in serverless environment
   process.on('beforeExit', async () => {
@@ -43,30 +51,22 @@ export async function initializeDatabase() {
   }
 }
 
-// Helper function for retrying database operations with more aggressive settings
+// Simplified retry logic for direct connection
 export async function withRetry<T>(
   operation: () => Promise<T>, 
-  maxRetries: number = 5,  // Increased retries
-  baseDelayMs: number = 500  // Shorter initial delay
+  maxRetries: number = 3,  // Reduced retries for direct connection
+  baseDelayMs: number = 1000
 ): Promise<T> {
   let lastError: any
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      // For production, try to reconnect on each attempt
-      if (process.env.NODE_ENV === 'production' && attempt > 1) {
-        try {
-          await prisma.$disconnect()
-          await new Promise(resolve => setTimeout(resolve, 100))
-        } catch (disconnectError) {
-          // Ignore disconnect errors
-        }
+      // Simple connection test
+      if (attempt > 1) {
+        await prisma.$queryRawUnsafe('SELECT 1')
       }
       
-      // Test connection first with a simpler query
-      await prisma.$queryRawUnsafe('SELECT 1')
-      
-      // Then perform the operation
+      // Perform the operation
       const result = await operation()
       
       if (attempt > 1) {
@@ -83,16 +83,13 @@ export async function withRetry<T>(
         error?.code === 'P2010' || 
         error?.code === 'P1001' ||
         error?.code === 'P1017' ||
-        error?.message?.includes('prepared statement') ||
         error?.message?.includes('connection') ||
-        error?.message?.includes('timeout') ||
-        error?.message?.includes('pool')
+        error?.message?.includes('timeout')
       )
       
       if (attempt < maxRetries && isRetryable) {
-        // Exponential backoff with jitter
-        const delay = baseDelayMs * Math.pow(2, attempt - 1) + Math.random() * 100
-        console.log(`🔄 Retrying in ${Math.round(delay)}ms...`)
+        const delay = baseDelayMs * attempt
+        console.log(`🔄 Retrying in ${delay}ms...`)
         await new Promise(resolve => setTimeout(resolve, delay))
         continue
       }

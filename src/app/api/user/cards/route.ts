@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { withRetry } from '@/lib/prisma'
 import { prisma } from '@/lib/prisma'
 
 // GET: Fetch all available cards and user's owned cards
@@ -11,39 +10,62 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const userCards = await withRetry(async () => {
-      return await prisma.userCard.findMany({
-        where: {
-          user: {
-            email: session.user.email!
-          }
-        },
-        include: {
-          card: true
-        }
-      })
+    // Get all available cards
+    const allCards = await prisma.creditCard.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        name: true,
+        issuer: true,
+        annualFee: true,
+        rewardType: true,
+        applicationUrl: true,
+      },
+      orderBy: [
+        { issuer: 'asc' },
+        { name: 'asc' }
+      ]
     })
 
-    console.log(`✅ Cards API: Found ${userCards.length} cards for user`)
+    // Get user's owned cards
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      include: {
+        ownedCards: {
+          include: {
+            card: true
+          }
+        }
+      }
+    })
+
+    const ownedCardIds = user?.ownedCards?.map(uc => uc.cardId) || []
+
+    console.log(`✅ Cards API: Found ${allCards.length} total cards, ${ownedCardIds.length} owned by user`)
     
-    return NextResponse.json(userCards)
+    return NextResponse.json({
+      allCards,
+      ownedCardIds
+    })
 
   } catch (error: any) {
     console.error('❌ Cards API Error:', error)
     
-    // Return 503 for database connection issues with empty array fallback
-    if (error?.code === 'P2010' || error?.message?.includes('prepared statement') || error?.message?.includes('connection')) {
-      console.error('Database connection pool issue detected')
-      return NextResponse.json(
-        { error: 'Database temporarily unavailable', cards: [] },
-        { status: 503 }
-      )
-    }
+    // Return fallback data for any error
+    const fallbackCards = [
+      { id: '1', name: 'Chase Sapphire Preferred', issuer: 'Chase', annualFee: 95, rewardType: 'points' },
+      { id: '2', name: 'Citi Double Cash', issuer: 'Citi', annualFee: 0, rewardType: 'cashback' },
+      { id: '3', name: 'American Express Gold', issuer: 'American Express', annualFee: 250, rewardType: 'points' }
+    ]
     
-    return NextResponse.json(
-      { error: 'Failed to fetch cards', details: error?.message || 'Unknown error' },
-      { status: 500 }
-    )
+    return NextResponse.json({
+      allCards: fallbackCards,
+      ownedCardIds: [],
+      fallback: true
+    }, { 
+      status: 200,
+      headers: { 'X-Fallback-Data': 'true' }
+    })
   }
 }
 
@@ -55,55 +77,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { cardIds } = await request.json()
+    const { ownedCardIds }: { ownedCardIds: string[] } = await request.json()
 
-    const result = await withRetry(async () => {
-      // First, clear existing cards for this user
-      await prisma.userCard.deleteMany({
-        where: {
-          user: {
-            email: session.user.email!
-          }
+    // Remove all existing owned cards for this user
+    await prisma.userCard.deleteMany({
+      where: {
+        user: {
+          email: session.user.email
         }
-      })
-
-      // Then add the new cards
-      if (cardIds && cardIds.length > 0) {
-        const user = await prisma.user.findUnique({
-          where: { email: session.user.email! }
-        })
-
-        if (!user) {
-          throw new Error('User not found')
-        }
-
-        const userCards = await prisma.userCard.createMany({
-          data: cardIds.map((cardId: string) => ({
-            userId: user.id,
-            cardId: cardId
-          }))
-        })
-
-        return userCards
       }
-
-      return { count: 0 }
     })
 
-    console.log(`✅ Cards updated for user: ${result.count} cards`)
+    // Add the new owned cards
+    if (ownedCardIds.length > 0) {
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email }
+      })
 
-    return NextResponse.json({ success: true, count: result.count })
+      if (!user) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      }
+
+      await prisma.userCard.createMany({
+        data: ownedCardIds.map(cardId => ({
+          userId: user.id,
+          cardId
+        }))
+      })
+    }
+
+    console.log(`✅ Cards updated for user: ${ownedCardIds.length} cards`)
+
+    return NextResponse.json({ success: true })
 
   } catch (error: any) {
     console.error('❌ Cards Update Error:', error)
-    
-    // Return 503 for database connection issues
-    if (error?.code === 'P2010' || error?.message?.includes('prepared statement') || error?.message?.includes('connection')) {
-      return NextResponse.json(
-        { error: 'Database temporarily unavailable' },
-        { status: 503 }
-      )
-    }
     
     return NextResponse.json(
       { error: 'Failed to update cards', details: error?.message || 'Unknown error' },
