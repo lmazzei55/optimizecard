@@ -178,6 +178,10 @@ export function SpendingForm() {
           console.warn('⚠️ Authentication error in subscription check - skipping')
           // Don't set tier to avoid clearing valid data, just skip this check
           return
+        } else if (response.status === 503) {
+          console.warn('⚠️ Database temporarily unavailable - keeping current tier')
+          // Don't change tier when database is temporarily unavailable
+          return
         } else {
           console.warn('⚠️ Subscription check failed with status:', response.status)
           setUserSubscriptionTier('free')
@@ -214,6 +218,9 @@ export function SpendingForm() {
         } else if (response.status === 401) {
           console.warn('⚠️ Authentication error in manual subscription refresh')
           // Don't update tier on auth errors
+        } else if (response.status === 503) {
+          console.warn('⚠️ Database temporarily unavailable during manual refresh')
+          // Don't update tier when database is temporarily unavailable
         } else {
           console.warn('⚠️ Manual subscription refresh failed with status:', response.status)
         }
@@ -302,6 +309,11 @@ export function SpendingForm() {
                 savedSpending = data.spending
               }
             }
+          } else if (response.status === 503) {
+            console.warn('⚠️ Database temporarily unavailable - using localStorage data only')
+            // Continue with localStorage data when database is unavailable
+          } else {
+            console.warn('⚠️ Failed to load user spending data, status:', response.status)
           }
         } catch (error) {
           console.error('Error loading user spending data:', error)
@@ -365,12 +377,18 @@ export function SpendingForm() {
       // If user is logged in, also save to their account
       if (session?.user?.email) {
         try {
-          await fetch('/api/user/spending', {
+          const response = await fetch('/api/user/spending', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ spending })
           })
-          console.log('💾 Saved spending data to user account')
+          if (response.ok) {
+            console.log('💾 Saved spending data to user account')
+          } else if (response.status === 503) {
+            console.warn('⚠️ Database temporarily unavailable - data saved to localStorage only')
+          } else {
+            console.warn('⚠️ Failed to save spending data to account, status:', response.status)
+          }
         } catch (error) {
           console.error('Error saving user spending data:', error)
         }

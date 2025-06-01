@@ -60,11 +60,15 @@ export async function POST(request: NextRequest) {
         if (user) {
           userSubscriptionTier = (user.subscriptionTier as 'free' | 'premium') || 'free'
           ownedCardIds = user.ownedCards.map((uc: { cardId: string }) => uc.cardId)
+          console.log(`✅ Recommendations API: User ${session.user.email} has ${userSubscriptionTier} tier`)
         }
+      } else {
+        console.log('ℹ️ Recommendations API: No session found, using free tier defaults')
       }
-    } catch (error) {
-      console.error('Error fetching user data:', error)
+    } catch (error: any) {
+      console.error('⚠️ Recommendations API: Error fetching user data:', error.message)
       // Continue with default free tier if there's an error
+      // Don't let authentication errors break the recommendations
     }
 
     // Calculate recommendations with subscription tier filtering

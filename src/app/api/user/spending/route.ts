@@ -9,6 +9,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
+    // Test database connection first
+    await prisma.$queryRawUnsafe('SELECT 1')
+
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
       select: { spendingData: true }
@@ -29,9 +32,22 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({ spending })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching user spending:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    
+    // If it's a database connection error, return a service unavailable error
+    if (error?.code === 'P2010' || error?.message?.includes('prepared statement')) {
+      console.error('Database connection pool issue in spending API')
+      return NextResponse.json(
+        { error: 'Database temporarily unavailable', code: 'DB_POOL_ERROR' },
+        { status: 503 }
+      )
+    }
+    
+    return NextResponse.json({ 
+      error: 'Internal server error', 
+      details: error?.message || 'Unknown error' 
+    }, { status: 500 })
   }
 }
 

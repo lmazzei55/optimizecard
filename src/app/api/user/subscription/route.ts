@@ -11,6 +11,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
+    // Test database connection first
+    await prisma.$queryRawUnsafe('SELECT 1')
+
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
       select: {
@@ -30,10 +33,21 @@ export async function GET(request: NextRequest) {
       success: true,
       data: user
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching subscription:", error)
+    
+    // If it's a database connection error, return a service unavailable error
+    // instead of 500 to prevent authentication corruption
+    if (error?.code === 'P2010' || error?.message?.includes('prepared statement')) {
+      console.error('Database connection pool issue in subscription API')
+      return NextResponse.json(
+        { error: "Database temporarily unavailable", code: 'DB_POOL_ERROR' },
+        { status: 503 }
+      )
+    }
+    
     return NextResponse.json(
-      { error: "Failed to fetch subscription" },
+      { error: "Failed to fetch subscription", details: error?.message || 'Unknown error' },
       { status: 500 }
     )
   }

@@ -90,21 +90,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.id as string
-        
-        // Add custom user fields to session
-        const userData = await prisma.user.findUnique({
-          where: { id: token.id as string },
-          select: {
-            rewardPreference: true,
-            pointValue: true,
-            enableSubCategories: true,
-          },
-        })
-        if (userData) {
-          session.user.rewardPreference = userData.rewardPreference
-          session.user.pointValue = userData.pointValue
-          session.user.enableSubCategories = userData.enableSubCategories
-        }
       }
       return session
     },
