@@ -28,7 +28,7 @@ If using SQLite locally, you'll need a PostgreSQL database for production:
 ### 1.2 Update Environment Variables for Production
 You'll need to update some variables for production:
 
-- `NEXTAUTH_URL`: Change from `http://localhost:3000` to your Vercel domain
+- `NEXTAUTH_URL`: Change from `http://localhost:3000` to your production domain (e.g., `https://optimizecard.com`)
 - `DATABASE_URL`: Use production database URL
 - `STRIPE_WEBHOOK_SECRET`: Will be generated after deployment
 
@@ -61,7 +61,7 @@ vercel
 # Set all environment variables (replace values with your production values)
 vercel env add DATABASE_URL
 vercel env add NEXTAUTH_SECRET
-vercel env add NEXTAUTH_URL
+vercel env add NEXTAUTH_URL  # Set to https://optimizecard.com
 vercel env add STRIPE_SECRET_KEY
 vercel env add NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
 vercel env add STRIPE_WEBHOOK_SECRET
@@ -89,12 +89,12 @@ npx prisma db push
 ## Step 4: Configure Stripe Webhooks
 
 ### 4.1 Get Your Deployment URL
-After deployment, you'll get a URL like: `https://your-app.vercel.app`
+After deployment, you'll get a URL like: `https://optimizecard.com`
 
 ### 4.2 Create Webhook in Stripe Dashboard
 1. Go to [Stripe Dashboard > Webhooks](https://dashboard.stripe.com/webhooks)
 2. Click "Add endpoint"
-3. Set endpoint URL: `https://your-app.vercel.app/api/stripe/webhooks`
+3. Set endpoint URL: `https://optimizecard.com/api/stripe/webhooks`
 4. Select events to listen for:
    - `customer.subscription.created`
    - `customer.subscription.updated`
@@ -124,60 +124,64 @@ Update your OAuth app settings to include the new domain:
 - Go to [Google Cloud Console](https://console.cloud.google.com/)
 - Navigate to APIs & Services > Credentials
 - Edit your OAuth 2.0 client
-- Add to Authorized redirect URIs: `https://your-app.vercel.app/api/auth/callback/google`
+- Add to Authorized redirect URIs: `https://optimizecard.com/api/auth/callback/google`
 
 ### GitHub OAuth
 - Go to GitHub > Settings > Developer settings > OAuth Apps
 - Edit your app
-- Update Authorization callback URL: `https://your-app.vercel.app/api/auth/callback/github`
+- Update Authorization callback URL: `https://optimizecard.com/api/auth/callback/github`
 
-### Repeat for other OAuth providers...
+### Facebook OAuth
+- Go to [Meta for Developers](https://developers.facebook.com/)
+- Edit your app > Facebook Login > Settings
+- Add to Valid OAuth Redirect URIs: `https://optimizecard.com/api/auth/callback/facebook`
+
+### Twitter/X OAuth
+- Go to [X Developer Portal](https://developer.twitter.com/)
+- Edit your app settings
+- Update callback URL: `https://optimizecard.com/api/auth/callback/twitter`
 
 ## Step 6: Test the Deployment
 
 ### 6.1 Test Basic Functionality
-1. Visit your deployed app
+1. Visit your deployed app at https://optimizecard.com
 2. Test sign-in with OAuth providers
 3. Test spending input and recommendations
 
 ### 6.2 Test Stripe Integration
-1. Go to `/pricing` page
-2. Click "Start 7-Day Free Trial"
-3. Complete checkout with test card: `4242 4242 4242 4242`
-4. Verify webhook receives the subscription event
-5. Check that subscription status updates automatically
-
-### 6.3 Test Customer Portal
-1. After successful payment, click "Manage Subscription"
-2. Verify portal opens correctly
-
-## Step 7: Monitor and Debug
-
-### 7.1 View Logs
-```bash
-vercel logs
-```
-
-### 7.2 Check Webhook Deliveries
-- Go to Stripe Dashboard > Webhooks
-- Click on your webhook endpoint
-- Check the "Recent deliveries" section
+1. Go to pricing page
+2. Test subscription with test card: 4242 4242 4242 4242
+3. Verify webhook events in Stripe dashboard
 
 ## Troubleshooting
 
 ### Database Connection Issues
-- Ensure DATABASE_URL is correctly set
-- Check that the database is accessible from Vercel
-- Verify the connection string format
+- Verify DATABASE_URL is correct in Vercel environment variables
+- Check if database server is running and accessible
+- Test connection from local environment first
 
-### Webhook Issues
-- Check webhook URL is exactly: `https://your-domain.vercel.app/api/stripe/webhooks`
-- Verify webhook secret is correctly set
-- Check Stripe webhook delivery logs
+### OAuth Authentication Errors
+- Ensure all OAuth redirect URLs include your production domain
+- Check that OAuth app credentials are correctly set in environment variables
+- Verify NEXTAUTH_URL matches your production domain
 
-### OAuth Issues
-- Ensure all OAuth redirect URLs are updated
-- Check that client IDs and secrets are correctly set
+### Stripe Webhook Issues
+- Confirm webhook endpoint URL is correct
+- Check webhook signing secret matches environment variable
+- Monitor webhook delivery attempts in Stripe dashboard
+
+## Production Checklist
+
+- [ ] Database is accessible and schema is deployed
+- [ ] All environment variables are set correctly
+- [ ] OAuth providers have correct redirect URLs
+- [ ] Stripe webhooks are configured and working
+- [ ] SSL certificate is active (automatic with Vercel)
+- [ ] Custom domain is configured (if using)
+- [ ] Error monitoring is set up (optional)
+
+📖 For detailed environment setup, see `ENV_SETUP.md`
+📖 For Stripe configuration, see `STRIPE_SETUP.md`
 
 ## Environment Variables Reference
 
@@ -185,7 +189,7 @@ Here's what each variable should contain for production:
 
 ```
 DATABASE_URL="postgresql://user:pass@host:port/database"
-NEXTAUTH_URL="https://your-app.vercel.app"
+NEXTAUTH_URL="https://optimizecard.com"
 NEXTAUTH_SECRET="your-production-secret"
 STRIPE_SECRET_KEY="sk_live_..." (or sk_test_ for testing)
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_live_..." (or pk_test_)

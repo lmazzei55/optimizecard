@@ -8,7 +8,7 @@ DATABASE_URL="file:./dev.db"
 
 # NextAuth.js Configuration
 NEXTAUTH_SECRET="your-nextauth-secret-key-here"
-NEXTAUTH_URL="http://localhost:3001"
+NEXTAUTH_URL="http://localhost:3000"  # For development, use https://optimizecard.com for production
 
 # Stripe Configuration (Get from Stripe Dashboard)
 STRIPE_SECRET_KEY="sk_test_your-stripe-secret-key"
@@ -59,8 +59,8 @@ Or use this online generator: https://generate-secret.vercel.app/32
    - Click "Create Credentials" → "OAuth 2.0 Client ID"
    - Choose "Web application"
    - Add authorized redirect URIs:
-     - `http://localhost:3001/api/auth/callback/google` (development)
-     - `https://yourdomain.com/api/auth/callback/google` (production)
+     - `http://localhost:3000/api/auth/callback/google` (development)
+     - `https://optimizecard.com/api/auth/callback/google` (production)
    - Save the **Client ID** and **Client Secret**
 
 ### **GitHub OAuth Setup**
@@ -68,8 +68,10 @@ Or use this online generator: https://generate-secret.vercel.app/32
 2. Click "New OAuth App"
 3. Fill in:
    - **Application name**: "Credit Card Optimizer"
-   - **Homepage URL**: `http://localhost:3001` (dev) or your domain
-   - **Authorization callback URL**: `http://localhost:3001/api/auth/callback/github`
+   - **Homepage URL**: `http://localhost:3000` (dev) or `https://optimizecard.com` (production)
+   - **Authorization callback URL**: 
+     - Development: `http://localhost:3000/api/auth/callback/github`
+     - Production: `https://optimizecard.com/api/auth/callback/github`
 4. Save the **Client ID** and **Client Secret**
 
 ### **Meta (Facebook) OAuth Setup**
@@ -77,7 +79,9 @@ Or use this online generator: https://generate-secret.vercel.app/32
 2. Click "Create App" → Choose "Consumer" or "Business"
 3. Add "Facebook Login" product to your app
 4. In Facebook Login settings:
-   - Add Valid OAuth Redirect URIs: `http://localhost:3001/api/auth/callback/facebook`
+   - Add Valid OAuth Redirect URIs: 
+     - Development: `http://localhost:3000/api/auth/callback/facebook`
+     - Production: `https://optimizecard.com/api/auth/callback/facebook`
 5. Go to App Settings → Basic
 6. Save the **App ID** (use as FACEBOOK_CLIENT_ID) and **App Secret**
 
@@ -85,7 +89,9 @@ Or use this online generator: https://generate-secret.vercel.app/32
 1. Go to [X Developer Portal](https://developer.twitter.com/en/portal/dashboard)
 2. Create a new project and app
 3. Enable OAuth 2.0 in your app settings
-4. Add callback URL: `http://localhost:3001/api/auth/callback/twitter`
+4. Add callback URLs: 
+   - Development: `http://localhost:3000/api/auth/callback/twitter`
+   - Production: `https://optimizecard.com/api/auth/callback/twitter`
 5. Generate your **Client ID** and **Client Secret**
 6. Make sure to enable "Request email from users" in permissions
 
@@ -103,8 +109,10 @@ Or use this online generator: https://generate-secret.vercel.app/32
    - Copy the **Price ID** (starts with `price_`)
 5. Set up webhooks:
    - Go to "Developers" → "Webhooks" → "Add endpoint"
-   - URL: `https://yourdomain.com/api/webhooks/stripe` (or localhost for dev)
-   - Events: Select all `customer.subscription.*` events
+   - URL: 
+     - Development: Use ngrok or similar tunnel
+     - Production: `https://optimizecard.com/api/stripe/webhooks`
+   - Events: Select all `customer.subscription.*` and `invoice.payment.*` events
    - Copy the **Webhook secret** (starts with `whsec_`)
 
 **⚠️ IMPORTANT for Development:**
@@ -113,11 +121,30 @@ Or use this online generator: https://generate-secret.vercel.app/32
   ```bash
   ngrok http 3000
   ```
-- Then use the ngrok URL in your webhook endpoint: `https://your-ngrok-url.ngrok.io/api/webhooks/stripe`
+- Then use the ngrok URL in your webhook endpoint: `https://your-ngrok-url.ngrok.io/api/stripe/webhooks`
 - Alternatively, use the "Verify Subscription" button on the pricing page to manually sync subscription status
 
 ### **Resend (Email) Setup**
 1. Go to [Resend.com](https://resend.com/)
 2. Sign up and verify your account
 3. Get your **API Key** from the dashboard
-4. (Optional) Add your domain for production email sending 
+4. (Optional) Add your domain for production email sending
+
+## Production Environment Variables
+
+For production deployment, update these variables:
+
+```bash
+# Production Database (PostgreSQL recommended)
+DATABASE_URL="postgresql://user:password@host:port/database"
+
+# Production Domain
+NEXTAUTH_URL="https://optimizecard.com"
+
+# Production Stripe Keys (if using live mode)
+STRIPE_SECRET_KEY="sk_live_..."
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_live_..."
+
+# Production Email Domain
+EMAIL_FROM="noreply@optimizecard.com"
+``` 

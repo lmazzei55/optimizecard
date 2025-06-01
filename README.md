@@ -99,7 +99,7 @@ A modern web application that helps users maximize their credit card rewards thr
    ```
 
 6. **Open your browser**
-   Navigate to `http://localhost:3000`
+   Navigate to `http://localhost:3000` (development) or `https://optimizecard.com` (production)
 
 ## 📱 How to Use
 
