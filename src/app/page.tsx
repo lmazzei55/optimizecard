@@ -18,13 +18,13 @@ export default function Home() {
           <div className="max-w-6xl mx-auto">
             {/* Hero Section */}
             <div className="text-center mb-16">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-3xl mb-8 shadow-2xl transform rotate-3 hover:rotate-0 transition-transform duration-300">
-                <span className="text-3xl">💳</span>
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-3xl mb-6 shadow-2xl transform rotate-3 hover:rotate-0 transition-transform duration-300">
+                <span className="text-2xl">💳</span>
               </div>
-              <h1 className="text-6xl font-bold mb-6 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight">
+              <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight">
                 Credit Card Optimizer
               </h1>
-              <p className="text-2xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed mb-8">
+              <p className="text-lg md:text-2xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed mb-8">
                 Maximize your credit card rewards with <span className="font-semibold text-purple-600 dark:text-purple-400">AI-powered recommendations</span> based on your unique spending patterns and preferences.
               </p>
               <div className="flex flex-wrap justify-center gap-4 mb-8">
@@ -44,67 +44,67 @@ export default function Home() {
             </div>
 
             {/* How It Works Section */}
-            <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-3xl shadow-2xl p-12 mb-16 border border-white/30 dark:border-gray-700/30">
-              <div className="text-center mb-12">
-                <h2 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 dark:from-white dark:via-blue-200 dark:to-purple-200 bg-clip-text text-transparent mb-4">
+            <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl rounded-3xl shadow-2xl p-8 md:p-12 mb-16 border border-white/30 dark:border-gray-700/30">
+              <div className="text-center mb-8 md:mb-12">
+                <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 dark:from-white dark:via-blue-200 dark:to-purple-200 bg-clip-text text-transparent mb-4">
                   How It Works
                 </h2>
                 <div className="w-24 h-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mx-auto"></div>
               </div>
               
-              <div className="grid md:grid-cols-3 gap-12">
+              <div className="grid md:grid-cols-3 gap-8 md:gap-12">
                 <div className="text-center group">
-                  <div className="relative mb-8">
-                    <div className="bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600 rounded-3xl w-24 h-24 flex items-center justify-center mx-auto shadow-2xl transform group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
-                      <span className="text-4xl">📊</span>
+                  <div className="relative mb-6 md:mb-8">
+                    <div className="bg-gradient-to-br from-blue-400 via-blue-500 to-blue-600 rounded-3xl w-20 h-20 md:w-24 md:h-24 flex items-center justify-center mx-auto shadow-2xl transform group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                      <span className="text-3xl md:text-4xl">📊</span>
                     </div>
                     <div className="absolute -top-2 -right-2 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-full w-8 h-8 flex items-center justify-center shadow-lg">
                       <span className="text-lg font-bold text-white">1</span>
                     </div>
                   </div>
-                  <h3 className="font-bold text-gray-900 dark:text-white mb-4 text-xl">Input Your Spending</h3>
-                  <p className="text-gray-600 dark:text-gray-300 leading-relaxed">Tell us how much you spend across different categories each month. Our smart interface makes it quick and easy.</p>
+                  <h3 className="font-bold text-gray-900 dark:text-white mb-4 text-lg md:text-xl">Input Your Spending</h3>
+                  <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-sm md:text-base">Tell us how much you spend across different categories each month. Our smart interface makes it quick and easy.</p>
                 </div>
                 
                 <div className="text-center group">
-                  <div className="relative mb-8">
-                    <div className="bg-gradient-to-br from-green-400 via-green-500 to-emerald-600 rounded-3xl w-24 h-24 flex items-center justify-center mx-auto shadow-2xl transform group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
-                      <span className="text-4xl">⚙️</span>
+                  <div className="relative mb-6 md:mb-8">
+                    <div className="bg-gradient-to-br from-green-400 via-green-500 to-emerald-600 rounded-3xl w-20 h-20 md:w-24 md:h-24 flex items-center justify-center mx-auto shadow-2xl transform group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                      <span className="text-3xl md:text-4xl">⚙️</span>
                     </div>
                     <div className="absolute -top-2 -right-2 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-full w-8 h-8 flex items-center justify-center shadow-lg">
                       <span className="text-lg font-bold text-white">2</span>
                     </div>
                   </div>
-                  <h3 className="font-bold text-gray-900 dark:text-white mb-4 text-xl">Set Your Preferences</h3>
-                  <p className="text-gray-600 dark:text-gray-300 leading-relaxed">Choose between cashback or points, customize benefit valuations, and set your personal preferences.</p>
+                  <h3 className="font-bold text-gray-900 dark:text-white mb-4 text-lg md:text-xl">Set Your Preferences</h3>
+                  <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-sm md:text-base">Choose between cashback or points, customize benefit valuations, and set your personal preferences.</p>
                 </div>
                 
                 <div className="text-center group">
-                  <div className="relative mb-8">
-                    <div className="bg-gradient-to-br from-purple-400 via-purple-500 to-indigo-600 rounded-3xl w-24 h-24 flex items-center justify-center mx-auto shadow-2xl transform group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
-                      <span className="text-4xl">🏆</span>
+                  <div className="relative mb-6 md:mb-8">
+                    <div className="bg-gradient-to-br from-purple-400 via-purple-500 to-indigo-600 rounded-3xl w-20 h-20 md:w-24 md:h-24 flex items-center justify-center mx-auto shadow-2xl transform group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                      <span className="text-3xl md:text-4xl">🏆</span>
                     </div>
                     <div className="absolute -top-2 -right-2 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-full w-8 h-8 flex items-center justify-center shadow-lg">
                       <span className="text-lg font-bold text-white">3</span>
                     </div>
                   </div>
-                  <h3 className="font-bold text-gray-900 dark:text-white mb-4 text-xl">Get Smart Recommendations</h3>
-                  <p className="text-gray-600 dark:text-gray-300 leading-relaxed">Receive ranked, personalized card recommendations with detailed breakdowns and mathematical precision.</p>
+                  <h3 className="font-bold text-gray-900 dark:text-white mb-4 text-lg md:text-xl">Get Smart Recommendations</h3>
+                  <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-sm md:text-base">Receive ranked, personalized card recommendations with detailed breakdowns and mathematical precision.</p>
                 </div>
               </div>
             </div>
 
             {/* CTA Section */}
             <div className="text-center mb-16">
-              <div className="bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 dark:from-blue-500/20 dark:via-purple-500/20 dark:to-pink-500/20 rounded-3xl p-8 mb-8 border border-blue-200/50 dark:border-blue-700/50">
-                <h3 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+              <div className="bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 dark:from-blue-500/20 dark:via-purple-500/20 dark:to-pink-500/20 rounded-3xl p-6 md:p-8 mb-8 border border-blue-200/50 dark:border-blue-700/50">
+                <h3 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-4">
                   Ready to optimize your rewards?
                 </h3>
-                <p className="text-lg text-gray-600 dark:text-gray-300 mb-6 max-w-2xl mx-auto">
+                <p className="text-base md:text-lg text-gray-600 dark:text-gray-300 mb-6 max-w-2xl mx-auto">
                   Join thousands of users who have maximized their credit card rewards with our intelligent recommendations.
                 </p>
                 <Link href="/dashboard">
-                  <Button size="lg" className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white px-16 py-6 text-xl font-bold rounded-full shadow-2xl transform hover:scale-105 transition-all duration-300 border-0">
+                  <Button size="lg" className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 text-white px-12 md:px-16 py-4 md:py-6 text-lg md:text-xl font-bold rounded-full shadow-2xl transform hover:scale-105 transition-all duration-300 border-0">
                     🚀 Get Started Now
                   </Button>
                 </Link>

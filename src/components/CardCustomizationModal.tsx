@@ -87,11 +87,11 @@ export function CardCustomizationModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-600">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-600">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                 Customize {card.name}
               </h2>
             </div>
@@ -106,31 +106,34 @@ export function CardCustomizationModal({
           </div>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-4 space-y-4">
           {/* Point Value Section - Only show for points cards */}
           {card.type === 'points' && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
                 🎯 Point Valuation
               </h3>
-              <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border border-purple-200 dark:border-purple-600">
-                <div className="flex items-center space-x-4 mb-3">
-                  <span className="text-sm text-gray-600 dark:text-gray-300 min-w-fit">
+              <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-3 border border-purple-200 dark:border-purple-600">
+                <div className="flex flex-col space-y-2 mb-2">
+                  <span className="text-sm text-gray-600 dark:text-gray-300">
                     How much do you value each point/mile?
                   </span>
-                  <input
-                    type="number"
-                    min="0.005"
-                    max="0.05"
-                    step="0.001"
-                    value={pointValue}
-                    onChange={(e) => setPointValue(parseFloat(e.target.value) || 0.01)}
-                    className="flex-1 max-w-32 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
-                  <span className="text-sm text-gray-500 dark:text-gray-400">dollars per point</span>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-gray-600 dark:text-gray-400">$</span>
+                    <input
+                      type="number"
+                      min="0.005"
+                      max="0.05"
+                      step="0.001"
+                      value={pointValue}
+                      onChange={(e) => setPointValue(parseFloat(e.target.value) || 0.01)}
+                      className="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                    <span className="text-sm text-gray-500 dark:text-gray-400">per point</span>
+                  </div>
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
-                  Examples: Chase Ultimate Rewards ~1.2¢ (0.012), Amex Membership Rewards ~1.0¢ (0.01), Airline miles ~1.5¢ (0.015)
+                  Examples: Chase UR ~1.2¢, Amex MR ~1.0¢, Airline miles ~1.5¢
                 </div>
               </div>
             </div>
@@ -139,39 +142,39 @@ export function CardCustomizationModal({
           {/* Benefits Section */}
           {card.benefits && card.benefits.length > 0 && (
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
                 🎁 Benefit Valuations
               </h3>
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-600">
-                <p className="text-sm text-blue-700 dark:text-blue-300 mb-4">
-                  How much can you personally utilize each benefit? We've pre-filled each benefit at its full official value, but you should adjust these based on your actual usage patterns.
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 border border-blue-200 dark:border-blue-600">
+                <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
+                  Adjust benefits based on your actual usage patterns.
                 </p>
                 
-                <div className="bg-blue-100 dark:bg-blue-800/30 rounded-lg p-3 mb-4 border border-blue-300 dark:border-blue-500">
+                <div className="bg-blue-100 dark:bg-blue-800/30 rounded-lg p-2 mb-3 border border-blue-300 dark:border-blue-500">
                   <p className="text-xs text-blue-800 dark:text-blue-200 flex items-start">
-                    <span className="mr-2">💡</span>
+                    <span className="mr-1">💡</span>
                     <span>
-                      <strong>Tip:</strong> For example, if a card offers $300 travel credit but you only spend $200/year on travel, adjust your personal value to $200. If you never use Priority Pass lounges, uncheck that benefit or set it to $0.
+                      <strong>Tip:</strong> If you only use $200 of a $300 travel credit, set it to $200.
                     </span>
                   </p>
                 </div>
                 
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {card.benefits.map((benefit) => (
-                    <div key={benefit.id} className="bg-white dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-3">
+                    <div key={benefit.id} className="bg-white dark:bg-gray-700 rounded-lg p-3 border border-gray-200 dark:border-gray-600">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2 flex-1">
                           <input
                             type="checkbox"
                             id={`benefit-${benefit.id}`}
                             checked={enabledBenefits[benefit.id] || false}
                             onChange={(e) => handleBenefitToggle(benefit.id, e.target.checked)}
-                            className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-600 dark:border-gray-500"
+                            className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500"
                           />
-                          <div>
+                          <div className="flex-1">
                             <label 
                               htmlFor={`benefit-${benefit.id}`}
-                              className={`font-medium cursor-pointer ${
+                              className={`font-medium cursor-pointer text-sm ${
                                 enabledBenefits[benefit.id] 
                                   ? 'text-gray-900 dark:text-white' 
                                   : 'text-gray-500 dark:text-gray-400 line-through'
@@ -179,13 +182,13 @@ export function CardCustomizationModal({
                             >
                               {benefit.name}
                             </label>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              Official value: ${benefit.value.toFixed(2)}
+                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                              Official: ${benefit.value.toFixed(2)}
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-600 dark:text-gray-400">$</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-gray-600 dark:text-gray-400 text-sm">$</span>
                           <input
                             type="number"
                             value={benefitValues[benefit.id] || 0}
@@ -194,7 +197,7 @@ export function CardCustomizationModal({
                             step="1"
                             min="0"
                             max="1000"
-                            className={`w-20 px-3 py-1 border rounded-md text-right ${
+                            className={`w-16 px-2 py-1 border rounded text-right text-sm ${
                               enabledBenefits[benefit.id]
                                 ? 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-600 text-gray-900 dark:text-white'
                                 : 'border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'
@@ -210,16 +213,18 @@ export function CardCustomizationModal({
           )}
         </div>
 
-        <div className="p-6 border-t border-gray-200 dark:border-gray-600 flex justify-end space-x-3">
+        <div className="p-4 border-t border-gray-200 dark:border-gray-600 flex justify-end space-x-2">
           <Button
             onClick={onClose}
             variant="outline"
+            size="sm"
             className="text-gray-600 border-gray-300 hover:bg-gray-50 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSave}
+            size="sm"
             className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
           >
             Save Changes
