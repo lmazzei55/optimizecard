@@ -736,6 +736,17 @@ export function SpendingForm() {
 
   const totalMonthlySpend = spending.reduce((sum, s) => sum + s.monthlySpend, 0)
 
+  // Debug logging for button state
+  useEffect(() => {
+    console.log('🔍 Button state debug:', {
+      totalMonthlySpend,
+      calculating,
+      spendingLength: spending.length,
+      nonZeroSpending: spending.filter(s => s.monthlySpend > 0).length,
+      buttonDisabled: totalMonthlySpend === 0 || calculating
+    })
+  }, [totalMonthlySpend, calculating, spending.length])
+
   const handleRewardPreferenceChange = (newPreference: 'cashback' | 'points' | 'best_overall') => {
     // Check if user is trying to access premium features without subscription
     if (userSubscriptionTier === 'free' && (newPreference === 'points' || newPreference === 'best_overall')) {

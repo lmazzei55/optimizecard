@@ -18,6 +18,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid input' }, { status: 400 })
     }
 
+    // Test database connection first
+    await prisma.$queryRawUnsafe('SELECT 1')
+
     // Update user preferences
     const updatedUser = await prisma.user.update({
       where: { id: session.user.id },
@@ -36,8 +39,21 @@ export async function POST(request: NextRequest) {
         enableSubCategories: updatedUser.enableSubCategories,
       }
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating user preferences:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    
+    // If it's a database connection error, return a service unavailable error
+    if (error?.code === 'P2010' || error?.message?.includes('prepared statement')) {
+      console.error('Database connection pool issue in preferences API')
+      return NextResponse.json(
+        { error: 'Database temporarily unavailable', code: 'DB_POOL_ERROR' },
+        { status: 503 }
+      )
+    }
+    
+    return NextResponse.json({ 
+      error: 'Internal server error', 
+      details: error?.message || 'Unknown error' 
+    }, { status: 500 })
   }
 } 

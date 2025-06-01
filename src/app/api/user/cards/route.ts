@@ -10,6 +10,9 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Test database connection first
+    await prisma.$queryRawUnsafe('SELECT 1')
+
     // Get all available cards
     const allCards = await prisma.creditCard.findMany({
       where: { isActive: true },
@@ -38,10 +41,20 @@ export async function GET() {
       allCards,
       ownedCardIds
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching cards:', error)
+    
+    // If it's a database connection error, return a service unavailable error
+    if (error?.code === 'P2010' || error?.message?.includes('prepared statement')) {
+      console.error('Database connection pool issue in cards API')
+      return NextResponse.json(
+        { error: 'Database temporarily unavailable', code: 'DB_POOL_ERROR' },
+        { status: 503 }
+      )
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to fetch cards' },
+      { error: 'Failed to fetch cards', details: error?.message || 'Unknown error' },
       { status: 500 }
     )
   }
@@ -56,6 +69,9 @@ export async function POST(request: NextRequest) {
     }
 
     const { ownedCardIds }: { ownedCardIds: string[] } = await request.json()
+
+    // Test database connection first
+    await prisma.$queryRawUnsafe('SELECT 1')
 
     // Remove all existing owned cards for this user
     await prisma.userCard.deleteMany({
@@ -73,10 +89,20 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating owned cards:', error)
+    
+    // If it's a database connection error, return a service unavailable error
+    if (error?.code === 'P2010' || error?.message?.includes('prepared statement')) {
+      console.error('Database connection pool issue in cards update API')
+      return NextResponse.json(
+        { error: 'Database temporarily unavailable', code: 'DB_POOL_ERROR' },
+        { status: 503 }
+      )
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to update owned cards' },
+      { error: 'Failed to update owned cards', details: error?.message || 'Unknown error' },
       { status: 500 }
     )
   }

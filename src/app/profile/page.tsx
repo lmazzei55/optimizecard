@@ -47,6 +47,11 @@ export default function Profile() {
           const data = await response.json()
           setAllCards(data.allCards)
           setOwnedCardIds(data.ownedCardIds)
+        } else if (response.status === 503) {
+          console.warn('⚠️ Database temporarily unavailable - cards will load when available')
+          // Keep trying to load cards, but don't show error to user
+        } else {
+          console.error('Failed to fetch cards, status:', response.status)
         }
       } catch (error) {
         console.error('Error fetching cards:', error)
@@ -72,6 +77,11 @@ export default function Profile() {
       if (response.ok) {
         setIsSaved(true)
         setTimeout(() => setIsSaved(false), 3000)
+      } else if (response.status === 503) {
+        console.warn('⚠️ Database temporarily unavailable - please try again later')
+        // Could show a user-friendly message here
+      } else {
+        console.error('Failed to update cards, status:', response.status)
       }
     } catch (error) {
       console.error('Error updating owned cards:', error)
@@ -109,6 +119,11 @@ export default function Profile() {
         
         setIsSaved(true)
         setTimeout(() => setIsSaved(false), 3000)
+      } else if (response.status === 503) {
+        console.warn('⚠️ Database temporarily unavailable - preferences not saved')
+        // Could show a user-friendly message here
+      } else {
+        console.error('Failed to save preferences, status:', response.status)
       }
     } catch (error) {
       console.error('Error saving preferences:', error)
