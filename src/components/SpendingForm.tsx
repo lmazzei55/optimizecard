@@ -78,7 +78,7 @@ interface CardCustomization {
 }
 
 export function SpendingForm() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const [categories, setCategories] = useState<SpendingCategory[]>([])
   const [spending, setSpending] = useState<UserSpending[]>([])
   const [rewardPreference, setRewardPreference] = useState<'cashback' | 'points' | 'best_overall'>('cashback')
@@ -158,9 +158,16 @@ export function SpendingForm() {
   // Check user subscription tier
   useEffect(() => {
     const checkSubscriptionTier = async () => {
-      // Only check if we have a valid session, but don't block if session is loading
-      if (!session?.user?.email) {
-        return // Simply return without setting anything if no session yet
+      // FIXED: Only check if we have a valid, authenticated session
+      if (status === 'loading') {
+        console.log('ℹ️ Session still loading, skipping subscription check')
+        return
+      }
+      
+      if (status === 'unauthenticated' || !session?.user?.email) {
+        console.log('ℹ️ No authenticated session, using free tier')
+        setUserSubscriptionTier('free') // Default to free for anonymous users
+        return
       }
       
       try {
@@ -176,7 +183,7 @@ export function SpendingForm() {
           setUserSubscriptionTier(newTier)
         } else if (response.status === 401) {
           console.warn('⚠️ Authentication error in subscription check - skipping')
-          // Don't set tier to avoid clearing valid data, just skip this check
+          setUserSubscriptionTier('free')
           return
         } else if (response.status === 503) {
           console.warn('⚠️ Database temporarily unavailable - keeping current tier')
@@ -188,22 +195,28 @@ export function SpendingForm() {
         }
       } catch (error) {
         console.error('Error checking subscription tier:', error)
-        // Don't immediately set to 'free' on network errors, keep existing value
+        setUserSubscriptionTier('free') // Safe default for network errors
       }
     }
     
-    checkSubscriptionTier()
-    
-    // Only set up interval if we have a session
-    if (session?.user?.email) {
+    // FIXED: Only run if we have an authenticated session
+    if (status === 'authenticated' && session?.user?.email) {
+      checkSubscriptionTier()
+      
+      // Only set up interval if we have a valid session
       const interval = setInterval(checkSubscriptionTier, 30000)
       return () => clearInterval(interval)
+    } else if (status === 'unauthenticated') {
+      // For anonymous users, always set to free
+      setUserSubscriptionTier('free')
     }
-  }, [session])
+    // Do nothing if still loading - let it finish loading first
+  }, [session, status])
 
   // Add a manual refresh function for subscription tier
   const refreshSubscriptionTier = async () => {
-    if (session?.user?.email) {
+    // FIXED: Only refresh if authenticated
+    if (status === 'authenticated' && session?.user?.email) {
       try {
         const response = await fetch('/api/user/subscription', {
           headers: {
@@ -217,7 +230,7 @@ export function SpendingForm() {
           setUserSubscriptionTier(newTier)
         } else if (response.status === 401) {
           console.warn('⚠️ Authentication error in manual subscription refresh')
-          // Don't update tier on auth errors
+          setUserSubscriptionTier('free')
         } else if (response.status === 503) {
           console.warn('⚠️ Database temporarily unavailable during manual refresh')
           // Don't update tier when database is temporarily unavailable
