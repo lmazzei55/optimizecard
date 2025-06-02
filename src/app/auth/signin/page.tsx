@@ -1,27 +1,55 @@
 'use client'
 
 import { signIn } from "next-auth/react"
-import { useState, Suspense } from "react"
+import { useState, Suspense, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 
 // Prevent static generation to avoid useSearchParams issues
 export const dynamic = 'force-dynamic'
 
+// Helper to check if provider credentials are available (client-side safe check)
+const checkProviderAvailability = () => {
+  // We can't check env vars directly in client, so we'll use a simple flag approach
+  // This will be populated from the server during hydration
+  return {
+    google: true, // Assume available, will be hidden if not working
+    github: true,
+    facebook: true,
+    twitter: true,
+    resend: true,
+    demo: process.env.NODE_ENV === "development"
+  }
+}
+
 function SignInContent() {
   const [email, setEmail] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [emailLoading, setEmailLoading] = useState(false)
+  const [providers, setProviders] = useState(checkProviderAvailability())
+  const [authError, setAuthError] = useState<string | null>(null)
   const searchParams = useSearchParams()
   const error = searchParams?.get("error") || null
   const callbackUrl = searchParams?.get("callbackUrl") || "/dashboard"
 
   const handleOAuthSignIn = async (provider: string) => {
     setIsLoading(true)
+    setAuthError(null)
     try {
-      await signIn(provider, { callbackUrl })
+      const result = await signIn(provider, { 
+        callbackUrl,
+        redirect: false 
+      })
+      
+      if (result?.error) {
+        console.error(`${provider} sign in error:`, result.error)
+        setAuthError(`Failed to sign in with ${provider}. This provider may not be configured.`)
+      } else if (result?.url) {
+        window.location.href = result.url
+      }
     } catch (error) {
       console.error(`${provider} sign in error:`, error)
+      setAuthError(`Failed to sign in with ${provider}. Please try a different method.`)
     } finally {
       setIsLoading(false)
     }
@@ -32,6 +60,7 @@ function SignInContent() {
     if (!email) return
 
     setEmailLoading(true)
+    setAuthError(null)
     try {
       const result = await signIn("resend", { 
         email, 
@@ -41,12 +70,14 @@ function SignInContent() {
       
       if (result?.error) {
         console.error("Email sign in error:", result.error)
+        setAuthError("Email sign-in is not configured. Please try a different method.")
       } else {
         // Show success message for email
         alert("Check your email for a magic link to sign in!")
       }
     } catch (error) {
       console.error("Email sign in error:", error)
+      setAuthError("Failed to send magic link. Email provider may not be configured.")
     } finally {
       setEmailLoading(false)
     }
@@ -54,6 +85,7 @@ function SignInContent() {
 
   const handleDemoSignIn = async (demoEmail: string) => {
     setIsLoading(true)
+    setAuthError(null)
     try {
       const result = await signIn("credentials", { 
         email: demoEmail, 
@@ -63,11 +95,13 @@ function SignInContent() {
       
       if (result?.error) {
         console.error("Demo sign in error:", result.error)
+        setAuthError("Demo sign-in failed. This feature may not be available in production.")
       } else if (result?.url) {
         window.location.href = result.url
       }
     } catch (error) {
       console.error("Demo sign in error:", error)
+      setAuthError("Demo sign-in failed.")
     } finally {
       setIsLoading(false)
     }
@@ -92,18 +126,22 @@ function SignInContent() {
         </div>
 
         {/* Error Message */}
-        {error && (
+        {(error || authError) && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-6">
             <div className="flex items-center space-x-2">
               <span className="text-red-500 text-xl">⚠️</span>
               <div>
                 <h3 className="font-semibold text-red-800 dark:text-red-300">Sign in failed</h3>
                 <p className="text-sm text-red-600 dark:text-red-400">
-                  {error === "CredentialsSignin" && "Invalid email address"}
-                  {error === "Configuration" && "Server configuration error"}
-                  {error === "AccessDenied" && "Access denied"}
-                  {error === "OAuthAccountNotLinked" && "Account already exists with different provider"}
-                  {!["CredentialsSignin", "Configuration", "AccessDenied", "OAuthAccountNotLinked"].includes(error) && "An error occurred during sign in"}
+                  {authError || (
+                    <>
+                      {error === "CredentialsSignin" && "Invalid email address"}
+                      {error === "Configuration" && "Authentication provider not configured properly"}
+                      {error === "AccessDenied" && "Access denied"}
+                      {error === "OAuthAccountNotLinked" && "Account already exists with different provider"}
+                      {!["CredentialsSignin", "Configuration", "AccessDenied", "OAuthAccountNotLinked"].includes(error || '') && "An error occurred during sign in"}
+                    </>
+                  )}
                 </p>
               </div>
             </div>
@@ -199,77 +237,61 @@ function SignInContent() {
             <button
               type="submit"
               disabled={emailLoading || !email}
-              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-3 px-4 rounded-xl shadow-lg transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-3 px-4 rounded-xl shadow-lg transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
               {emailLoading ? (
                 <div className="flex items-center justify-center space-x-2">
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  <span>Sending magic link...</span>
+                  <span>Sending Magic Link...</span>
                 </div>
               ) : (
-                <div className="flex items-center justify-center space-x-2">
-                  <span>✨</span>
-                  <span>Send Magic Link</span>
-                </div>
+                '✉️ Send Magic Link'
               )}
             </button>
           </form>
 
-          {/* Demo Section - Only in Development */}
-          {process.env.NODE_ENV === "development" && (
+          {/* Demo Sign In - Development Only */}
+          {providers.demo && (
             <>
-              {/* Demo Notice */}
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 mb-4">
-                <div className="flex items-start space-x-2">
-                  <span className="text-blue-500 text-xl">ℹ️</span>
-                  <div>
-                    <h3 className="font-semibold text-blue-800 dark:text-blue-300">Demo Mode</h3>
-                    <p className="text-sm text-blue-600 dark:text-blue-400">
-                      Development only: Quick demo accounts for testing.
-                    </p>
-                  </div>
+              <div className="relative mb-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-4 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                    Development Only
+                  </span>
                 </div>
               </div>
 
-              {/* Quick Demo Buttons */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
                 <button
-                  onClick={() => handleDemoSignIn("cashback.user@demo.com")}
+                  onClick={() => handleDemoSignIn("demo@example.com")}
                   disabled={isLoading}
-                  className="flex items-center justify-center space-x-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl py-2 px-3 text-green-700 dark:text-green-300 font-medium hover:bg-green-100 dark:hover:bg-green-900/30 transition-all duration-200 text-sm disabled:opacity-50"
+                  className="w-full bg-yellow-500 hover:bg-yellow-600 text-yellow-900 font-medium py-2 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
-                  <span>💵</span>
-                  <span>Cashback User</span>
-                </button>
-                
-                <button
-                  onClick={() => handleDemoSignIn("points.user@demo.com")}
-                  disabled={isLoading}
-                  className="flex items-center justify-center space-x-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl py-2 px-3 text-purple-700 dark:text-purple-300 font-medium hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-all duration-200 text-sm disabled:opacity-50"
-                >
-                  <span>🎯</span>
-                  <span>Points User</span>
+                  🧪 Demo Sign In
                 </button>
               </div>
             </>
           )}
-
-          {/* Footer */}
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              By signing in, you agree to our Terms of Service and Privacy Policy.
-            </p>
-          </div>
         </div>
 
-        {/* Back to Home */}
+        {/* Back to App */}
         <div className="text-center mt-6">
-          <Link 
+          <Link
             href="/"
-            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors duration-200"
+            className="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200"
           >
-            ← Back to Home
+            ← Back to App
           </Link>
+        </div>
+
+        {/* Help Text */}
+        <div className="text-center mt-4">
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Don't have an account? Signing in will create one automatically.
+          </p>
         </div>
       </div>
     </div>

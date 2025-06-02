@@ -8,74 +8,90 @@ import Credentials from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "./prisma"
 
+// Helper to check if provider credentials are available
+const hasGoogleCredentials = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
+const hasGitHubCredentials = !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET)
+const hasFacebookCredentials = !!(process.env.FACEBOOK_CLIENT_ID && process.env.FACEBOOK_CLIENT_SECRET)
+const hasTwitterCredentials = !!(process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET)
+const hasResendCredentials = !!(process.env.AUTH_RESEND_KEY)
+
+// Build providers array conditionally
+const providers = []
+
+// Only add OAuth providers if they have credentials
+if (hasGoogleCredentials) {
+  providers.push(Google({
+    clientId: process.env.GOOGLE_CLIENT_ID!,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+  }))
+}
+
+if (hasGitHubCredentials) {
+  providers.push(GitHub({
+    clientId: process.env.GITHUB_CLIENT_ID!,
+    clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+  }))
+}
+
+if (hasFacebookCredentials) {
+  providers.push(Facebook({
+    clientId: process.env.FACEBOOK_CLIENT_ID!,
+    clientSecret: process.env.FACEBOOK_CLIENT_SECRET!,
+  }))
+}
+
+if (hasTwitterCredentials) {
+  providers.push(Twitter({
+    clientId: process.env.TWITTER_CLIENT_ID!,
+    clientSecret: process.env.TWITTER_CLIENT_SECRET!,
+  }))
+}
+
+if (hasResendCredentials) {
+  providers.push(Resend({
+    apiKey: process.env.AUTH_RESEND_KEY!,
+    from: process.env.EMAIL_FROM || "noreply@optimizecard.com",
+  }))
+}
+
+// Always add demo credentials in development
+if (process.env.NODE_ENV === "development") {
+  providers.push(Credentials({
+    name: "Demo Account",
+    credentials: {
+      email: { label: "Email", type: "email", placeholder: "demo@example.com" },
+    },
+    async authorize(credentials) {
+      if (credentials?.email) {
+        let user = await prisma.user.findUnique({
+          where: { email: credentials.email as string }
+        })
+        
+        if (!user) {
+          user = await prisma.user.create({
+            data: {
+              email: credentials.email as string,
+              name: credentials.email?.toString().split('@')[0] || 'Demo User',
+              emailVerified: new Date(),
+            }
+          })
+        }
+        
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+        }
+      }
+      return null
+    }
+  }))
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
-  providers: [
-    // Google OAuth
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
-
-    // GitHub OAuth
-    GitHub({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-    }),
-
-    // Meta (Facebook) OAuth
-    Facebook({
-      clientId: process.env.FACEBOOK_CLIENT_ID!,
-      clientSecret: process.env.FACEBOOK_CLIENT_SECRET!,
-    }),
-
-    // X (Twitter) OAuth
-    Twitter({
-      clientId: process.env.TWITTER_CLIENT_ID!,
-      clientSecret: process.env.TWITTER_CLIENT_SECRET!,
-    }),
-
-    // Resend Email (Magic Links)
-    Resend({
-      apiKey: process.env.AUTH_RESEND_KEY!,
-      from: process.env.EMAIL_FROM || "noreply@creditcardoptimizer.com",
-    }),
-
-    // Keep demo credentials for development/testing
-    ...(process.env.NODE_ENV === "development" ? [
-      Credentials({
-        name: "Demo Account",
-        credentials: {
-          email: { label: "Email", type: "email", placeholder: "demo@example.com" },
-        },
-        async authorize(credentials) {
-          if (credentials?.email) {
-            let user = await prisma.user.findUnique({
-              where: { email: credentials.email as string }
-            })
-            
-            if (!user) {
-              user = await prisma.user.create({
-                data: {
-                  email: credentials.email as string,
-                  name: credentials.email?.toString().split('@')[0] || 'Demo User',
-                  emailVerified: new Date(),
-                }
-              })
-            }
-            
-            return {
-              id: user.id,
-              email: user.email,
-              name: user.name,
-              image: user.image,
-            }
-          }
-          return null
-        }
-      })
-    ] : []),
-  ],
+  providers,
   pages: {
     signIn: "/auth/signin",
     error: "/auth/error",
@@ -94,16 +110,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return session
     },
     async signIn({ user, account, profile }) {
-      // Allow sign in for OAuth providers and email
-      if (account?.provider === "google" || account?.provider === "github" || 
-          account?.provider === "facebook" || account?.provider === "twitter" || 
-          account?.provider === "resend") {
-        return true
-      }
+      // Allow sign in for all configured providers
+      if (account?.provider === "google" && hasGoogleCredentials) return true
+      if (account?.provider === "github" && hasGitHubCredentials) return true
+      if (account?.provider === "facebook" && hasFacebookCredentials) return true
+      if (account?.provider === "twitter" && hasTwitterCredentials) return true
+      if (account?.provider === "resend" && hasResendCredentials) return true
+      
       // Allow demo credentials in development
       if (process.env.NODE_ENV === "development" && account?.provider === "credentials") {
         return true
       }
+      
+      console.error(`Sign in attempt with unconfigured provider: ${account?.provider}`)
       return false
     },
   },
@@ -112,6 +131,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === "development",
+  
+  // Ensure proper configuration
+  trustHost: true, // For Vercel deployment
 })
 
 // Extend the built-in session types
