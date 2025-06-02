@@ -9,24 +9,11 @@ import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "./prisma"
 
 // Helper to check if provider credentials are available
-const isValidCredential = (value: string | undefined): boolean => {
-  return !!(value && value !== 'not-configured' && value !== 'undefined' && value.trim().length > 0)
-}
-
-const hasGoogleCredentials = isValidCredential(process.env.GOOGLE_CLIENT_ID) && isValidCredential(process.env.GOOGLE_CLIENT_SECRET)
-const hasGitHubCredentials = isValidCredential(process.env.GITHUB_CLIENT_ID) && isValidCredential(process.env.GITHUB_CLIENT_SECRET)
-const hasFacebookCredentials = isValidCredential(process.env.FACEBOOK_CLIENT_ID) && isValidCredential(process.env.FACEBOOK_CLIENT_SECRET)
-const hasTwitterCredentials = isValidCredential(process.env.TWITTER_CLIENT_ID) && isValidCredential(process.env.TWITTER_CLIENT_SECRET)
-const hasResendCredentials = isValidCredential(process.env.AUTH_RESEND_KEY)
-
-// Log which providers are available (for debugging)
-console.log('🔧 Available OAuth providers:', {
-  google: hasGoogleCredentials,
-  github: hasGitHubCredentials,
-  facebook: hasFacebookCredentials,
-  twitter: hasTwitterCredentials,
-  resend: hasResendCredentials
-})
+const hasGoogleCredentials = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
+const hasGitHubCredentials = !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET)
+const hasFacebookCredentials = !!(process.env.FACEBOOK_CLIENT_ID && process.env.FACEBOOK_CLIENT_SECRET)
+const hasTwitterCredentials = !!(process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET)
+const hasResendCredentials = !!(process.env.AUTH_RESEND_KEY)
 
 // Build providers array conditionally
 const providers = []
@@ -37,7 +24,6 @@ if (hasGoogleCredentials) {
     clientId: process.env.GOOGLE_CLIENT_ID!,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
   }))
-  console.log('✅ Google OAuth provider added')
 }
 
 if (hasGitHubCredentials) {
@@ -45,7 +31,6 @@ if (hasGitHubCredentials) {
     clientId: process.env.GITHUB_CLIENT_ID!,
     clientSecret: process.env.GITHUB_CLIENT_SECRET!,
   }))
-  console.log('✅ GitHub OAuth provider added')
 }
 
 if (hasFacebookCredentials) {
@@ -53,7 +38,6 @@ if (hasFacebookCredentials) {
     clientId: process.env.FACEBOOK_CLIENT_ID!,
     clientSecret: process.env.FACEBOOK_CLIENT_SECRET!,
   }))
-  console.log('✅ Facebook OAuth provider added')
 }
 
 if (hasTwitterCredentials) {
@@ -61,15 +45,13 @@ if (hasTwitterCredentials) {
     clientId: process.env.TWITTER_CLIENT_ID!,
     clientSecret: process.env.TWITTER_CLIENT_SECRET!,
   }))
-  console.log('✅ Twitter OAuth provider added')
 }
 
 if (hasResendCredentials) {
   providers.push(Resend({
     apiKey: process.env.AUTH_RESEND_KEY!,
-    from: process.env.EMAIL_FROM || "noreplay@optimizecard.com",
+    from: process.env.EMAIL_FROM || "noreply@optimizecard.com",
   }))
-  console.log('✅ Resend email provider added')
 }
 
 // Always add demo credentials in development
@@ -110,11 +92,7 @@ if (process.env.NODE_ENV === "development") {
       return null
     }
   }))
-  console.log('✅ Demo credentials provider added (development only)')
 }
-
-// Log total providers available
-console.log(`🔧 Total providers configured: ${providers.length}`)
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -150,7 +128,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return true
         }
         
-        console.error(`❌ Sign in attempted with unconfigured provider: ${account?.provider}`)
         return false
       } catch (error) {
         console.error('Sign in callback error:', error)
@@ -163,9 +140,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === "development",
-  
-  // Ensure proper configuration
-  trustHost: true, // For Vercel deployment
+  trustHost: true,
 })
 
 // Extend the built-in session types
