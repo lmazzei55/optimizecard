@@ -4,39 +4,22 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-// Use direct connection for production to avoid pooling issues
-const getDatabaseUrl = () => {
-  if (process.env.NODE_ENV === 'production') {
-    // Use direct connection in production to avoid Supabase pooling issues
-    return process.env.DIRECT_DATABASE_URL || process.env.DATABASE_URL
-  }
-  return process.env.DATABASE_URL
-}
-
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({
   datasources: {
     db: {
-      url: getDatabaseUrl(),
+      url: process.env.DATABASE_URL,
     },
   },
   log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  // Simplified configuration for direct connection
+  // Conservative settings for pooled connection
   ...(process.env.NODE_ENV === 'production' && {
     transactionOptions: {
-      timeout: 20000, // 20 seconds for direct connection
+      timeout: 10000, // 10 seconds
     },
   }),
 })
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
-
-// Simplified connection management for direct connection
-if (process.env.NODE_ENV === 'production') {
-  // Auto-disconnect after requests in serverless environment
-  process.on('beforeExit', async () => {
-    await prisma.$disconnect()
-  })
-}
 
 // Initialize database schema if needed
 export async function initializeDatabase() {
@@ -51,22 +34,17 @@ export async function initializeDatabase() {
   }
 }
 
-// Simplified retry logic for direct connection
+// Conservative retry logic that won't break authentication
 export async function withRetry<T>(
   operation: () => Promise<T>, 
-  maxRetries: number = 3,  // Reduced retries for direct connection
-  baseDelayMs: number = 1000
+  maxRetries: number = 2,  // Reduced to prevent auth timeouts
+  baseDelayMs: number = 500
 ): Promise<T> {
   let lastError: any
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      // Simple connection test
-      if (attempt > 1) {
-        await prisma.$queryRawUnsafe('SELECT 1')
-      }
-      
-      // Perform the operation
+      // Perform the operation directly for first attempt
       const result = await operation()
       
       if (attempt > 1) {
@@ -78,24 +56,20 @@ export async function withRetry<T>(
       lastError = error
       console.log(`❌ Database operation attempt ${attempt}/${maxRetries} failed:`, error?.code || error?.message)
       
-      // Check if it's a retryable error
+      // Only retry on specific connection errors, not auth errors
       const isRetryable = (
-        error?.code === 'P2010' || 
-        error?.code === 'P1001' ||
-        error?.code === 'P1017' ||
-        error?.message?.includes('connection') ||
-        error?.message?.includes('timeout')
+        error?.code === 'P2010' && 
+        attempt < maxRetries
       )
       
-      if (attempt < maxRetries && isRetryable) {
+      if (isRetryable) {
         const delay = baseDelayMs * attempt
         console.log(`🔄 Retrying in ${delay}ms...`)
         await new Promise(resolve => setTimeout(resolve, delay))
         continue
       }
       
-      // If we've exhausted retries, throw the last error
-      console.error(`💥 Database operation failed after ${maxRetries} attempts`)
+      // Don't retry if it's not a clear connection error
       throw error
     }
   }
