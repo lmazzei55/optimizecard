@@ -115,7 +115,13 @@ export async function calculateCardRecommendations(
 
     for (const card of cards) {
       let totalAnnualValue = 0
-      const categoryBreakdown: CardRecommendation['categoryBreakdown'] = []
+      const categoryBreakdownMap = new Map<string, {
+        categoryName: string
+        monthlySpend: number
+        rewardRate: number
+        monthlyValue: number
+        annualValue: number
+      }>()
       
       // Get card-specific customizations or use defaults
       const cardCustomization = cardCustomizations[card.id]
@@ -190,14 +196,56 @@ export async function calculateCardRecommendations(
         const annualValue = monthlyValue * 12
         totalAnnualValue += annualValue
 
-        categoryBreakdown.push({
-          categoryName: spending.categoryName,
-          monthlySpend: spending.monthlySpend,
-          rewardRate: categoryReward?.rewardRate || card.baseReward,
-          monthlyValue,
-          annualValue,
-        })
+        // Create a proper display name for the category breakdown
+        // If this is a subcategory (contains "→"), use the full name
+        // If this is a parent category that has subcategories being used, 
+        // we need to avoid duplication
+        const displayName = spending.categoryName
+
+        // Check if this is a parent category and if we already have subcategories for it
+        const isParentCategory = spending.categoryId && !spending.subCategoryId
+        const hasSubcategoryEntries = isParentCategory && userSpending.some(s => 
+          s.subCategoryId && s.categoryName.startsWith(spending.categoryName + ' →')
+        )
+
+        // Skip parent categories if they have subcategory entries to avoid duplication
+        // unless the parent has its own spending beyond the subcategories
+        if (isParentCategory && hasSubcategoryEntries && spending.monthlySpend === 0) {
+          continue
+        }
+
+        // Use the display name as the key to aggregate spending
+        const existingBreakdown = categoryBreakdownMap.get(displayName)
+        if (existingBreakdown) {
+          // Aggregate with existing breakdown
+          const totalSpend = existingBreakdown.monthlySpend + spending.monthlySpend
+          const totalMonthlyValue = existingBreakdown.monthlyValue + monthlyValue
+          const totalAnnualValue = existingBreakdown.annualValue + annualValue
+          
+          // Calculate weighted average reward rate
+          const weightedRate = totalSpend > 0 ? totalMonthlyValue / totalSpend : existingBreakdown.rewardRate
+          
+          categoryBreakdownMap.set(displayName, {
+            categoryName: displayName,
+            monthlySpend: totalSpend,
+            rewardRate: weightedRate,
+            monthlyValue: totalMonthlyValue,
+            annualValue: totalAnnualValue,
+          })
+        } else {
+          // Add new breakdown entry
+          categoryBreakdownMap.set(displayName, {
+            categoryName: displayName,
+            monthlySpend: spending.monthlySpend,
+            rewardRate: categoryReward?.rewardRate || card.baseReward,
+            monthlyValue,
+            annualValue,
+          })
+        }
       }
+
+      // Convert map to array for final result
+      const categoryBreakdown = Array.from(categoryBreakdownMap.values())
 
       // Calculate benefits value
       let benefitsValue = 0
