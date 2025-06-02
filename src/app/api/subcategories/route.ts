@@ -6,20 +6,23 @@ export async function GET() {
     // First test if we can connect to the database
     await prisma.$queryRawUnsafe('SELECT 1')
     
-    // Then fetch subcategories with their parent categories
-    const subcategories = await prisma.subCategory.findMany({
+    // Fetch categories with their subcategories
+    const categoriesWithSubcategories = await prisma.spendingCategory.findMany({
       include: {
-        parentCategory: true
+        subCategories: {
+          orderBy: {
+            name: 'asc'
+          }
+        }
       },
-      orderBy: [
-        { parentCategory: { name: 'asc' } },
-        { name: 'asc' }
-      ]
+      orderBy: {
+        name: 'asc'
+      }
     })
     
-    console.log(`✅ Subcategories API: Found ${subcategories.length} subcategories`)
+    console.log(`✅ Subcategories API: Found ${categoriesWithSubcategories.length} categories with subcategories`)
     
-    return NextResponse.json(subcategories)
+    return NextResponse.json(categoriesWithSubcategories)
   } catch (error: any) {
     console.error('❌ Subcategories API Error:', error)
     
