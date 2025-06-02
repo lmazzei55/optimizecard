@@ -9,11 +9,24 @@ import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "./prisma"
 
 // Helper to check if provider credentials are available
-const hasGoogleCredentials = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
-const hasGitHubCredentials = !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET)
-const hasFacebookCredentials = !!(process.env.FACEBOOK_CLIENT_ID && process.env.FACEBOOK_CLIENT_SECRET)
-const hasTwitterCredentials = !!(process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET)
-const hasResendCredentials = !!(process.env.AUTH_RESEND_KEY)
+const isValidCredential = (value: string | undefined): boolean => {
+  return !!(value && value !== 'not-configured' && value !== 'undefined' && value.trim().length > 0)
+}
+
+const hasGoogleCredentials = isValidCredential(process.env.GOOGLE_CLIENT_ID) && isValidCredential(process.env.GOOGLE_CLIENT_SECRET)
+const hasGitHubCredentials = isValidCredential(process.env.GITHUB_CLIENT_ID) && isValidCredential(process.env.GITHUB_CLIENT_SECRET)
+const hasFacebookCredentials = isValidCredential(process.env.FACEBOOK_CLIENT_ID) && isValidCredential(process.env.FACEBOOK_CLIENT_SECRET)
+const hasTwitterCredentials = isValidCredential(process.env.TWITTER_CLIENT_ID) && isValidCredential(process.env.TWITTER_CLIENT_SECRET)
+const hasResendCredentials = isValidCredential(process.env.AUTH_RESEND_KEY)
+
+// Log which providers are available (for debugging)
+console.log('🔧 Available OAuth providers:', {
+  google: hasGoogleCredentials,
+  github: hasGitHubCredentials,
+  facebook: hasFacebookCredentials,
+  twitter: hasTwitterCredentials,
+  resend: hasResendCredentials
+})
 
 // Build providers array conditionally
 const providers = []
@@ -24,6 +37,7 @@ if (hasGoogleCredentials) {
     clientId: process.env.GOOGLE_CLIENT_ID!,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
   }))
+  console.log('✅ Google OAuth provider added')
 }
 
 if (hasGitHubCredentials) {
@@ -31,6 +45,7 @@ if (hasGitHubCredentials) {
     clientId: process.env.GITHUB_CLIENT_ID!,
     clientSecret: process.env.GITHUB_CLIENT_SECRET!,
   }))
+  console.log('✅ GitHub OAuth provider added')
 }
 
 if (hasFacebookCredentials) {
@@ -38,6 +53,7 @@ if (hasFacebookCredentials) {
     clientId: process.env.FACEBOOK_CLIENT_ID!,
     clientSecret: process.env.FACEBOOK_CLIENT_SECRET!,
   }))
+  console.log('✅ Facebook OAuth provider added')
 }
 
 if (hasTwitterCredentials) {
@@ -45,13 +61,15 @@ if (hasTwitterCredentials) {
     clientId: process.env.TWITTER_CLIENT_ID!,
     clientSecret: process.env.TWITTER_CLIENT_SECRET!,
   }))
+  console.log('✅ Twitter OAuth provider added')
 }
 
 if (hasResendCredentials) {
   providers.push(Resend({
     apiKey: process.env.AUTH_RESEND_KEY!,
-    from: process.env.EMAIL_FROM || "noreply@optimizecard.com",
+    from: process.env.EMAIL_FROM || "noreplay@optimizecard.com",
   }))
+  console.log('✅ Resend email provider added')
 }
 
 // Always add demo credentials in development
@@ -63,31 +81,40 @@ if (process.env.NODE_ENV === "development") {
     },
     async authorize(credentials) {
       if (credentials?.email) {
-        let user = await prisma.user.findUnique({
-          where: { email: credentials.email as string }
-        })
-        
-        if (!user) {
-          user = await prisma.user.create({
-            data: {
-              email: credentials.email as string,
-              name: credentials.email?.toString().split('@')[0] || 'Demo User',
-              emailVerified: new Date(),
-            }
+        try {
+          let user = await prisma.user.findUnique({
+            where: { email: credentials.email as string }
           })
-        }
-        
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
+          
+          if (!user) {
+            user = await prisma.user.create({
+              data: {
+                email: credentials.email as string,
+                name: credentials.email?.toString().split('@')[0] || 'Demo User',
+                emailVerified: new Date(),
+              }
+            })
+          }
+          
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            image: user.image,
+          }
+        } catch (error) {
+          console.error('Demo auth error:', error)
+          return null
         }
       }
       return null
     }
   }))
+  console.log('✅ Demo credentials provider added (development only)')
 }
+
+// Log total providers available
+console.log(`🔧 Total providers configured: ${providers.length}`)
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -110,20 +137,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return session
     },
     async signIn({ user, account, profile }) {
-      // Allow sign in for all configured providers
-      if (account?.provider === "google" && hasGoogleCredentials) return true
-      if (account?.provider === "github" && hasGitHubCredentials) return true
-      if (account?.provider === "facebook" && hasFacebookCredentials) return true
-      if (account?.provider === "twitter" && hasTwitterCredentials) return true
-      if (account?.provider === "resend" && hasResendCredentials) return true
-      
-      // Allow demo credentials in development
-      if (process.env.NODE_ENV === "development" && account?.provider === "credentials") {
-        return true
+      try {
+        // Allow sign in for all configured providers
+        if (account?.provider === "google" && hasGoogleCredentials) return true
+        if (account?.provider === "github" && hasGitHubCredentials) return true
+        if (account?.provider === "facebook" && hasFacebookCredentials) return true
+        if (account?.provider === "twitter" && hasTwitterCredentials) return true
+        if (account?.provider === "resend" && hasResendCredentials) return true
+        
+        // Allow demo credentials in development
+        if (process.env.NODE_ENV === "development" && account?.provider === "credentials") {
+          return true
+        }
+        
+        console.error(`❌ Sign in attempted with unconfigured provider: ${account?.provider}`)
+        return false
+      } catch (error) {
+        console.error('Sign in callback error:', error)
+        return false
       }
-      
-      console.error(`Sign in attempt with unconfigured provider: ${account?.provider}`)
-      return false
     },
   },
   session: {
