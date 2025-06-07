@@ -5,7 +5,7 @@ export default function TermsOfService() {
           <h1 className="text-3xl font-bold text-gray-900 mb-8">Terms of Service</h1>
           <div className="bg-white rounded-lg shadow p-8">
             <p className="text-gray-600 mb-4">
-              This is a placeholder terms of service for development purposes.
+              This is a placeholder terms of service for testing purposes.
             </p>
             <p className="text-gray-600 mb-4">
               By using Credit Card Optimizer, you agree to use our service responsibly.
