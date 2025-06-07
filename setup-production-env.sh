@@ -66,15 +66,16 @@ echo -e "${YELLOW}📊 Setting up OAuth provider placeholders (will be disabled 
 echo ""
 
 # OAuth Provider placeholders - these will be disabled in our defensive config
-add_env_var "GOOGLE_CLIENT_ID" "not-configured"
-add_env_var "GOOGLE_CLIENT_SECRET" "not-configured"
-add_env_var "GITHUB_CLIENT_ID" "not-configured"
-add_env_var "GITHUB_CLIENT_SECRET" "not-configured"
-add_env_var "FACEBOOK_CLIENT_ID" "not-configured"
-add_env_var "FACEBOOK_CLIENT_SECRET" "not-configured"
-add_env_var "TWITTER_CLIENT_ID" "not-configured"
-add_env_var "TWITTER_CLIENT_SECRET" "not-configured"
-add_env_var "AUTH_RESEND_KEY" "not-configured"
+# Only set these with real values - leaving empty for now
+# add_env_var "GOOGLE_CLIENT_ID" "$GOOGLE_CLIENT_ID"
+# add_env_var "GOOGLE_CLIENT_SECRET" "$GOOGLE_CLIENT_SECRET"
+# add_env_var "GITHUB_CLIENT_ID" "$GITHUB_CLIENT_ID"
+# add_env_var "GITHUB_CLIENT_SECRET" "$GITHUB_CLIENT_SECRET"
+# add_env_var "FACEBOOK_CLIENT_ID" "$FACEBOOK_CLIENT_ID"
+# add_env_var "FACEBOOK_CLIENT_SECRET" "$FACEBOOK_CLIENT_SECRET"
+# add_env_var "TWITTER_CLIENT_ID" "$TWITTER_CLIENT_ID"
+# add_env_var "TWITTER_CLIENT_SECRET" "$TWITTER_CLIENT_SECRET"
+# add_env_var "AUTH_RESEND_KEY" "$AUTH_RESEND_KEY"
 add_env_var "EMAIL_FROM" "noreply@optimizecard.com"
 
 echo ""

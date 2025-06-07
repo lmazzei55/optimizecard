@@ -1,6 +1,15 @@
 import { NextResponse } from 'next/server'
+import { auth } from '@/lib/auth'
 
 export async function GET() {
+  // Only allow in development OR for admin users in production
+  if (process.env.NODE_ENV === 'production') {
+    const session = await auth()
+    if (!session?.user || (session.user as any)?.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+  }
+
   const envCheck = {
     NEXTAUTH_SECRET: !!process.env.NEXTAUTH_SECRET,
     NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'missing',
@@ -16,14 +25,6 @@ export async function GET() {
     AUTH_RESEND_KEY: !!process.env.AUTH_RESEND_KEY,
     EMAIL_FROM: !!process.env.EMAIL_FROM,
     NODE_ENV: process.env.NODE_ENV,
-  }
-
-  // Only show this in development or for testing purposes
-  if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ 
-      error: 'Environment check disabled in production',
-      hint: 'Check server logs for missing environment variables'
-    })
   }
 
   const missingVars = Object.entries(envCheck)
