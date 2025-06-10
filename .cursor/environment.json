@@ -1,0 +1,11 @@
+{
+  "agentCanUpdateSnapshot": true,
+  "install": "npm install",
+  "start": "npm run dev",
+  "terminals": [
+    {
+      "name": "local",
+      "command": "run local"
+    }
+  ]
+}

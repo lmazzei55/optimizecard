@@ -1,0 +1,84 @@
+Product Requirements Document (PRD)
+Product Name
+Credit Card Optimizer
+Purpose
+Help users maximize credit card rewards by recommending the best card for each purchase, tracking rewards, and simplifying credit card management.
+Background & Motivation
+Many consumers have multiple credit cards but don’t know which to use for specific purchases to maximize rewards. This app solves that by providing personalized, actionable recommendations and tracking.
+Goals & Objectives
+Maximize user rewards: Recommend the best card for each purchase.
+Simplify management: Help users track cards, rewards, and offers.
+Increase engagement: Encourage users to use the app regularly.
+User Stories
+As a new user:
+I want to sign up using Google, Facebook, Twitter, GitHub, or email.
+I want to securely log in and manage my account.
+As a user:
+I want to add my credit cards and see their reward categories.
+I want to get recommendations for which card to use at different merchants.
+I want to track my spending and rewards earned.
+I want to see upcoming offers or bonus categories.
+I want to update or remove cards from my profile.
+I want to view a summary of my rewards and spending.
+As an admin:
+I want to manage card databases and reward categories.
+I want to view user analytics and engagement.
+Features & Requirements
+1. Authentication
+OAuth sign-in with Google, Facebook, Twitter, GitHub, and email.
+Secure account creation and login.
+Public sign-up enabled by default.
+2. Credit Card Management
+Add, edit, and remove credit cards.
+Store card details (name, type, reward structure, etc.).
+Support for major US credit cards.
+3. Reward Optimization
+Recommend the best card for a given merchant/category.
+Show estimated rewards for each card.
+Display bonus categories and limited-time offers.
+4. Spending & Rewards Tracking
+Track spending by card and category.
+Show total rewards earned.
+Visualize spending and rewards with charts.
+5. User Profile
+View and edit personal information.
+Manage notification preferences.
+6. Admin Panel
+Manage card database and reward categories.
+View user statistics and app analytics.
+7. Security & Privacy
+Secure OAuth implementation (no trustHost: true, proper callback URLs).
+Route protection middleware.
+Privacy Policy and Terms of Service pages.
+8. Responsive UI
+Mobile and desktop support.
+Accessible design.
+Success Metrics
+Number of active users.
+Number of cards added per user.
+Frequency of recommendations used.
+User retention rate.
+User satisfaction (via feedback).
+Assumptions
+Users are primarily US-based.
+Users have at least one credit card.
+Users are motivated to maximize rewards.
+Out of Scope
+Direct integration with banks (no account aggregation).
+International card support (initially).
+Risks & Mitigations
+OAuth misconfiguration: Use checklists and automated tests.
+Data privacy: Clear privacy policy, secure storage.
+Reward data accuracy: Regularly update card database.
+Dependencies
+Next.js, TypeScript, Prisma, OAuth providers.
+Database for user and card data.
+Hosting (Vercel).
+Milestones
+MVP: Auth, card management, basic recommendations.
+Beta: Rewards tracking, admin panel, analytics.
+Launch: Full UI polish, mobile support, marketing.
+Appendix
+Privacy Policy & Terms (Placeholders)
+/privacy-policy
+/terms-of-service
