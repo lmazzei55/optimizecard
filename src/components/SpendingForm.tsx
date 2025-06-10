@@ -88,6 +88,11 @@ export function SpendingForm() {
   const [recalculating, setRecalculating] = useState(false)
   const [recommendations, setRecommendations] = useState<CardRecommendation[]>([])
   
+  // Enhanced error handling
+  const [error, setError] = useState<string | null>(null)
+  const [isWarming, setIsWarming] = useState(false)
+  const [systemReady, setSystemReady] = useState(false)
+  
   // Subcategory support
   const [enableSubcategories, setEnableSubcategories] = useState(false)
   
@@ -107,6 +112,34 @@ export function SpendingForm() {
   // Track if we've loaded initial data to prevent conflicts
   const [initialDataLoaded, setInitialDataLoaded] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+
+  // Pre-warm APIs when component mounts
+  useEffect(() => {
+    const warmupAPIs = async () => {
+      setIsWarming(true)
+      try {
+        console.log('🔥 Pre-warming APIs...')
+        
+        // Warm up critical endpoints in parallel
+        const warmupPromises = [
+          fetch('/api/warmup').catch(e => console.warn('Warmup failed:', e)),
+          fetch('/api/categories').catch(e => console.warn('Categories warmup failed:', e)),
+          fetch('/api/subcategories').catch(e => console.warn('Subcategories warmup failed:', e))
+        ]
+        
+        await Promise.allSettled(warmupPromises)
+        console.log('✅ API pre-warming completed')
+        setSystemReady(true)
+      } catch (error) {
+        console.warn('⚠️ API pre-warming had issues:', error)
+        setSystemReady(true) // Continue anyway
+      } finally {
+        setIsWarming(false)
+      }
+    }
+    
+    warmupAPIs()
+  }, [])
 
   // Handle hydration by waiting for mount
   useEffect(() => {
@@ -714,34 +747,92 @@ export function SpendingForm() {
 
   const calculateRecommendations = async () => {
     setCalculating(true)
+    setError(null) // Clear previous errors
+    
     try {
       const activeSpending = spending.filter(s => s.monthlySpend > 0)
       
-      const response = await fetch('/api/recommendations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userSpending: activeSpending,
-          rewardPreference,
-          pointValue: 0.01 // Always use 1¢ for initial calculation
-        })
-      })
+      // Enhanced retry logic for cold starts
+      let lastError: any
+      let success = false
+      const maxRetries = 3
       
-      const data = await response.json()
-      setRecommendations(data)
-      
-      // Show upgrade prompt for free users if they got limited results
-      if (userSubscriptionTier === 'free' && data.length > 0) {
-        // Add a small delay so user sees their results first
-        setTimeout(() => {
-          setUpgradePromptFeature('Premium Credit Cards')
-          setUpgradePromptDescription('You\'re seeing no-annual-fee cards only. Upgrade to access premium cards like Chase Sapphire, Amex Gold/Platinum, and Capital One Venture X for potentially higher rewards.')
-          setUpgradePromptOpen(true)
-        }, 3000) // Show after 3 seconds
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`🎯 Calculating recommendations (attempt ${attempt}/${maxRetries})...`)
+          
+          const response = await fetch('/api/recommendations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userSpending: activeSpending,
+              rewardPreference,
+              pointValue: 0.01 // Always use 1¢ for initial calculation
+            })
+          })
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+          }
+          
+          const data = await response.json()
+          
+          if (data.error) {
+            throw new Error(data.error)
+          }
+          
+          setRecommendations(data)
+          success = true
+          
+          // Show upgrade prompt for free users if they got limited results
+          if (userSubscriptionTier === 'free' && data.length > 0) {
+            // Add a small delay so user sees their results first
+            setTimeout(() => {
+              setUpgradePromptFeature('Premium Credit Cards')
+              setUpgradePromptDescription('You\'re seeing no-annual-fee cards only. Upgrade to access premium cards like Chase Sapphire, Amex Gold/Platinum, and Capital One Venture X for potentially higher rewards.')
+              setUpgradePromptOpen(true)
+            }, 3000) // Show after 3 seconds
+          }
+          
+          break // Success, exit retry loop
+          
+        } catch (error: any) {
+          lastError = error
+          console.warn(`❌ Recommendation attempt ${attempt} failed:`, error.message)
+          
+          // If this is a server error and we have retries left, wait and try again
+          if (attempt < maxRetries && (
+            error.message.includes('500') || 
+            error.message.includes('503') ||
+            error.message.includes('timeout') ||
+            error.message.includes('fetch')
+          )) {
+            const delay = 1000 * attempt // Progressive delay
+            console.log(`🔄 Retrying in ${delay}ms...`)
+            await new Promise(resolve => setTimeout(resolve, delay))
+            continue
+          }
+          
+          // If it's not retryable or we're out of retries, break
+          break
+        }
       }
       
-    } catch (error) {
+      if (!success) {
+        throw lastError || new Error('Failed to get recommendations after multiple attempts')
+      }
+      
+    } catch (error: any) {
       console.error('Error calculating recommendations:', error)
+      
+      // Set user-friendly error message
+      if (error.message.includes('500') || error.message.includes('503')) {
+        setError('Our servers are warming up. Please try again in a moment.')
+      } else if (error.message.includes('timeout') || error.message.includes('fetch')) {
+        setError('Connection timeout. Please check your internet and try again.')
+      } else {
+        setError('Unable to calculate recommendations. Please try again.')
+      }
     } finally {
       setCalculating(false)
     }
@@ -1111,8 +1202,22 @@ export function SpendingForm() {
         </div>
       </div>
 
-      {/* Calculate Button */}
-      <div className="text-center">
+      {/* System Status & Calculate Button */}
+      <div className="text-center space-y-4">
+        {/* System Status Indicator */}
+        {isWarming && (
+          <div className="inline-flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-4 py-2 rounded-full text-sm">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+            <span>🔥 Warming up servers...</span>
+          </div>
+        )}
+        
+        {systemReady && !isWarming && (
+          <div className="inline-flex items-center space-x-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 px-4 py-2 rounded-full text-sm">
+            <span>✅ System ready</span>
+          </div>
+        )}
+
         <Button
           onClick={calculateRecommendations}
           disabled={totalMonthlySpend === 0 || calculating}
@@ -1121,12 +1226,51 @@ export function SpendingForm() {
           {calculating ? (
             <div className="flex items-center space-x-2">
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-              <span>Calculating...</span>
+              <span>Calculating... (may take a moment)</span>
             </div>
           ) : (
             '🎯 Get My Recommendations'
           )}
         </Button>
+
+        {/* Error Display */}
+        {error && (
+          <div className="max-w-md mx-auto mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+            <div className="flex items-start space-x-3">
+              <span className="text-red-500 text-xl flex-shrink-0">⚠️</span>
+              <div className="flex-1">
+                <h3 className="font-semibold text-red-800 dark:text-red-300 mb-1">
+                  Calculation Failed
+                </h3>
+                <p className="text-red-600 dark:text-red-400 text-sm mb-3">
+                  {error}
+                </p>
+                <div className="flex space-x-2">
+                  <button 
+                    onClick={() => setError(null)}
+                    className="text-sm text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200 underline"
+                  >
+                    Dismiss
+                  </button>
+                  <button 
+                    onClick={calculateRecommendations}
+                    disabled={calculating}
+                    className="text-sm bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded transition-colors disabled:opacity-50"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Helpful tip for first-time users */}
+        {totalMonthlySpend === 0 && (
+          <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
+            💡 Enter your monthly spending amounts above to get personalized credit card recommendations
+          </p>
+        )}
       </div>
 
       {/* Recommendations */}
