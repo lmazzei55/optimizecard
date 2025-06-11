@@ -144,7 +144,7 @@ export async function healthCheck(): Promise<{ healthy: boolean; latency?: numbe
   }
 }
 
-// Pre-warming function for critical database operations
+// Pre-warming function for critical database operations - optimized for speed
 export async function warmupDatabase(): Promise<{ success: boolean; operations: string[]; errors: string[] }> {
   const operations: string[] = []
   const errors: string[] = []
@@ -153,69 +153,102 @@ export async function warmupDatabase(): Promise<{ success: boolean; operations: 
     {
       name: 'categories',
       task: async () => {
-        await withRetry(async () => {
+        // Use a faster operation with timeout
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Operation timeout')), 3000)
+        })
+        
+        const operationPromise = withRetry(async () => {
           return await prisma.spendingCategory.findFirst({
             select: { id: true }
           })
-        })
+        }, 2) // Reduced retries for speed
+        
+        return await Promise.race([operationPromise, timeoutPromise])
       }
     },
     {
       name: 'subcategories', 
       task: async () => {
-        await withRetry(async () => {
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Operation timeout')), 3000)
+        })
+        
+        const operationPromise = withRetry(async () => {
           return await prisma.subCategory.findFirst({
             select: { id: true }
           })
-        })
+        }, 2)
+        
+        return await Promise.race([operationPromise, timeoutPromise])
       }
     },
     {
       name: 'credit_cards',
       task: async () => {
-        await withRetry(async () => {
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Operation timeout')), 3000)
+        })
+        
+        const operationPromise = withRetry(async () => {
           return await prisma.creditCard.findFirst({
             select: { id: true }
           })
-        })
+        }, 2)
+        
+        return await Promise.race([operationPromise, timeoutPromise])
       }
     },
     {
       name: 'user_count',
       task: async () => {
-        await withRetry(async () => {
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Operation timeout')), 3000)
+        })
+        
+        const operationPromise = withRetry(async () => {
           // Use findMany with take 1 instead of count to avoid potential prepared statement issues
           const users = await prisma.user.findMany({
             select: { id: true },
             take: 1
           })
           return users.length
-        })
+        }, 2)
+        
+        return await Promise.race([operationPromise, timeoutPromise])
       }
     }
   ]
   
-  for (const { name, task } of warmupTasks) {
-    try {
-      await task()
-      operations.push(name)
-      console.log(`✅ Warmup task ${name} succeeded`)
-    } catch (error: any) {
-      console.error(`❌ Warmup task ${name} failed:`, error)
-      
-      // For prepared statement conflicts, don't treat as a hard failure
-      if (error?.code === '42P05' || error?.message?.includes('prepared statement')) {
-        console.log(`⚠️ Prepared statement conflict in ${name}, but this is expected in serverless`)
-        errors.push(`${name}: prepared statement conflict (expected in serverless)`)
-      } else {
-        errors.push(`${name}: ${error?.message || 'Unknown error'}`)
+  // Run all tasks in parallel for speed
+  console.log('🚀 Running warmup tasks in parallel...')
+  const results = await Promise.allSettled(
+    warmupTasks.map(async ({ name, task }) => {
+      try {
+        await task()
+        operations.push(name)
+        console.log(`✅ Warmup task ${name} succeeded`)
+        return { name, success: true }
+      } catch (error: any) {
+        console.error(`❌ Warmup task ${name} failed:`, error)
+        
+        // For prepared statement conflicts, don't treat as a hard failure
+        if (error?.code === '42P05' || error?.message?.includes('prepared statement')) {
+          console.log(`⚠️ Prepared statement conflict in ${name}, but this is expected in serverless`)
+          errors.push(`${name}: prepared statement conflict (expected in serverless)`)
+        } else if (error?.message === 'Operation timeout') {
+          console.log(`⏰ Timeout in ${name}, but continuing...`)
+          errors.push(`${name}: operation timeout`)
+        } else {
+          errors.push(`${name}: ${error?.message || 'Unknown error'}`)
+        }
+        return { name, success: false }
       }
-    }
-  }
+    })
+  )
   
-  // Consider it successful if at least half the operations worked
-  const successThreshold = Math.ceil(warmupTasks.length / 2)
-  const success = operations.length >= successThreshold
+  // Consider it successful if at least one operation worked
+  const success = operations.length > 0
   
   console.log(`Warmup completed: ${operations.length}/${warmupTasks.length} operations successful`)
   

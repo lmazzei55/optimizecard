@@ -61,25 +61,100 @@ class WarmupManager {
   }
 
   private async performWarmup(): Promise<boolean> {
+    const WARMUP_TIMEOUT = 20000 // 20 seconds timeout
+    
     try {
+      console.log('🔥 Starting warmup with 20s timeout...')
+      
+      // Create abort controller for timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => {
+        console.warn('⏰ Warmup timeout reached, aborting...')
+        controller.abort()
+      }, WARMUP_TIMEOUT)
+
       const response = await fetch('/api/warmup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Cache-Control': 'no-cache',
         },
+        signal: controller.signal,
       })
+
+      clearTimeout(timeoutId)
 
       if (response.ok) {
         const data = await response.json()
         console.log('✅ Warmup completed successfully:', data)
-        return true
+        
+        // Even if some operations failed, consider it successful if we got a response
+        if (data.status === 'success' || data.status === 'partial') {
+          return true
+        } else {
+          console.warn('⚠️ Warmup completed but with issues:', data)
+          return false
+        }
+      } else if (response.status === 207) {
+        // Multi-status (partial success)
+        const data = await response.json()
+        console.log('⚠️ Warmup partially successful:', data)
+        return true // Accept partial success
       } else {
         console.warn('⚠️ Warmup failed with status:', response.status)
+        
+        // For 503 errors, try a lightweight warmup
+        if (response.status === 503) {
+          console.log('🔄 Attempting lightweight warmup...')
+          return await this.performLightweightWarmup()
+        }
+        
         return false
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Warmup error:', error)
+      
+      // If it's a timeout or abort error, try lightweight warmup
+      if (error.name === 'AbortError' || error.message?.includes('timeout')) {
+        console.log('🔄 Warmup timed out, attempting lightweight warmup...')
+        return await this.performLightweightWarmup()
+      }
+      
+      return false
+    }
+  }
+
+  // Lightweight warmup that just tests basic connectivity
+  private async performLightweightWarmup(): Promise<boolean> {
+    try {
+      console.log('🚀 Starting lightweight warmup...')
+      
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
+
+      // Just test the categories endpoint which should be fast
+      const response = await fetch('/api/categories', {
+        method: 'GET',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
+      if (response.ok) {
+        const data = await response.json()
+        if (Array.isArray(data) && data.length > 0) {
+          console.log('✅ Lightweight warmup successful - categories loaded')
+          return true
+        }
+      }
+      
+      console.warn('⚠️ Lightweight warmup failed')
+      return false
+    } catch (error) {
+      console.error('❌ Lightweight warmup error:', error)
       return false
     }
   }

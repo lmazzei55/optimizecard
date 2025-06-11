@@ -7,9 +7,16 @@ export async function GET() {
   try {
     console.log('🔥 Starting API warmup...')
     
-    // Skip health check and go directly to warmup operations
-    // The warmup operations themselves will test database connectivity
-    const warmupResult = await warmupDatabase()
+    // Set a reasonable timeout for the entire warmup process
+    const WARMUP_TIMEOUT = 15000 // 15 seconds max
+    
+    const warmupPromise = warmupDatabase()
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Warmup timeout')), WARMUP_TIMEOUT)
+    })
+    
+    // Race between warmup and timeout
+    const warmupResult = await Promise.race([warmupPromise, timeoutPromise]) as any
     
     const duration = Date.now() - startTime
     
@@ -48,6 +55,17 @@ export async function GET() {
   } catch (error: any) {
     const duration = Date.now() - startTime
     console.error('❌ API warmup failed:', error)
+    
+    // If it's a timeout, return a more specific error
+    if (error.message === 'Warmup timeout') {
+      return NextResponse.json({
+        status: 'timeout',
+        reason: 'warmup_timeout',
+        error: 'Warmup operations took too long',
+        duration,
+        timestamp: new Date().toISOString()
+      }, { status: 408 }) // Request Timeout
+    }
     
     return NextResponse.json({
       status: 'failed',

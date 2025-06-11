@@ -127,12 +127,16 @@ export function SpendingForm() {
         setSystemReady(true)
         console.log('✅ System is ready for use')
       } else {
-        console.warn('⚠️ System warmup failed, but continuing...')
-        setSystemReady(false)
+        console.warn('⚠️ System warmup failed, but allowing app to continue...')
+        // Don't block the app if warmup fails - let users try anyway
+        setSystemReady(true) // Set to true to allow functionality
+        setError('⚠️ System is starting up. If you experience issues, please wait a moment and try again.')
       }
     } catch (error) {
       console.error('❌ Warmup error:', error)
-      setSystemReady(false)
+      // Don't block the app - let users try anyway
+      setSystemReady(true)
+      setError('⚠️ System is starting up. Some features may be slower than usual.')
     } finally {
       setIsWarming(false)
     }
@@ -153,7 +157,18 @@ export function SpendingForm() {
         setIsWarming(true)
         // Wait for existing warmup to complete
         warmupManager.getCurrentWarmupPromise()?.then((result) => {
-          setSystemReady(result)
+          if (result) {
+            setSystemReady(true)
+          } else {
+            // Even if warmup failed, allow the app to function
+            setSystemReady(true)
+            setError('⚠️ System is starting up. Some features may be slower than usual.')
+          }
+          setIsWarming(false)
+        }).catch(() => {
+          // Handle promise rejection gracefully
+          setSystemReady(true)
+          setError('⚠️ System is starting up. Some features may be slower than usual.')
           setIsWarming(false)
         })
       } else {
@@ -807,22 +822,20 @@ export function SpendingForm() {
         try {
           console.log(`🎯 Calculating recommendations (attempt ${attempt}/${maxRetries})...`)
           
-          // Check system health before making the request
+          // For first attempt, try a quick warmup check if system isn't ready
           if (!systemReady && attempt === 1) {
-            console.log('⏳ System not ready, checking warmup status...')
+            console.log('⏳ System not ready, attempting quick warmup...')
             try {
-              const warmupResponse = await fetch('/api/warmup')
-              if (warmupResponse.ok) {
-                const warmupData = await warmupResponse.json()
-                if (warmupData.status === 'success') {
-                  setSystemReady(true)
-                  console.log('✅ System is now ready')
-                } else {
-                  console.warn('⚠️ System warmup incomplete:', warmupData)
-                }
+              // Try lightweight warmup first
+              const quickWarmup = await warmupManager.warmupIfNeeded()
+              if (quickWarmup) {
+                setSystemReady(true)
+                console.log('✅ Quick warmup successful')
+              } else {
+                console.warn('⚠️ Quick warmup failed, but continuing with request...')
               }
             } catch (warmupError) {
-              console.warn('⚠️ Could not check system status:', warmupError)
+              console.warn('⚠️ Quick warmup error, but continuing:', warmupError)
             }
           }
           
@@ -882,6 +895,12 @@ export function SpendingForm() {
             setRecommendations(data)
             success = true
             
+            // Mark system as ready if we got successful results
+            if (!systemReady) {
+              setSystemReady(true)
+              console.log('✅ System is now ready (confirmed by successful API call)')
+            }
+            
             // Show upgrade prompt for free users if they got limited results
             if (userSubscriptionTier === 'free' && data.length > 0) {
               // Add a small delay so user sees their results first
@@ -903,18 +922,20 @@ export function SpendingForm() {
           const isRetryable = (
             error.message.includes('500') || 
             error.message.includes('503') ||
+            error.message.includes('408') || // Timeout
             error.message.includes('timeout') ||
             error.message.includes('fetch') ||
             error.message.includes('Database temporarily unavailable') ||
             error.message.includes('prepared statement') ||
             error.message.includes('connection') ||
             error.message.includes('No recommendations returned') ||
-            error.message.includes('warming up')
+            error.message.includes('warming up') ||
+            error.message.includes('Service Unavailable')
           )
           
           if (attempt < maxRetries && isRetryable) {
             // Progressive delay with longer waits for database issues
-            const baseDelay = error.message.includes('Database') ? 2000 : 1000
+            const baseDelay = error.message.includes('Database') || error.message.includes('503') ? 3000 : 1500
             const delay = baseDelay * attempt
             console.log(`🔄 Retrying in ${delay}ms...`)
             await new Promise(resolve => setTimeout(resolve, delay))
@@ -938,11 +959,13 @@ export function SpendingForm() {
           error.message.includes('prepared statement') ||
           error.message.includes('connection')) {
         setError('🔄 Database is warming up. Please wait a moment and try again.')
-      } else if (error.message.includes('503')) {
+      } else if (error.message.includes('503') || error.message.includes('Service Unavailable')) {
         setError('🔥 System is starting up. Please try again in a few seconds.')
+      } else if (error.message.includes('408') || error.message.includes('timeout')) {
+        setError('⏰ Request timed out. The system may be warming up. Please try again.')
       } else if (error.message.includes('500')) {
         setError('⚠️ Server error occurred. Please try again.')
-      } else if (error.message.includes('timeout') || error.message.includes('fetch')) {
+      } else if (error.message.includes('fetch')) {
         setError('🌐 Connection timeout. Please check your internet and try again.')
       } else if (error.message.includes('No recommendations returned')) {
         setError('🔍 No credit cards match your spending pattern. Try adjusting your spending amounts.')
