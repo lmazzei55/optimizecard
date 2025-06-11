@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { warmupDatabase, healthCheck } from '@/lib/prisma'
+import { warmupDatabase } from '@/lib/prisma'
 
 export async function GET() {
   const startTime = Date.now()
@@ -7,21 +7,8 @@ export async function GET() {
   try {
     console.log('🔥 Starting API warmup...')
     
-    // Check basic health using the same approach as working endpoints
-    const health = await healthCheck()
-    
-    if (!health.healthy) {
-      console.log('❌ Database unhealthy during warmup:', health.error)
-      return NextResponse.json({
-        status: 'failed',
-        reason: 'database_unhealthy',
-        error: health.error,
-        duration: Date.now() - startTime,
-        timestamp: new Date().toISOString()
-      }, { status: 503 })
-    }
-    
-    // Perform database warmup
+    // Skip health check and go directly to warmup operations
+    // The warmup operations themselves will test database connectivity
     const warmupResult = await warmupDatabase()
     
     const duration = Date.now() - startTime
@@ -32,19 +19,30 @@ export async function GET() {
         status: 'success',
         operations: warmupResult.operations,
         duration,
-        database_latency: health.latency,
         timestamp: new Date().toISOString()
       })
     } else {
       console.log(`⚠️ API warmup partially failed in ${duration}ms`)
-      return NextResponse.json({
-        status: 'partial',
-        operations: warmupResult.operations,
-        errors: warmupResult.errors,
-        duration,
-        database_latency: health.latency,
-        timestamp: new Date().toISOString()
-      }, { status: 207 }) // Multi-status
+      
+      // If we have some successful operations, it's a partial success
+      if (warmupResult.operations.length > 0) {
+        return NextResponse.json({
+          status: 'partial',
+          operations: warmupResult.operations,
+          errors: warmupResult.errors,
+          duration,
+          timestamp: new Date().toISOString()
+        }, { status: 207 }) // Multi-status
+      } else {
+        // If no operations succeeded, it's a failure
+        return NextResponse.json({
+          status: 'failed',
+          reason: 'all_operations_failed',
+          errors: warmupResult.errors,
+          duration,
+          timestamp: new Date().toISOString()
+        }, { status: 503 })
+      }
     }
     
   } catch (error: any) {

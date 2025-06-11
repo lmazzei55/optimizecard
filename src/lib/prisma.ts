@@ -184,7 +184,12 @@ export async function warmupDatabase(): Promise<{ success: boolean; operations: 
       name: 'user_count',
       task: async () => {
         await withRetry(async () => {
-          return await prisma.user.count()
+          // Use findMany with take 1 instead of count to avoid potential prepared statement issues
+          const users = await prisma.user.findMany({
+            select: { id: true },
+            take: 1
+          })
+          return users.length
         })
       }
     }
@@ -194,14 +199,28 @@ export async function warmupDatabase(): Promise<{ success: boolean; operations: 
     try {
       await task()
       operations.push(name)
+      console.log(`✅ Warmup task ${name} succeeded`)
     } catch (error: any) {
       console.error(`❌ Warmup task ${name} failed:`, error)
-      errors.push(`${name}: ${error?.message || 'Unknown error'}`)
+      
+      // For prepared statement conflicts, don't treat as a hard failure
+      if (error?.code === '42P05' || error?.message?.includes('prepared statement')) {
+        console.log(`⚠️ Prepared statement conflict in ${name}, but this is expected in serverless`)
+        errors.push(`${name}: prepared statement conflict (expected in serverless)`)
+      } else {
+        errors.push(`${name}: ${error?.message || 'Unknown error'}`)
+      }
     }
   }
   
+  // Consider it successful if at least half the operations worked
+  const successThreshold = Math.ceil(warmupTasks.length / 2)
+  const success = operations.length >= successThreshold
+  
+  console.log(`Warmup completed: ${operations.length}/${warmupTasks.length} operations successful`)
+  
   return {
-    success: errors.length === 0,
+    success,
     operations,
     errors
   }
