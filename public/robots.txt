@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+
+# Allow important pages
+Allow: /dashboard
+Allow: /pricing
+Allow: /auth/signin
+Allow: /privacy
+Allow: /terms
+
+# Disallow admin/API areas and auth errors
+Disallow: /api/
+Disallow: /auth/error
+Disallow: /auth/verify-request
+Disallow: /_next/
+Disallow: /admin/
+
+# Sitemap location
+Sitemap: https://optimizecard.com/sitemap.xml 

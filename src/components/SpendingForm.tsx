@@ -1341,13 +1341,18 @@ export function SpendingForm() {
                           <div className="text-lg opacity-90">net annual value</div>
                           <div className="flex flex-col space-y-2 mt-3">
                             {rec.applicationUrl && (
-                              <Button
-                                onClick={() => window.open(rec.applicationUrl, '_blank')}
-                                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white border-0 shadow-lg transform hover:scale-105 transition-all duration-200 font-semibold"
-                                size="sm"
-                              >
-                                🚀 Apply Now
-                              </Button>
+                              <div className="space-y-2">
+                                <Button
+                                  onClick={() => window.open(rec.applicationUrl, '_blank')}
+                                  className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white border-0 shadow-lg transform hover:scale-105 transition-all duration-200 font-semibold w-full"
+                                  size="sm"
+                                >
+                                  🚀 Apply Now
+                                </Button>
+                                <div className="text-xs text-white/80 text-center">
+                                  ⚠️ Affiliate Link - We may earn a commission
+                                </div>
+                              </div>
                             )}
                             <Button
                               onClick={() => openCardCustomization(rec.cardId)}

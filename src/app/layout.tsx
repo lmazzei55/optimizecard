@@ -16,8 +16,31 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Credit Card Optimizer - Maximize Your Rewards",
   description: "Maximize your credit card rewards with AI-powered personalized recommendations based on your spending patterns. Get mathematical precision for optimal card selection.",
-  keywords: "credit cards, rewards, cashback, points, optimization, recommendations, personal finance",
+  keywords: "credit cards, rewards, cashback, points, optimization, recommendations, personal finance, credit card comparison, best credit cards",
   authors: [{ name: "Credit Card Optimizer" }],
+  creator: "Credit Card Optimizer",
+  publisher: "Credit Card Optimizer",
+  robots: "index, follow",
+  openGraph: {
+    title: "Credit Card Optimizer - Maximize Your Rewards",
+    description: "AI-powered credit card recommendations based on your spending patterns. Find the perfect card for maximum rewards.",
+    url: "https://optimizecard.com",
+    siteName: "Credit Card Optimizer",
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Credit Card Optimizer - Maximize Your Rewards",
+    description: "AI-powered credit card recommendations based on your spending patterns.",
+    creator: "@optimizecard",
+  },
+  alternates: {
+    canonical: "https://optimizecard.com",
+  },
+  verification: {
+    google: "your-google-verification-code", // Replace with actual verification code
+  },
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#3b82f6" },
     { media: "(prefers-color-scheme: dark)", color: "#1f2937" }
