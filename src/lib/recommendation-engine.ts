@@ -1,4 +1,4 @@
-import { prisma } from './prisma'
+import { prisma, withRetry } from './prisma'
 
 export interface UserSpending {
   categoryId?: string
@@ -98,17 +98,19 @@ export async function calculateCardRecommendations(
   }
 
   try {
-    const cards = await prisma.creditCard.findMany({
-      where: whereClause,
-      include: {
-        categoryRewards: {
-          include: {
-            category: true,
-            subCategory: true,
+    const cards = await withRetry(async () => {
+      return await prisma.creditCard.findMany({
+        where: whereClause,
+        include: {
+          categoryRewards: {
+            include: {
+              category: true,
+              subCategory: true,
+            },
           },
+          benefits: true,
         },
-        benefits: true,
-      },
+      })
     })
 
     const recommendations: CardRecommendation[] = []
