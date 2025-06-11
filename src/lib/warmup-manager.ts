@@ -130,7 +130,10 @@ class WarmupManager {
       console.log('🚀 Starting lightweight warmup...')
       
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
+      const timeoutId = setTimeout(() => {
+        console.warn('⏰ Lightweight warmup timeout reached')
+        controller.abort()
+      }, 5000) // 5 second timeout
 
       // Just test the categories endpoint which should be fast
       const response = await fetch('/api/categories', {
@@ -151,10 +154,17 @@ class WarmupManager {
         }
       }
       
-      console.warn('⚠️ Lightweight warmup failed')
+      console.warn('⚠️ Lightweight warmup failed - invalid response')
       return false
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Lightweight warmup error:', error)
+      
+      // Don't treat AbortError as a hard failure - it just means timeout
+      if (error.name === 'AbortError') {
+        console.warn('⏰ Lightweight warmup timed out, but this is not necessarily a failure')
+        return false
+      }
+      
       return false
     }
   }

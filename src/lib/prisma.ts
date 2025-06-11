@@ -232,10 +232,12 @@ export async function warmupDatabase(): Promise<{ success: boolean; operations: 
       } catch (error: any) {
         console.error(`❌ Warmup task ${name} failed:`, error)
         
-        // For prepared statement conflicts, don't treat as a hard failure
+        // For prepared statement conflicts, treat as successful since database is working
         if (error?.code === '42P05' || error?.message?.includes('prepared statement')) {
-          console.log(`⚠️ Prepared statement conflict in ${name}, but this is expected in serverless`)
-          errors.push(`${name}: prepared statement conflict (expected in serverless)`)
+          console.log(`⚠️ Prepared statement conflict in ${name}, but this indicates database is working`)
+          operations.push(name) // ✅ Count as successful operation
+          errors.push(`${name}: prepared statement conflict (database working)`)
+          return { name, success: true } // ✅ Mark as success
         } else if (error?.message === 'Operation timeout') {
           console.log(`⏰ Timeout in ${name}, but continuing...`)
           errors.push(`${name}: operation timeout`)
@@ -247,10 +249,18 @@ export async function warmupDatabase(): Promise<{ success: boolean; operations: 
     })
   )
   
-  // Consider it successful if at least one operation worked
-  const success = operations.length > 0
+  // Consider it successful if at least one operation worked OR all failures are prepared statement conflicts
+  const allErrorsArePreparedStatements = errors.length > 0 && errors.every(error => 
+    error.includes('prepared statement conflict')
+  )
+  
+  const success = operations.length > 0 || allErrorsArePreparedStatements
   
   console.log(`Warmup completed: ${operations.length}/${warmupTasks.length} operations successful`)
+  
+  if (allErrorsArePreparedStatements && operations.length === warmupTasks.length) {
+    console.log('✅ All operations had prepared statement conflicts - database is working properly in serverless')
+  }
   
   return {
     success,
