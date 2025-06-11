@@ -131,13 +131,12 @@ export async function withRetry<T>(
   throw lastError
 }
 
-// Health check function for monitoring - using unique queries to avoid caching
+// Health check function for monitoring - using simple operations instead of raw queries
 export async function healthCheck(): Promise<{ healthy: boolean; latency?: number; error?: string }> {
   const startTime = Date.now()
   try {
-    // Use a unique timestamp to avoid prepared statement caching
-    const timestamp = Date.now()
-    await prisma.$queryRaw`SELECT ${timestamp} as health_check`
+    // Use a simple count operation instead of raw queries to avoid prepared statement issues
+    await prisma.spendingCategory.count()
     const latency = Date.now() - startTime
     return { healthy: true, latency }
   } catch (error: any) {
@@ -211,9 +210,8 @@ export async function warmupDatabase(): Promise<{ success: boolean; operations: 
 // Connection pool management for serverless
 export async function ensureConnection(): Promise<boolean> {
   try {
-    // Use unique timestamp to avoid prepared statement conflicts
-    const timestamp = Date.now()
-    await prisma.$queryRaw`SELECT ${timestamp} as connection_test`
+    // Use simple operation instead of raw queries to avoid prepared statement conflicts
+    await prisma.spendingCategory.count()
     return true
   } catch (error: any) {
     console.error('Connection check failed:', error)
@@ -225,8 +223,7 @@ export async function ensureConnection(): Promise<boolean> {
       
       // Try again with the new client
       try {
-        const timestamp = Date.now()
-        await prisma.$queryRaw`SELECT ${timestamp} as connection_test_retry`
+        await prisma.spendingCategory.count()
         return true
       } catch (retryError) {
         console.error('Connection check failed after reset:', retryError)
@@ -238,8 +235,7 @@ export async function ensureConnection(): Promise<boolean> {
     try {
       await disconnectPrisma()
       await new Promise(resolve => setTimeout(resolve, 100))
-      const timestamp = Date.now()
-      await prisma.$queryRaw`SELECT ${timestamp} as connection_test_reconnect`
+      await prisma.spendingCategory.count()
       return true
     } catch (reconnectError) {
       console.error('Reconnection failed:', reconnectError)
