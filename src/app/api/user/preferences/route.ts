@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { withRetry } from '@/lib/prisma'
+import { withRetry, ensureConnection } from '@/lib/prisma'
 import { prisma } from '@/lib/prisma'
 
 export async function GET() {
@@ -8,6 +8,20 @@ export async function GET() {
     const session = await auth()
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Ensure database connection is healthy
+    const connectionHealthy = await ensureConnection()
+    if (!connectionHealthy) {
+      return NextResponse.json(
+        { 
+          error: 'Database temporarily unavailable',
+          rewardPreference: 'CASHBACK',  // Default fallback
+          pointValue: 0.01,
+          enableSubCategories: false
+        },
+        { status: 503 }
+      )
     }
 
     const user = await withRetry(async () => {
@@ -36,8 +50,11 @@ export async function GET() {
   } catch (error: any) {
     console.error('❌ Preferences API Error:', error)
     
-    // Return 503 for database connection issues with fallback preferences
-    if (error?.code === 'P2010' || error?.message?.includes('prepared statement') || error?.message?.includes('connection')) {
+    // Enhanced error handling for database connection issues
+    if (error?.code === 'P2010' || 
+        error?.code === '42P05' || 
+        error?.message?.includes('prepared statement') || 
+        error?.message?.includes('connection')) {
       console.error('Database connection pool issue detected')
       return NextResponse.json(
         { 
@@ -66,13 +83,31 @@ export async function POST(request: NextRequest) {
 
     const { rewardPreference, pointValue, enableSubCategories } = await request.json()
 
+    // Validate input data
+    if (rewardPreference && !['CASHBACK', 'POINTS', 'BEST_OVERALL'].includes(rewardPreference.toUpperCase())) {
+      return NextResponse.json({ error: 'Invalid reward preference' }, { status: 400 })
+    }
+
+    if (pointValue !== undefined && (pointValue < 0.005 || pointValue > 0.05)) {
+      return NextResponse.json({ error: 'Invalid point value' }, { status: 400 })
+    }
+
+    // Ensure database connection is healthy
+    const connectionHealthy = await ensureConnection()
+    if (!connectionHealthy) {
+      return NextResponse.json(
+        { error: 'Database temporarily unavailable' },
+        { status: 503 }
+      )
+    }
+
     const updatedUser = await withRetry(async () => {
       return await prisma.user.update({
         where: { email: session.user.email! },
         data: {
-          rewardPreference,
-          pointValue,
-          enableSubCategories
+          ...(rewardPreference && { rewardPreference: rewardPreference.toUpperCase() }),
+          ...(pointValue !== undefined && { pointValue }),
+          ...(enableSubCategories !== undefined && { enableSubCategories })
         },
         select: {
           rewardPreference: true,
@@ -82,7 +117,11 @@ export async function POST(request: NextRequest) {
       })
     })
 
-    console.log(`✅ Preferences updated for user`)
+    console.log(`✅ Preferences updated for user:`, {
+      rewardPreference: updatedUser.rewardPreference,
+      pointValue: updatedUser.pointValue,
+      enableSubCategories: updatedUser.enableSubCategories
+    })
 
     return NextResponse.json({
       success: true,
@@ -92,8 +131,11 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('❌ Preferences Update Error:', error)
     
-    // Return 503 for database connection issues
-    if (error?.code === 'P2010' || error?.message?.includes('prepared statement') || error?.message?.includes('connection')) {
+    // Enhanced error handling for database connection issues
+    if (error?.code === 'P2010' || 
+        error?.code === '42P05' || 
+        error?.message?.includes('prepared statement') || 
+        error?.message?.includes('connection')) {
       return NextResponse.json(
         { error: 'Database temporarily unavailable' },
         { status: 503 }

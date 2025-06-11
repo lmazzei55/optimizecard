@@ -127,9 +127,35 @@ export function SpendingForm() {
           fetch('/api/subcategories').catch(e => console.warn('Subcategories warmup failed:', e))
         ]
         
-        await Promise.allSettled(warmupPromises)
-        console.log('✅ API pre-warming completed')
-        setSystemReady(true)
+        const results = await Promise.allSettled(warmupPromises)
+        
+        // Check if warmup was successful
+        const warmupResult = results[0]
+        if (warmupResult.status === 'fulfilled') {
+          try {
+            const response = warmupResult.value as Response
+            if (response.ok) {
+              const data = await response.json()
+              if (data.status === 'success') {
+                console.log('✅ API pre-warming completed successfully')
+                setSystemReady(true)
+              } else {
+                console.warn('⚠️ API warmup completed with issues:', data)
+                setSystemReady(true) // Continue anyway
+              }
+            } else {
+              console.warn('⚠️ Warmup API returned non-OK status:', response.status)
+              setSystemReady(true) // Continue anyway
+            }
+          } catch (parseError) {
+            console.warn('⚠️ Could not parse warmup response:', parseError)
+            setSystemReady(true) // Continue anyway
+          }
+        } else {
+          console.warn('⚠️ Warmup API failed:', warmupResult.reason)
+          setSystemReady(true) // Continue anyway
+        }
+        
       } catch (error) {
         console.warn('⚠️ API pre-warming had issues:', error)
         setSystemReady(true) // Continue anyway
@@ -752,14 +778,33 @@ export function SpendingForm() {
     try {
       const activeSpending = spending.filter(s => s.monthlySpend > 0)
       
-      // Enhanced retry logic for cold starts
+      // Enhanced retry logic for cold starts and database issues
       let lastError: any
       let success = false
-      const maxRetries = 3
+      const maxRetries = 4 // Increased for database issues
       
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
           console.log(`🎯 Calculating recommendations (attempt ${attempt}/${maxRetries})...`)
+          
+          // Check system health before making the request
+          if (!systemReady && attempt === 1) {
+            console.log('⏳ System not ready, checking warmup status...')
+            try {
+              const warmupResponse = await fetch('/api/warmup')
+              if (warmupResponse.ok) {
+                const warmupData = await warmupResponse.json()
+                if (warmupData.status === 'success') {
+                  setSystemReady(true)
+                  console.log('✅ System is now ready')
+                } else {
+                  console.warn('⚠️ System warmup incomplete:', warmupData)
+                }
+              }
+            } catch (warmupError) {
+              console.warn('⚠️ Could not check system status:', warmupError)
+            }
+          }
           
           const response = await fetch('/api/recommendations', {
             method: 'POST',
@@ -772,7 +817,22 @@ export function SpendingForm() {
           })
           
           if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+            const errorText = await response.text()
+            let errorMessage = `HTTP ${response.status}: ${response.statusText}`
+            
+            try {
+              const errorData = JSON.parse(errorText)
+              if (errorData.error) {
+                errorMessage = errorData.error
+              }
+            } catch (parseError) {
+              // Use the raw text if JSON parsing fails
+              if (errorText) {
+                errorMessage = errorText
+              }
+            }
+            
+            throw new Error(errorMessage)
           }
           
           const data = await response.json()
@@ -800,14 +860,21 @@ export function SpendingForm() {
           lastError = error
           console.warn(`❌ Recommendation attempt ${attempt} failed:`, error.message)
           
-          // If this is a server error and we have retries left, wait and try again
-          if (attempt < maxRetries && (
+          // Enhanced retry conditions for database issues
+          const isRetryable = (
             error.message.includes('500') || 
             error.message.includes('503') ||
             error.message.includes('timeout') ||
-            error.message.includes('fetch')
-          )) {
-            const delay = 1000 * attempt // Progressive delay
+            error.message.includes('fetch') ||
+            error.message.includes('Database temporarily unavailable') ||
+            error.message.includes('prepared statement') ||
+            error.message.includes('connection')
+          )
+          
+          if (attempt < maxRetries && isRetryable) {
+            // Progressive delay with longer waits for database issues
+            const baseDelay = error.message.includes('Database') ? 2000 : 1000
+            const delay = baseDelay * attempt
             console.log(`🔄 Retrying in ${delay}ms...`)
             await new Promise(resolve => setTimeout(resolve, delay))
             continue
@@ -825,13 +892,19 @@ export function SpendingForm() {
     } catch (error: any) {
       console.error('Error calculating recommendations:', error)
       
-      // Set user-friendly error message
-      if (error.message.includes('500') || error.message.includes('503')) {
-        setError('Our servers are warming up. Please try again in a moment.')
+      // Enhanced user-friendly error messages
+      if (error.message.includes('Database temporarily unavailable') || 
+          error.message.includes('prepared statement') ||
+          error.message.includes('connection')) {
+        setError('🔄 Database is warming up. Please wait a moment and try again.')
+      } else if (error.message.includes('503')) {
+        setError('🔥 System is starting up. Please try again in a few seconds.')
+      } else if (error.message.includes('500')) {
+        setError('⚠️ Server error occurred. Please try again.')
       } else if (error.message.includes('timeout') || error.message.includes('fetch')) {
-        setError('Connection timeout. Please check your internet and try again.')
+        setError('🌐 Connection timeout. Please check your internet and try again.')
       } else {
-        setError('Unable to calculate recommendations. Please try again.')
+        setError('❌ Unable to calculate recommendations. Please try again.')
       }
     } finally {
       setCalculating(false)

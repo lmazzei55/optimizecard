@@ -11,7 +11,7 @@ export const prisma = globalForPrisma.prisma ?? new PrismaClient({
     },
   },
   log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  // Enhanced settings for serverless cold starts
+  // Enhanced settings for serverless cold starts and connection pooling
   ...(process.env.NODE_ENV === 'production' && {
     transactionOptions: {
       timeout: 30000, // 30 seconds for cold starts
@@ -21,11 +21,20 @@ export const prisma = globalForPrisma.prisma ?? new PrismaClient({
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
 
+// Connection cleanup for serverless
+export async function disconnectPrisma() {
+  try {
+    await prisma.$disconnect()
+  } catch (error) {
+    console.warn('Error disconnecting Prisma:', error)
+  }
+}
+
 // Initialize database schema if needed
 export async function initializeDatabase() {
   try {
-    // Test connection with a simple query that doesn't use prepared statements
-    const result = await prisma.$queryRawUnsafe('SELECT 1 as test')
+    // Use a simple query that doesn't create prepared statements
+    const result = await prisma.$queryRaw`SELECT 1 as test`
     console.log('Database connection test successful')
     return true
   } catch (error) {
@@ -60,14 +69,28 @@ export async function withRetry<T>(
         (error?.code === 'P2010' || // Connection error
          error?.code === 'P2024' || // Timeout
          error?.code === 'P1001' || // Can't reach database
+         error?.code === '42P05' || // Prepared statement exists
          error?.message?.includes('timeout') ||
          error?.message?.includes('connection') ||
+         error?.message?.includes('prepared statement') ||
          error?.message?.includes('ECONNRESET') ||
          error?.message?.includes('ETIMEDOUT')) && 
         attempt < maxRetries
       )
       
       if (isRetryable) {
+        // For prepared statement conflicts, disconnect and reconnect
+        if (error?.code === '42P05' || error?.message?.includes('prepared statement')) {
+          console.log('🔄 Prepared statement conflict detected, resetting connection...')
+          try {
+            await disconnectPrisma()
+            // Small delay to allow connection cleanup
+            await new Promise(resolve => setTimeout(resolve, 200))
+          } catch (disconnectError) {
+            console.warn('Error during disconnect:', disconnectError)
+          }
+        }
+        
         // Exponential backoff with jitter for cold starts
         const jitter = Math.random() * 500
         const delay = (baseDelayMs * Math.pow(2, attempt - 1)) + jitter
@@ -84,11 +107,12 @@ export async function withRetry<T>(
   throw lastError
 }
 
-// Health check function for monitoring
+// Health check function for monitoring - avoiding prepared statements
 export async function healthCheck(): Promise<{ healthy: boolean; latency?: number; error?: string }> {
   const startTime = Date.now()
   try {
-    await prisma.$queryRawUnsafe('SELECT 1')
+    // Use template literal to avoid prepared statement caching
+    await prisma.$queryRaw`SELECT 1 as health_check`
     const latency = Date.now() - startTime
     return { healthy: true, latency }
   } catch (error: any) {
@@ -105,54 +129,49 @@ export async function warmupDatabase(): Promise<{ success: boolean; operations: 
     {
       name: 'categories',
       task: async () => {
-        await prisma.spendingCategory.findFirst()
+        await withRetry(async () => {
+          return await prisma.spendingCategory.findFirst({
+            select: { id: true }
+          })
+        })
       }
     },
     {
       name: 'subcategories', 
       task: async () => {
-        await prisma.subCategory.findFirst()
+        await withRetry(async () => {
+          return await prisma.subCategory.findFirst({
+            select: { id: true }
+          })
+        })
       }
     },
     {
       name: 'credit_cards',
       task: async () => {
-        await prisma.creditCard.findFirst()
+        await withRetry(async () => {
+          return await prisma.creditCard.findFirst({
+            select: { id: true }
+          })
+        })
       }
     },
     {
       name: 'user_count',
       task: async () => {
-        await prisma.user.count()
+        await withRetry(async () => {
+          return await prisma.user.count()
+        })
       }
     }
   ]
   
   for (const { name, task } of warmupTasks) {
     try {
-      // Simple retry logic for warmup (no complex typing needed)
-      let lastError: any
-      let success = false
-      
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          await task()
-          success = true
-          break
-        } catch (error: any) {
-          lastError = error
-          if (attempt < 2) {
-            await new Promise(resolve => setTimeout(resolve, 500))
-          }
-        }
-      }
-      
-      if (success) {
-        operations.push(name)
-      } else {
-        throw lastError
-      }
+      await task()
+      operations.push(name)
     } catch (error: any) {
+      console.error(`❌ Warmup task ${name} failed:`, error)
       errors.push(`${name}: ${error?.message || 'Unknown error'}`)
     }
   }
@@ -161,5 +180,26 @@ export async function warmupDatabase(): Promise<{ success: boolean; operations: 
     success: errors.length === 0,
     operations,
     errors
+  }
+}
+
+// Connection pool management for serverless
+export async function ensureConnection(): Promise<boolean> {
+  try {
+    await prisma.$queryRaw`SELECT 1`
+    return true
+  } catch (error: any) {
+    console.error('Connection check failed:', error)
+    
+    // Try to reconnect
+    try {
+      await disconnectPrisma()
+      await new Promise(resolve => setTimeout(resolve, 100))
+      await prisma.$queryRaw`SELECT 1`
+      return true
+    } catch (reconnectError) {
+      console.error('Reconnection failed:', reconnectError)
+      return false
+    }
   }
 } 

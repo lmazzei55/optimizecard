@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { prisma, withRetry, ensureConnection } from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,12 +9,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    // Test database connection first
-    await prisma.$queryRawUnsafe('SELECT 1')
+    // Ensure database connection is healthy
+    const connectionHealthy = await ensureConnection()
+    if (!connectionHealthy) {
+      return NextResponse.json(
+        { error: 'Database temporarily unavailable', code: 'DB_CONNECTION_ERROR' },
+        { status: 503 }
+      )
+    }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { spendingData: true }
+    const user = await withRetry(async () => {
+      return await prisma.user.findUnique({
+        where: { email: session.user.email! },
+        select: { spendingData: true }
+      })
     })
 
     if (!user) {
@@ -28,6 +36,8 @@ export async function GET(request: NextRequest) {
         spending = JSON.parse(user.spendingData)
       } catch (error) {
         console.error('Error parsing user spending data:', error)
+        // Return empty array if parsing fails
+        spending = []
       }
     }
 
@@ -35,8 +45,11 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('Error fetching user spending:', error)
     
-    // If it's a database connection error, return a service unavailable error
-    if (error?.code === 'P2010' || error?.message?.includes('prepared statement')) {
+    // Enhanced error handling for different types of database errors
+    if (error?.code === 'P2010' || 
+        error?.code === '42P05' || 
+        error?.message?.includes('prepared statement') ||
+        error?.message?.includes('connection')) {
       console.error('Database connection pool issue in spending API')
       return NextResponse.json(
         { error: 'Database temporarily unavailable', code: 'DB_POOL_ERROR' },
@@ -65,15 +78,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid spending data' }, { status: 400 })
     }
 
-    // Update user's spending data
-    await prisma.user.update({
-      where: { email: session.user.email },
-      data: { spendingData: JSON.stringify(spending) }
+    // Ensure database connection is healthy
+    const connectionHealthy = await ensureConnection()
+    if (!connectionHealthy) {
+      return NextResponse.json(
+        { error: 'Database temporarily unavailable', code: 'DB_CONNECTION_ERROR' },
+        { status: 503 }
+      )
+    }
+
+    // Update user's spending data with retry logic
+    await withRetry(async () => {
+      return await prisma.user.update({
+        where: { email: session.user.email! },
+        data: { spendingData: JSON.stringify(spending) }
+      })
     })
 
     return NextResponse.json({ success: true })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error saving user spending:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    
+    // Enhanced error handling
+    if (error?.code === 'P2010' || 
+        error?.code === '42P05' || 
+        error?.message?.includes('prepared statement') ||
+        error?.message?.includes('connection')) {
+      return NextResponse.json(
+        { error: 'Database temporarily unavailable', code: 'DB_POOL_ERROR' },
+        { status: 503 }
+      )
+    }
+    
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: error?.message || 'Unknown error'
+    }, { status: 500 })
   }
 } 
