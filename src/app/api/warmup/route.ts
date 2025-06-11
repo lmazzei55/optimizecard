@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { warmupDatabase, healthCheck } from '@/lib/prisma'
+import { warmupDatabase, healthCheck, ensureConnection } from '@/lib/prisma'
 
 export async function GET() {
   const startTime = Date.now()
@@ -7,11 +7,25 @@ export async function GET() {
   try {
     console.log('🔥 Starting API warmup...')
     
-    // First, check basic health
+    // First, ensure we have a healthy connection
+    const connectionHealthy = await ensureConnection()
+    
+    if (!connectionHealthy) {
+      console.log('❌ Database connection failed during warmup')
+      return NextResponse.json({
+        status: 'failed',
+        reason: 'database_connection_failed',
+        error: 'Could not establish database connection',
+        duration: Date.now() - startTime,
+        timestamp: new Date().toISOString()
+      }, { status: 503 })
+    }
+    
+    // Then check basic health
     const health = await healthCheck()
     
     if (!health.healthy) {
-      console.log('❌ Database unhealthy during warmup')
+      console.log('❌ Database unhealthy during warmup:', health.error)
       return NextResponse.json({
         status: 'failed',
         reason: 'database_unhealthy',
