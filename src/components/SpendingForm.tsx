@@ -200,8 +200,13 @@ export function SpendingForm() {
       if (enableSubcategories !== newEnableSubcategories) {
         setEnableSubcategories(newEnableSubcategories)
       }
+    } else if (status === 'unauthenticated') {
+      // For users without a session, ensure cashback is selected as default
+      if (rewardPreference !== 'cashback') {
+        setRewardPreference('cashback')
+      }
     }
-  }, [session, session?.user?.rewardPreference, session?.user?.pointValue, session?.user?.enableSubCategories])
+  }, [session, session?.user?.rewardPreference, session?.user?.pointValue, session?.user?.enableSubCategories, status])
 
   // Check for preference updates from localStorage
   useEffect(() => {
@@ -809,6 +814,13 @@ export function SpendingForm() {
   const calculateRecommendations = async () => {
     setCalculating(true)
     setError(null) // Clear previous errors
+    
+    // Validate reward preference is selected
+    if (!rewardPreference) {
+      setError('⚠️ Please select a reward type preference before getting recommendations.')
+      setCalculating(false)
+      return
+    }
     
     try {
       const activeSpending = spending.filter(s => s.monthlySpend > 0)

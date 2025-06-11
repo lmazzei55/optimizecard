@@ -126,7 +126,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           }
         } catch (error) {
           console.error('Error loading user preferences in JWT callback:', error)
-          // Set defaults if database is unavailable
+          // Set defaults if database is unavailable - use lowercase to match schema
           token.rewardPreference = token.rewardPreference || 'cashback'
           token.pointValue = token.pointValue || 0.01
           token.enableSubCategories = token.enableSubCategories || false

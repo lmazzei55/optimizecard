@@ -45,7 +45,7 @@ export async function GET() {
       return NextResponse.json(
         { 
           error: 'Database temporarily unavailable',
-          rewardPreference: 'CASHBACK',  // Default fallback
+          rewardPreference: 'cashback',  // Default fallback - lowercase to match schema
           pointValue: 0.01,
           enableSubCategories: false
         },
@@ -69,8 +69,8 @@ export async function POST(request: NextRequest) {
 
     const { rewardPreference, pointValue, enableSubCategories } = await request.json()
 
-    // Validate input data
-    if (rewardPreference && !['CASHBACK', 'POINTS', 'BEST_OVERALL'].includes(rewardPreference.toUpperCase())) {
+    // Validate input data - use lowercase to match database schema
+    if (rewardPreference && !['cashback', 'points', 'best_overall'].includes(rewardPreference.toLowerCase())) {
       return NextResponse.json({ error: 'Invalid reward preference' }, { status: 400 })
     }
 
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       return await prisma.user.update({
         where: { email: session.user.email! },
         data: {
-          ...(rewardPreference && { rewardPreference: rewardPreference.toUpperCase() }),
+          ...(rewardPreference && { rewardPreference: rewardPreference.toLowerCase() }),
           ...(pointValue !== undefined && { pointValue }),
           ...(enableSubCategories !== undefined && { enableSubCategories })
         },
