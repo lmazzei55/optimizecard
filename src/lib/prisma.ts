@@ -53,8 +53,8 @@ export async function disconnectPrisma() {
 // Initialize database schema if needed
 export async function initializeDatabase() {
   try {
-    // Use a simple query that doesn't create prepared statements
-    const result = await prisma.$queryRaw`SELECT 1 as test`
+    // Use a simple operation instead of raw queries to avoid prepared statement issues
+    await prisma.spendingCategory.count()
     console.log('Database connection test successful')
     return true
   } catch (error) {
