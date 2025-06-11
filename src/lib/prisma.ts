@@ -4,22 +4,42 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient({
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL,
+// Function to create a new Prisma client
+function createPrismaClient() {
+  return new PrismaClient({
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL,
+      },
     },
-  },
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  // Enhanced settings for serverless cold starts and connection pooling
-  ...(process.env.NODE_ENV === 'production' && {
-    transactionOptions: {
-      timeout: 30000, // 30 seconds for cold starts
-    },
-  }),
-})
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    // Enhanced settings for serverless cold starts and connection pooling
+    ...(process.env.NODE_ENV === 'production' && {
+      transactionOptions: {
+        timeout: 30000, // 30 seconds for cold starts
+      },
+    }),
+  })
+}
+
+export let prisma = globalForPrisma.prisma ?? createPrismaClient()
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+
+// Function to reset Prisma client completely
+export async function resetPrismaClient() {
+  try {
+    console.log('🔄 Resetting Prisma client due to connection issues...')
+    await prisma.$disconnect()
+    prisma = createPrismaClient()
+    if (process.env.NODE_ENV !== 'production') {
+      globalForPrisma.prisma = prisma
+    }
+    console.log('✅ Prisma client reset successfully')
+  } catch (error) {
+    console.warn('⚠️ Error during Prisma client reset:', error)
+  }
+}
 
 // Connection cleanup for serverless
 export async function disconnectPrisma() {
@@ -79,12 +99,16 @@ export async function withRetry<T>(
       )
       
       if (isRetryable) {
-        // For prepared statement conflicts, disconnect and reconnect
+        // For prepared statement conflicts, reset the entire client
         if (error?.code === '42P05' || error?.message?.includes('prepared statement')) {
-          console.log('🔄 Prepared statement conflict detected, resetting connection...')
+          console.log('🔄 Prepared statement conflict detected, resetting Prisma client...')
+          await resetPrismaClient()
+          // Longer delay for client reset
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        } else {
+          // For other connection issues, just disconnect and reconnect
           try {
             await disconnectPrisma()
-            // Small delay to allow connection cleanup
             await new Promise(resolve => setTimeout(resolve, 200))
           } catch (disconnectError) {
             console.warn('Error during disconnect:', disconnectError)
@@ -107,12 +131,13 @@ export async function withRetry<T>(
   throw lastError
 }
 
-// Health check function for monitoring - avoiding prepared statements
+// Health check function for monitoring - using unique queries to avoid caching
 export async function healthCheck(): Promise<{ healthy: boolean; latency?: number; error?: string }> {
   const startTime = Date.now()
   try {
-    // Use template literal to avoid prepared statement caching
-    await prisma.$queryRaw`SELECT 1 as health_check`
+    // Use a unique timestamp to avoid prepared statement caching
+    const timestamp = Date.now()
+    await prisma.$queryRaw`SELECT ${timestamp} as health_check`
     const latency = Date.now() - startTime
     return { healthy: true, latency }
   } catch (error: any) {
@@ -186,16 +211,35 @@ export async function warmupDatabase(): Promise<{ success: boolean; operations: 
 // Connection pool management for serverless
 export async function ensureConnection(): Promise<boolean> {
   try {
-    await prisma.$queryRaw`SELECT 1`
+    // Use unique timestamp to avoid prepared statement conflicts
+    const timestamp = Date.now()
+    await prisma.$queryRaw`SELECT ${timestamp} as connection_test`
     return true
   } catch (error: any) {
     console.error('Connection check failed:', error)
     
-    // Try to reconnect
+    // If it's a prepared statement error, reset the client
+    if (error?.code === '42P05' || error?.message?.includes('prepared statement')) {
+      console.log('🔄 Prepared statement conflict in connection check, resetting client...')
+      await resetPrismaClient()
+      
+      // Try again with the new client
+      try {
+        const timestamp = Date.now()
+        await prisma.$queryRaw`SELECT ${timestamp} as connection_test_retry`
+        return true
+      } catch (retryError) {
+        console.error('Connection check failed after reset:', retryError)
+        return false
+      }
+    }
+    
+    // Try to reconnect for other errors
     try {
       await disconnectPrisma()
       await new Promise(resolve => setTimeout(resolve, 100))
-      await prisma.$queryRaw`SELECT 1`
+      const timestamp = Date.now()
+      await prisma.$queryRaw`SELECT ${timestamp} as connection_test_reconnect`
       return true
     } catch (reconnectError) {
       console.error('Reconnection failed:', reconnectError)
