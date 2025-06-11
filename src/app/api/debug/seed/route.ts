@@ -105,10 +105,21 @@ const categoryRewards = [
 
 export async function POST() {
   try {
-    // Check if cards already exist
-    const existingCount = await withRetry(async () => {
-      return await prisma.creditCard.count()
-    })
+    // Check if cards already exist with prepared statement conflict handling
+    let existingCount = 0
+    try {
+      existingCount = await withRetry(async () => {
+        return await prisma.creditCard.count()
+      })
+    } catch (error: any) {
+      // If it's a prepared statement conflict, we can't get count but database is working
+      if (error?.code === '42P05' || error?.message?.includes('prepared statement')) {
+        console.log('⚠️ Prepared statement conflict in count check, assuming database needs seeding')
+        existingCount = 0 // Assume we need to seed
+      } else {
+        throw error // Re-throw other errors
+      }
+    }
     
     if (existingCount > 0) {
       return NextResponse.json({
@@ -118,8 +129,10 @@ export async function POST() {
       })
     }
     
-    // Seed credit cards
+    // Seed credit cards with prepared statement conflict handling
     const createdCards = []
+    const failedCards = []
+    
     for (const cardData of creditCards) {
       try {
         const card = await withRetry(async () => {
@@ -129,45 +142,85 @@ export async function POST() {
         })
         createdCards.push(card.id)
       } catch (error: any) {
-        console.error(`Error creating card ${cardData.id}:`, error)
+        // If it's a prepared statement conflict, the card might already exist
+        if (error?.code === '42P05' || error?.message?.includes('prepared statement')) {
+          console.log(`⚠️ Prepared statement conflict creating card ${cardData.id}, might already exist`)
+          failedCards.push(`${cardData.id}: prepared statement conflict`)
+        } else {
+          console.error(`Error creating card ${cardData.id}:`, error)
+          failedCards.push(`${cardData.id}: ${error.message}`)
+        }
       }
     }
     
-    // Seed category rewards
+    // Seed category rewards with prepared statement conflict handling
     const createdRewards = []
+    const failedRewards = []
+    
     for (const rewardData of categoryRewards) {
       try {
         // Find the category by name
-        const category = await withRetry(async () => {
-          return await prisma.spendingCategory.findFirst({
-            where: { name: rewardData.categoryName }
-          })
-        })
-        
-        if (category) {
-          const reward = await withRetry(async () => {
-            return await prisma.categoryReward.create({
-              data: {
-                cardId: rewardData.cardId,
-                categoryId: category.id,
-                rewardRate: rewardData.rewardRate,
-                maxReward: rewardData.maxReward,
-                period: rewardData.period as any
-              }
+        let category = null
+        try {
+          category = await withRetry(async () => {
+            return await prisma.spendingCategory.findFirst({
+              where: { name: rewardData.categoryName }
             })
           })
-          createdRewards.push(reward.id)
+        } catch (error: any) {
+          if (error?.code === '42P05' || error?.message?.includes('prepared statement')) {
+            console.log(`⚠️ Prepared statement conflict finding category ${rewardData.categoryName}`)
+            continue // Skip this reward
+          } else {
+            throw error
+          }
+        }
+        
+        if (category) {
+          try {
+            const reward = await withRetry(async () => {
+              return await prisma.categoryReward.create({
+                data: {
+                  cardId: rewardData.cardId,
+                  categoryId: category.id,
+                  rewardRate: rewardData.rewardRate,
+                  maxReward: rewardData.maxReward,
+                  period: rewardData.period as any
+                }
+              })
+            })
+            createdRewards.push(reward.id)
+          } catch (error: any) {
+            if (error?.code === '42P05' || error?.message?.includes('prepared statement')) {
+              console.log(`⚠️ Prepared statement conflict creating reward for ${rewardData.cardId}`)
+              failedRewards.push(`${rewardData.cardId}: prepared statement conflict`)
+            } else {
+              console.error(`Error creating reward for ${rewardData.cardId}:`, error)
+              failedRewards.push(`${rewardData.cardId}: ${error.message}`)
+            }
+          }
         }
       } catch (error: any) {
-        console.error(`Error creating reward for ${rewardData.cardId}:`, error)
+        console.error(`Error processing reward for ${rewardData.cardId}:`, error)
+        failedRewards.push(`${rewardData.cardId}: ${error.message}`)
       }
     }
     
+    const totalAttempted = creditCards.length + categoryRewards.length
+    const totalSuccessful = createdCards.length + createdRewards.length
+    const totalFailed = failedCards.length + failedRewards.length
+    
     return NextResponse.json({
-      message: 'Database seeded successfully',
+      message: 'Seeding completed',
       cardsCreated: createdCards.length,
       rewardsCreated: createdRewards.length,
+      totalAttempted,
+      totalSuccessful,
+      totalFailed,
       cards: createdCards,
+      failedCards: failedCards.length > 0 ? failedCards : undefined,
+      failedRewards: failedRewards.length > 0 ? failedRewards : undefined,
+      note: totalFailed > 0 ? 'Some operations failed due to prepared statement conflicts in serverless environment' : undefined,
       timestamp: new Date().toISOString()
     })
     
