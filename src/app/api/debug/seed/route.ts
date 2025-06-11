@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma, withRetry } from '@/lib/prisma'
 
 const creditCards = [
   {
@@ -106,7 +106,9 @@ const categoryRewards = [
 export async function POST() {
   try {
     // Check if cards already exist
-    const existingCount = await prisma.creditCard.count()
+    const existingCount = await withRetry(async () => {
+      return await prisma.creditCard.count()
+    })
     
     if (existingCount > 0) {
       return NextResponse.json({
@@ -120,8 +122,10 @@ export async function POST() {
     const createdCards = []
     for (const cardData of creditCards) {
       try {
-        const card = await prisma.creditCard.create({
-          data: cardData
+        const card = await withRetry(async () => {
+          return await prisma.creditCard.create({
+            data: cardData
+          })
         })
         createdCards.push(card.id)
       } catch (error: any) {
@@ -134,19 +138,23 @@ export async function POST() {
     for (const rewardData of categoryRewards) {
       try {
         // Find the category by name
-        const category = await prisma.spendingCategory.findFirst({
-          where: { name: rewardData.categoryName }
+        const category = await withRetry(async () => {
+          return await prisma.spendingCategory.findFirst({
+            where: { name: rewardData.categoryName }
+          })
         })
         
         if (category) {
-          const reward = await prisma.categoryReward.create({
-            data: {
-              cardId: rewardData.cardId,
-              categoryId: category.id,
-              rewardRate: rewardData.rewardRate,
-              maxReward: rewardData.maxReward,
-              period: rewardData.period as any
-            }
+          const reward = await withRetry(async () => {
+            return await prisma.categoryReward.create({
+              data: {
+                cardId: rewardData.cardId,
+                categoryId: category.id,
+                rewardRate: rewardData.rewardRate,
+                maxReward: rewardData.maxReward,
+                period: rewardData.period as any
+              }
+            })
           })
           createdRewards.push(reward.id)
         }

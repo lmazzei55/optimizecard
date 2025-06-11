@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { calculateCardRecommendations } from '@/lib/recommendation-engine'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { prisma, withRetry } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,14 +47,16 @@ export async function POST(request: NextRequest) {
       const session = await auth()
       if (session?.user?.email) {
         // Get user data including subscription tier and owned cards
-        const user = await prisma.user.findUnique({
-          where: { email: session.user.email },
-          select: {
-            subscriptionTier: true,
-            ownedCards: {
-              select: { cardId: true }
+        const user = await withRetry(async () => {
+          return await prisma.user.findUnique({
+            where: { email: session.user.email! },
+            select: {
+              subscriptionTier: true,
+              ownedCards: {
+                select: { cardId: true }
+              }
             }
-          }
+          })
         })
         
         if (user) {
