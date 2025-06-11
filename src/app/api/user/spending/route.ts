@@ -1,21 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { prisma, withRetry, ensureConnection } from '@/lib/prisma'
+import { prisma, withRetry } from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
   try {
     const session = await auth()
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-    }
-
-    // Ensure database connection is healthy
-    const connectionHealthy = await ensureConnection()
-    if (!connectionHealthy) {
-      return NextResponse.json(
-        { error: 'Database temporarily unavailable', code: 'DB_CONNECTION_ERROR' },
-        { status: 503 }
-      )
     }
 
     const user = await withRetry(async () => {
@@ -76,15 +67,6 @@ export async function POST(request: NextRequest) {
 
     if (!Array.isArray(spending)) {
       return NextResponse.json({ error: 'Invalid spending data' }, { status: 400 })
-    }
-
-    // Ensure database connection is healthy
-    const connectionHealthy = await ensureConnection()
-    if (!connectionHealthy) {
-      return NextResponse.json(
-        { error: 'Database temporarily unavailable', code: 'DB_CONNECTION_ERROR' },
-        { status: 503 }
-      )
     }
 
     // Update user's spending data with retry logic

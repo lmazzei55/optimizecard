@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { withRetry, ensureConnection } from '@/lib/prisma'
+import { withRetry } from '@/lib/prisma'
 import { prisma } from '@/lib/prisma'
 
 export async function GET() {
@@ -8,20 +8,6 @@ export async function GET() {
     const session = await auth()
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Ensure database connection is healthy
-    const connectionHealthy = await ensureConnection()
-    if (!connectionHealthy) {
-      return NextResponse.json(
-        { 
-          error: 'Database temporarily unavailable',
-          rewardPreference: 'CASHBACK',  // Default fallback
-          pointValue: 0.01,
-          enableSubCategories: false
-        },
-        { status: 503 }
-      )
     }
 
     const user = await withRetry(async () => {
@@ -90,15 +76,6 @@ export async function POST(request: NextRequest) {
 
     if (pointValue !== undefined && (pointValue < 0.005 || pointValue > 0.05)) {
       return NextResponse.json({ error: 'Invalid point value' }, { status: 400 })
-    }
-
-    // Ensure database connection is healthy
-    const connectionHealthy = await ensureConnection()
-    if (!connectionHealthy) {
-      return NextResponse.json(
-        { error: 'Database temporarily unavailable' },
-        { status: 503 }
-      )
     }
 
     const updatedUser = await withRetry(async () => {
