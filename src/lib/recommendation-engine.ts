@@ -98,20 +98,32 @@ export async function calculateCardRecommendations(
   }
 
   try {
-    const cards = await withRetry(async () => {
-      return await prisma.creditCard.findMany({
-        where: whereClause,
-        include: {
-          categoryRewards: {
-            include: {
-              category: true,
-              subCategory: true,
+    let cards: any[] = []
+    
+    try {
+      cards = await withRetry(async () => {
+        return await prisma.creditCard.findMany({
+          where: whereClause,
+          include: {
+            categoryRewards: {
+              include: {
+                category: true,
+                subCategory: true,
+              },
             },
+            benefits: true,
           },
-          benefits: true,
-        },
+        })
       })
-    })
+    } catch (error: any) {
+      // Handle prepared statement conflicts gracefully
+      if (error?.code === '42P05' || error?.message?.includes('prepared statement')) {
+        console.log('⚠️ Prepared statement conflict in recommendation engine, returning empty results')
+        return [] // Return empty recommendations instead of throwing error
+      } else {
+        throw error // Re-throw other errors
+      }
+    }
 
     const recommendations: CardRecommendation[] = []
 
