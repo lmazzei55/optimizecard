@@ -15,7 +15,7 @@ interface CreditCard {
 }
 
 export default function Profile() {
-  const { data: session, status } = useSession()
+  const { data: session, status, update } = useSession()
   const [rewardPreference, setRewardPreference] = useState<'cashback' | 'points' | 'best_overall'>('cashback')
   const [pointValue, setPointValue] = useState(0.01)
   const [enableSubCategories, setEnableSubCategories] = useState(false)
@@ -114,7 +114,14 @@ export default function Profile() {
       })
 
       if (response.ok) {
-        // Signal that preferences were updated
+        // Update the session with new preferences instead of reloading
+        await update({
+          rewardPreference,
+          pointValue,
+          enableSubCategories,
+        })
+        
+        // Signal that preferences were updated for other components
         localStorage.setItem('preferences-updated', Date.now().toString())
         
         setIsSaved(true)

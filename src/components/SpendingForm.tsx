@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
@@ -8,6 +8,7 @@ import { formatCurrency } from "@/lib/utils"
 import { CardCustomizationModal } from "@/components/CardCustomizationModal"
 import { MultiCardStrategies } from './MultiCardStrategies'
 import { UpgradePrompt } from './UpgradePrompt'
+import { warmupManager } from '@/lib/warmup-manager'
 
 interface SpendingCategory {
   id: string
@@ -78,7 +79,7 @@ interface CardCustomization {
 }
 
 export function SpendingForm() {
-  const { data: session, status } = useSession()
+  const { data: session, status, update: updateSession } = useSession()
   const [categories, setCategories] = useState<SpendingCategory[]>([])
   const [spending, setSpending] = useState<UserSpending[]>([])
   const [rewardPreference, setRewardPreference] = useState<'cashback' | 'points' | 'best_overall'>('cashback')
@@ -113,59 +114,54 @@ export function SpendingForm() {
   const [initialDataLoaded, setInitialDataLoaded] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
 
-  // Pre-warm APIs when component mounts
+  // Enhanced warmup system with global state management
+  const warmupAPIs = async () => {
+    setIsWarming(true)
+    setError(null)
+    
+    try {
+      // Use global warmup manager to prevent duplicate warmups
+      const isWarmed = await warmupManager.warmupIfNeeded()
+      
+      if (isWarmed) {
+        setSystemReady(true)
+        console.log('✅ System is ready for use')
+      } else {
+        console.warn('⚠️ System warmup failed, but continuing...')
+        setSystemReady(false)
+      }
+    } catch (error) {
+      console.error('❌ Warmup error:', error)
+      setSystemReady(false)
+    } finally {
+      setIsWarming(false)
+    }
+  }
+
+  // Auto-warmup on component mount (only if not already warmed)
   useEffect(() => {
-    const warmupAPIs = async () => {
-      setIsWarming(true)
-      try {
-        console.log('🔥 Pre-warming APIs...')
-        
-        // Warm up critical endpoints in parallel
-        const warmupPromises = [
-          fetch('/api/warmup').catch(e => console.warn('Warmup failed:', e)),
-          fetch('/api/categories').catch(e => console.warn('Categories warmup failed:', e)),
-          fetch('/api/subcategories').catch(e => console.warn('Subcategories warmup failed:', e))
-        ]
-        
-        const results = await Promise.allSettled(warmupPromises)
-        
-        // Check if warmup was successful
-        const warmupResult = results[0]
-        if (warmupResult.status === 'fulfilled') {
-          try {
-            const response = warmupResult.value as Response
-            if (response.ok) {
-              const data = await response.json()
-              if (data.status === 'success') {
-                console.log('✅ API pre-warming completed successfully')
-                setSystemReady(true)
-              } else {
-                console.warn('⚠️ API warmup completed with issues:', data)
-                setSystemReady(true) // Continue anyway
-              }
-            } else {
-              console.warn('⚠️ Warmup API returned non-OK status:', response.status)
-              setSystemReady(true) // Continue anyway
-            }
-          } catch (parseError) {
-            console.warn('⚠️ Could not parse warmup response:', parseError)
-            setSystemReady(true) // Continue anyway
-          }
-        } else {
-          console.warn('⚠️ Warmup API failed:', warmupResult.reason)
-          setSystemReady(true) // Continue anyway
-        }
-        
-      } catch (error) {
-        console.warn('⚠️ API pre-warming had issues:', error)
-        setSystemReady(true) // Continue anyway
-      } finally {
+    if (isMounted) {
+      // Check if system is already warmed before starting warmup
+      const warmupStatus = warmupManager.getWarmupStatus()
+      
+      if (warmupStatus.isWarmed) {
+        console.log('🔥 System already warmed, setting ready state')
+        setSystemReady(true)
         setIsWarming(false)
+      } else if (warmupStatus.isInProgress) {
+        console.log('⏳ Warmup in progress, waiting for completion')
+        setIsWarming(true)
+        // Wait for existing warmup to complete
+        warmupManager.getCurrentWarmupPromise()?.then((result) => {
+          setSystemReady(result)
+          setIsWarming(false)
+        })
+      } else {
+        console.log('🚀 Starting initial warmup')
+        warmupAPIs()
       }
     }
-    
-    warmupAPIs()
-  }, [])
+  }, [isMounted])
 
   // Handle hydration by waiting for mount
   useEffect(() => {
@@ -194,15 +190,23 @@ export function SpendingForm() {
 
   // Check for preference updates from localStorage
   useEffect(() => {
-    const checkForUpdates = () => {
+    const checkForUpdates = async () => {
       const lastUpdate = localStorage.getItem('preferences-updated')
       if (lastUpdate) {
         const updateTime = parseInt(lastUpdate)
         const now = Date.now()
-        // If preferences were updated in the last 5 seconds, reload the page to get fresh session
+        // If preferences were updated in the last 5 seconds, refresh the session data
         if (now - updateTime < 5000) {
           localStorage.removeItem('preferences-updated')
-          window.location.reload()
+          console.log('🔄 Preferences updated, refreshing session data...')
+          
+          // Use NextAuth's update function to refresh session
+          try {
+            await updateSession()
+            console.log('✅ Session updated successfully')
+          } catch (error) {
+            console.error('❌ Error updating session:', error)
+          }
         }
       }
     }
@@ -212,7 +216,23 @@ export function SpendingForm() {
     const interval = setInterval(checkForUpdates, 1000)
     
     return () => clearInterval(interval)
-  }, [])
+  }, [updateSession])
+
+  // Listen for session refresh events (for cross-tab communication)
+  useEffect(() => {
+    const handleSessionRefresh = async () => {
+      console.log('🔄 Session refresh event received')
+      try {
+        await updateSession()
+        console.log('✅ Session refreshed from event')
+      } catch (error) {
+        console.error('❌ Error refreshing session from event:', error)
+      }
+    }
+
+    window.addEventListener('session-refresh', handleSessionRefresh)
+    return () => window.removeEventListener('session-refresh', handleSessionRefresh)
+  }, [updateSession])
 
   // Check user subscription tier
   useEffect(() => {

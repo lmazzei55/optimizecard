@@ -102,15 +102,45 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     error: "/auth/error",
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id
       }
+      
+      // Load user preferences from database on sign in or when session is updated
+      if (trigger === "signIn" || trigger === "update") {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: {
+              rewardPreference: true,
+              pointValue: true,
+              enableSubCategories: true,
+            }
+          })
+          
+          if (dbUser) {
+            token.rewardPreference = dbUser.rewardPreference
+            token.pointValue = dbUser.pointValue
+            token.enableSubCategories = dbUser.enableSubCategories
+          }
+        } catch (error) {
+          console.error('Error loading user preferences in JWT callback:', error)
+          // Set defaults if database is unavailable
+          token.rewardPreference = token.rewardPreference || 'cashback'
+          token.pointValue = token.pointValue || 0.01
+          token.enableSubCategories = token.enableSubCategories || false
+        }
+      }
+      
       return token
     },
     async session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.id as string
+        session.user.rewardPreference = token.rewardPreference as string
+        session.user.pointValue = token.pointValue as number
+        session.user.enableSubCategories = token.enableSubCategories as boolean
       }
       return session
     },
