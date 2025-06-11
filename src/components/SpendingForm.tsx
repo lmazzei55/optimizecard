@@ -841,20 +841,39 @@ export function SpendingForm() {
             throw new Error(data.error)
           }
           
-          setRecommendations(data)
-          success = true
-          
-          // Show upgrade prompt for free users if they got limited results
-          if (userSubscriptionTier === 'free' && data.length > 0) {
-            // Add a small delay so user sees their results first
-            setTimeout(() => {
-              setUpgradePromptFeature('Premium Credit Cards')
-              setUpgradePromptDescription('You\'re seeing no-annual-fee cards only. Upgrade to access premium cards like Chase Sapphire, Amex Gold/Platinum, and Capital One Venture X for potentially higher rewards.')
-              setUpgradePromptOpen(true)
-            }, 3000) // Show after 3 seconds
+          // Check if we got valid recommendations
+          if (!Array.isArray(data)) {
+            throw new Error('Invalid response format: expected array of recommendations')
           }
           
-          break // Success, exit retry loop
+          if (data.length === 0) {
+            // Empty results might indicate a system issue, especially on first attempts
+            if (attempt < maxRetries) {
+              throw new Error('No recommendations returned - system may be warming up')
+            } else {
+              // On final attempt, accept empty results as valid
+              console.warn('⚠️ No credit card recommendations found for your spending pattern')
+              setError('🔍 No credit cards match your spending pattern. Try adjusting your spending amounts or categories.')
+              setRecommendations([])
+              success = true
+              break
+            }
+          } else {
+            setRecommendations(data)
+            success = true
+            
+            // Show upgrade prompt for free users if they got limited results
+            if (userSubscriptionTier === 'free' && data.length > 0) {
+              // Add a small delay so user sees their results first
+              setTimeout(() => {
+                setUpgradePromptFeature('Premium Credit Cards')
+                setUpgradePromptDescription('You\'re seeing no-annual-fee cards only. Upgrade to access premium cards like Chase Sapphire, Amex Gold/Platinum, and Capital One Venture X for potentially higher rewards.')
+                setUpgradePromptOpen(true)
+              }, 3000) // Show after 3 seconds
+            }
+            
+            break // Success, exit retry loop
+          }
           
         } catch (error: any) {
           lastError = error
@@ -868,7 +887,9 @@ export function SpendingForm() {
             error.message.includes('fetch') ||
             error.message.includes('Database temporarily unavailable') ||
             error.message.includes('prepared statement') ||
-            error.message.includes('connection')
+            error.message.includes('connection') ||
+            error.message.includes('No recommendations returned') ||
+            error.message.includes('warming up')
           )
           
           if (attempt < maxRetries && isRetryable) {
@@ -903,6 +924,8 @@ export function SpendingForm() {
         setError('⚠️ Server error occurred. Please try again.')
       } else if (error.message.includes('timeout') || error.message.includes('fetch')) {
         setError('🌐 Connection timeout. Please check your internet and try again.')
+      } else if (error.message.includes('No recommendations returned')) {
+        setError('🔍 No credit cards match your spending pattern. Try adjusting your spending amounts.')
       } else {
         setError('❌ Unable to calculate recommendations. Please try again.')
       }
