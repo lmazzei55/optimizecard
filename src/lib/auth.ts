@@ -94,18 +94,9 @@ if (process.env.NODE_ENV === "development") {
   }))
 }
 
-// Create adapter with error handling
-let adapter
-try {
-  adapter = PrismaAdapter(prisma)
-} catch (error) {
-  console.error('❌ Failed to initialize Prisma adapter:', error)
-  // In production, we'll use JWT-only mode if database is unavailable
-  adapter = undefined
-}
-
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  adapter,
+  // Remove Prisma adapter to prevent session conflicts with JWT strategy
+  // adapter: PrismaAdapter(prisma), // Commented out - using JWT-only mode
   providers,
   pages: {
     signIn: "/auth/signin",
@@ -166,6 +157,46 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           userEmail: user?.email 
         })
         
+        // Manually handle user creation/update since we're not using Prisma adapter
+        if (user?.email) {
+          try {
+            let dbUser = await prisma.user.findUnique({
+              where: { email: user.email }
+            })
+            
+            if (!dbUser) {
+              // Create new user
+              dbUser = await prisma.user.create({
+                data: {
+                  email: user.email,
+                  name: user.name || user.email.split('@')[0],
+                  image: user.image,
+                  emailVerified: new Date(),
+                }
+              })
+              console.log('✅ Created new user:', dbUser.id)
+            } else {
+              // Update existing user info if needed
+              if (user.name && user.name !== dbUser.name) {
+                await prisma.user.update({
+                  where: { id: dbUser.id },
+                  data: { 
+                    name: user.name,
+                    image: user.image,
+                  }
+                })
+                console.log('✅ Updated existing user:', dbUser.id)
+              }
+            }
+            
+            // Set the user ID for the token
+            user.id = dbUser.id
+          } catch (dbError) {
+            console.error('❌ Database error during sign in:', dbError)
+            // Continue with sign in even if database fails
+          }
+        }
+        
         // Allow sign in for all configured providers
         if (account?.provider === "google" && hasGoogleCredentials) {
           console.log('✅ Google sign-in allowed')
@@ -209,6 +240,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         userId: user?.id, 
         userEmail: user?.email 
       })
+    },
+    async signOut(message) {
+      console.log('🔐 NextAuth signOut event:', { 
+        userId: 'token' in message ? message.token?.id : undefined,
+        userEmail: 'token' in message ? message.token?.email : undefined
+      })
+      // Clear any cached data or perform cleanup if needed
     },
     async createUser({ user }) {
       console.log('🔐 NextAuth createUser event:', { userId: user.id, userEmail: user.email })
