@@ -311,7 +311,7 @@ export function SpendingForm() {
         })
         if (response.ok) {
           const data = await response.json()
-          const newTier = data.data?.subscriptionTier || 'free'
+          const newTier = data.tier || 'free'
           console.log('🔍 Subscription tier check:', newTier)
           setUserSubscriptionTier(newTier)
         } else if (response.status === 401) {
@@ -358,7 +358,7 @@ export function SpendingForm() {
         })
         if (response.ok) {
           const data = await response.json()
-          const newTier = data.data?.subscriptionTier || 'free'
+          const newTier = data.tier || 'free'
           console.log('🔄 Manual subscription tier refresh:', newTier)
           setUserSubscriptionTier(newTier)
         } else if (response.status === 401) {
