@@ -103,8 +103,40 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60,
-    updateAge: 24 * 60 * 60,
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+    updateAge: 24 * 60 * 60, // 24 hours
+  },
+  // Enhanced cookie configuration for better logout/login cycle
+  cookies: {
+    sessionToken: {
+      name: `${process.env.NODE_ENV === "production" ? "__Secure-" : ""}next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        // Ensure cookies are properly cleared on logout
+        maxAge: undefined, // Let NextAuth handle this
+      },
+    },
+    callbackUrl: {
+      name: `${process.env.NODE_ENV === "production" ? "__Secure-" : ""}next-auth.callback-url`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+    csrfToken: {
+      name: `${process.env.NODE_ENV === "production" ? "__Host-" : ""}next-auth.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
   },
   // Ensure proper URL configuration for callbacks
   basePath: "/api/auth",
@@ -243,20 +275,37 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const userId = 'token' in message ? message.token?.id : undefined
         const userEmail = 'token' in message ? message.token?.email : undefined
         
-        console.log('🔐 NextAuth signOut event:', {
+        console.log('🔐 NextAuth signOut event started:', {
           userId,
           userEmail
         })
         
-        // Clean up expired database sessions periodically (even with JWT)
-        await prisma.session.deleteMany({
-          where: {
-            expires: {
-              lt: new Date()
+        // Enhanced cleanup for better logout/login cycle
+        try {
+          // Clean up expired database sessions
+          const deletedSessions = await prisma.session.deleteMany({
+            where: {
+              expires: {
+                lt: new Date()
+              }
             }
+          })
+          console.log('✅ Cleaned up expired database sessions:', deletedSessions.count)
+          
+          // Also clean up any sessions for the current user if we have userId
+          if (userId) {
+            const userSessions = await prisma.session.deleteMany({
+              where: {
+                userId: userId as string
+              }
+            })
+            console.log('✅ Cleaned up user sessions:', userSessions.count)
           }
-        })
-        console.log('✅ Cleaned up expired database sessions')
+        } catch (dbError) {
+          console.warn('⚠️ Database cleanup during signOut failed (non-critical):', dbError)
+        }
+        
+        console.log('🔐 NextAuth signOut event completed successfully')
       } catch (error) {
         console.error('❌ SignOut event error:', error)
       }
@@ -265,8 +314,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       console.log('🔐 NextAuth createUser event:', { userId: user.id, userEmail: user.email })
     },
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  // Enhanced debug logging for development
   debug: process.env.NODE_ENV === "development",
+  secret: process.env.NEXTAUTH_SECRET,
   trustHost: true,
 })
 

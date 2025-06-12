@@ -106,9 +106,34 @@ export function UserMenu() {
               <div className="border-t border-gray-200 dark:border-gray-700 my-2"></div>
 
               <button
-                onClick={() => {
+                onClick={async () => {
                   setIsOpen(false)
-                  signOut({ callbackUrl: "/" })
+                  
+                  try {
+                    console.log('🚪 Starting logout process...')
+                    
+                    // Clear any localStorage data that might interfere with fresh login
+                    const keysToPreserve = ['theme'] // Keep theme preference
+                    const allKeys = Object.keys(localStorage)
+                    allKeys.forEach(key => {
+                      if (!keysToPreserve.includes(key)) {
+                        localStorage.removeItem(key)
+                        console.log('🧹 Cleared localStorage key:', key)
+                      }
+                    })
+                    
+                    // Perform the actual logout
+                    await signOut({ 
+                      callbackUrl: "/",
+                      redirect: true // Force redirect to ensure clean state
+                    })
+                    
+                    console.log('✅ Logout completed successfully')
+                  } catch (error) {
+                    console.error('❌ Logout error:', error)
+                    // Fallback: force redirect to home page
+                    window.location.href = "/"
+                  }
                 }}
                 className="flex items-center space-x-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-200 w-full text-left"
               >

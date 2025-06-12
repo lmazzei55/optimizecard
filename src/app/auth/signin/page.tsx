@@ -33,6 +33,35 @@ function SignInContent() {
 
   // Fetch available providers from server
   useEffect(() => {
+    // Clear any stale authentication state on signin page load
+    const clearStaleAuthState = () => {
+      try {
+        // Clear NextAuth related localStorage/sessionStorage items that might interfere
+        const authKeys = [
+          'next-auth.session-token',
+          'next-auth.callback-url', 
+          'next-auth.csrf-token',
+          '__Secure-next-auth.session-token',
+          '__Secure-next-auth.callback-url',
+          '__Host-next-auth.csrf-token'
+        ]
+        
+        authKeys.forEach(key => {
+          localStorage.removeItem(key)
+          sessionStorage.removeItem(key)
+        })
+        
+        console.log('🧹 Cleared stale authentication state for fresh login')
+      } catch (error) {
+        console.warn('⚠️ Could not clear stale auth state:', error)
+      }
+    }
+    
+    // Only clear on signin page if there's an error (indicating failed previous attempt)
+    if (error) {
+      clearStaleAuthState()
+    }
+    
     fetch('/api/auth/provider-status')
       .then(res => res.json())
       .then(data => {
@@ -45,7 +74,7 @@ function SignInContent() {
         setProviders(getInitialProviderState())
         setProvidersLoading(false)
       })
-  }, [])
+  }, [error])
 
   const handleOAuthSignIn = async (provider: string) => {
     setIsLoading(true)
