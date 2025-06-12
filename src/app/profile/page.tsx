@@ -125,6 +125,18 @@ export default function Profile() {
   const handleSave = async () => {
     if (!session?.user?.id) return
 
+    // CRITICAL: Validate subscription tier before saving premium preferences
+    if (userSubscriptionTier === 'free' && (rewardPreference === 'points' || rewardPreference === 'best_overall')) {
+      setUpgradePromptFeature(rewardPreference === 'points' ? 'Points Optimization' : 'Best Overall Analysis')
+      setUpgradePromptDescription(
+        rewardPreference === 'points' 
+          ? 'Access premium travel and points cards with advanced optimization for maximum point earning potential.'
+          : 'Compare both cashback and points cards to find the absolute best option for your spending patterns.'
+      )
+      setUpgradePromptOpen(true)
+      return // Don't save premium preferences for free users
+    }
+
     setIsLoading(true)
     try {
       const response = await fetch('/api/user/preferences', {
@@ -138,18 +150,35 @@ export default function Profile() {
       })
 
       if (response.ok) {
-        // Update the session with new preferences WITHOUT page reload
-        await update({
-          rewardPreference,
-          pointValue,
-          enableSubCategories,
-        })
+        // Update session state WITHOUT using NextAuth update to prevent page reload
+        if (session.user) {
+          session.user.rewardPreference = rewardPreference
+          session.user.pointValue = pointValue
+          session.user.enableSubCategories = enableSubCategories
+        }
         
         // Signal that preferences were updated for other components
         localStorage.setItem('preferences-updated', Date.now().toString())
+        localStorage.setItem('rewardPreference', rewardPreference)
+        localStorage.setItem('pointValue', pointValue.toString())
+        localStorage.setItem('enableSubCategories', JSON.stringify(enableSubCategories))
         
         setIsSaved(true)
         setTimeout(() => setIsSaved(false), 3000)
+      } else if (response.status === 403) {
+        // Premium subscription required
+        const errorData = await response.json()
+        if (errorData.code === 'PREMIUM_REQUIRED') {
+          setUpgradePromptFeature(rewardPreference === 'points' ? 'Points Optimization' : 'Best Overall Analysis')
+          setUpgradePromptDescription(
+            rewardPreference === 'points' 
+              ? 'Access premium travel and points cards with advanced optimization for maximum point earning potential.'
+              : 'Compare both cashback and points cards to find the absolute best option for your spending patterns.'
+          )
+          setUpgradePromptOpen(true)
+          // Reset to cashback
+          setRewardPreference('cashback')
+        }
       } else if (response.status === 503) {
         console.warn('⚠️ Database temporarily unavailable - preferences not saved')
         // Could show a user-friendly message here

@@ -78,6 +78,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid point value' }, { status: 400 })
     }
 
+    // CRITICAL: Check subscription tier for premium features
+    if (rewardPreference && ['points', 'best_overall'].includes(rewardPreference.toLowerCase())) {
+      const user = await withRetry(async () => {
+        return await prisma.user.findUnique({
+          where: { email: session.user.email! },
+          select: { subscriptionTier: true }
+        })
+      })
+
+      if (!user || user.subscriptionTier !== 'premium') {
+        return NextResponse.json({ 
+          error: 'Premium subscription required for this feature',
+          code: 'PREMIUM_REQUIRED'
+        }, { status: 403 })
+      }
+    }
+
     const updatedUser = await withRetry(async () => {
       return await prisma.user.update({
         where: { email: session.user.email! },

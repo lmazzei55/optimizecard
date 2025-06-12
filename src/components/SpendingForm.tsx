@@ -183,14 +183,26 @@ export function SpendingForm() {
     setIsMounted(true)
   }, [])
 
-  // Load user preferences from session with localStorage backup
+  // Load user preferences from session with localStorage backup and subscription validation
   useEffect(() => {
     if (!isMounted) return // Wait for hydration
     
     if (session?.user) {
-      const newRewardPreference = session.user.rewardPreference as any || 'cashback'
+      let newRewardPreference = session.user.rewardPreference as any || 'cashback'
       const newPointValue = session.user.pointValue || 0.01
       const newEnableSubcategories = session.user.enableSubCategories || false
+      
+      // CRITICAL: Validate reward preference against subscription tier
+      if (userSubscriptionTier === 'free' && (newRewardPreference === 'points' || newRewardPreference === 'best_overall')) {
+        console.warn(`⚠️ User has ${newRewardPreference} preference but free tier - resetting to cashback`)
+        newRewardPreference = 'cashback'
+        // Update the database to fix the invalid state
+        fetch('/api/user/preferences', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rewardPreference: 'cashback' }),
+        }).catch(error => console.error('Failed to reset invalid preference:', error))
+      }
       
       // Only update if values have actually changed to avoid unnecessary re-renders
       if (rewardPreference !== newRewardPreference) {
@@ -208,9 +220,15 @@ export function SpendingForm() {
       }
     } else if (status === 'unauthenticated') {
       // For users without a session, load from localStorage or use defaults
-      const savedRewardPref = localStorage.getItem('rewardPreference') as any || 'cashback'
+      let savedRewardPref = localStorage.getItem('rewardPreference') as any || 'cashback'
       const savedPointValue = parseFloat(localStorage.getItem('pointValue') || '0.01')
       const savedSubcategories = JSON.parse(localStorage.getItem('enableSubcategories') || 'false')
+      
+      // For unauthenticated users, always default to cashback for premium features
+      if (savedRewardPref === 'points' || savedRewardPref === 'best_overall') {
+        savedRewardPref = 'cashback'
+        localStorage.setItem('rewardPreference', 'cashback')
+      }
       
       if (rewardPreference !== savedRewardPref) {
         setRewardPreference(savedRewardPref)
@@ -222,7 +240,7 @@ export function SpendingForm() {
         setEnableSubcategories(savedSubcategories)
       }
     }
-  }, [session, session?.user?.rewardPreference, session?.user?.pointValue, session?.user?.enableSubCategories, status, isMounted])
+  }, [session, session?.user?.rewardPreference, session?.user?.pointValue, session?.user?.enableSubCategories, status, isMounted, userSubscriptionTier])
 
   // Check for preference updates from localStorage
   useEffect(() => {
