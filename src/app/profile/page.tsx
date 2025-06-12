@@ -44,6 +44,44 @@ export default function Profile() {
     }
   }, [session])
 
+  // Fetch subscription tier from API to ensure we have the latest information
+  useEffect(() => {
+    const fetchSubscriptionTier = async () => {
+      if (!session?.user?.email) {
+        setUserSubscriptionTier('free')
+        return
+      }
+
+      try {
+        const response = await fetch('/api/user/subscription', {
+          headers: {
+            'Cache-Control': 'no-cache',
+          }
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          const tier = data.tier || 'free'
+          console.log('🔍 Profile: Subscription tier fetched:', tier)
+          setUserSubscriptionTier(tier)
+        } else if (response.status === 503) {
+          console.warn('⚠️ Profile: Database temporarily unavailable - keeping current tier')
+          // Don't change tier when database is temporarily unavailable
+        } else {
+          console.warn('⚠️ Profile: Subscription check failed with status:', response.status)
+          setUserSubscriptionTier('free') // Default to free on error
+        }
+      } catch (error) {
+        console.error('Profile: Error fetching subscription tier:', error)
+        setUserSubscriptionTier('free') // Default to free on error
+      }
+    }
+
+    if (session?.user?.email) {
+      fetchSubscriptionTier()
+    }
+  }, [session?.user?.email])
+
   // Fetch all cards and owned cards
   useEffect(() => {
     const fetchCards = async () => {
@@ -107,8 +145,11 @@ export default function Profile() {
   }
 
   const handleRewardPreferenceChange = (newPreference: 'cashback' | 'points' | 'best_overall') => {
+    console.log('🔍 Profile: Reward preference change attempted:', newPreference, 'Current tier:', userSubscriptionTier)
+    
     // Check if user is trying to access premium features without subscription
     if (userSubscriptionTier === 'free' && (newPreference === 'points' || newPreference === 'best_overall')) {
+      console.log('🚫 Profile: Blocking premium preference for free user, showing upgrade prompt')
       setUpgradePromptFeature(newPreference === 'points' ? 'Points Optimization' : 'Best Overall Analysis')
       setUpgradePromptDescription(
         newPreference === 'points' 
@@ -119,14 +160,18 @@ export default function Profile() {
       return
     }
     
+    console.log('✅ Profile: Allowing preference change to:', newPreference)
     setRewardPreference(newPreference)
   }
 
   const handleSave = async () => {
     if (!session?.user?.id) return
 
+    console.log('🔍 Profile: Save attempted with:', { rewardPreference, userSubscriptionTier })
+
     // CRITICAL: Validate subscription tier before saving premium preferences
     if (userSubscriptionTier === 'free' && (rewardPreference === 'points' || rewardPreference === 'best_overall')) {
+      console.log('🚫 Profile: Blocking save of premium preference for free user, showing upgrade prompt')
       setUpgradePromptFeature(rewardPreference === 'points' ? 'Points Optimization' : 'Best Overall Analysis')
       setUpgradePromptDescription(
         rewardPreference === 'points' 
