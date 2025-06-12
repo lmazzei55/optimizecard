@@ -95,24 +95,24 @@ if (process.env.NODE_ENV === "development") {
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  // Remove Prisma adapter to prevent session conflicts with JWT strategy
-  // adapter: PrismaAdapter(prisma), // Commented out - using JWT-only mode
+  adapter: PrismaAdapter(prisma),
   providers,
   pages: {
     signIn: "/auth/signin",
     error: "/auth/error",
   },
+  session: {
+    strategy: "database",
+    maxAge: 30 * 24 * 60 * 60,
+    updateAge: 24 * 60 * 60,
+  },
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
-      if (user) {
-        token.id = user.id
-      }
-      
-      // Load user preferences from database on sign in or when session is updated
-      if (trigger === "signIn" || trigger === "update") {
+    async session({ session, user }) {
+      // Load user preferences from database for database session strategy
+      if (session?.user && user?.id) {
         try {
           const dbUser = await prisma.user.findUnique({
-            where: { id: token.id as string },
+            where: { id: user.id },
             select: {
               rewardPreference: true,
               pointValue: true,
@@ -122,30 +122,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           })
           
           if (dbUser) {
-            token.rewardPreference = dbUser.rewardPreference
-            token.pointValue = dbUser.pointValue
-            token.enableSubCategories = dbUser.enableSubCategories
-            token.subscriptionTier = dbUser.subscriptionTier
+            session.user.id = user.id
+            session.user.rewardPreference = dbUser.rewardPreference
+            session.user.pointValue = dbUser.pointValue
+            session.user.enableSubCategories = dbUser.enableSubCategories
+            session.user.subscriptionTier = dbUser.subscriptionTier
+          } else {
+            // Set defaults if user preferences not found
+            session.user.id = user.id
+            session.user.rewardPreference = 'cashback'
+            session.user.pointValue = 0.01
+            session.user.enableSubCategories = false
+            session.user.subscriptionTier = 'free'
           }
         } catch (error) {
-          console.error('Error loading user preferences in JWT callback:', error)
-          // Set defaults if database is unavailable - use lowercase to match schema
-          token.rewardPreference = token.rewardPreference || 'cashback'
-          token.pointValue = token.pointValue || 0.01
-          token.enableSubCategories = token.enableSubCategories || false
-          token.subscriptionTier = token.subscriptionTier || 'free'
+          console.error('Error loading user preferences in session callback:', error)
+          // Set defaults if database is unavailable
+          session.user.id = user.id
+          session.user.rewardPreference = 'cashback'
+          session.user.pointValue = 0.01
+          session.user.enableSubCategories = false
+          session.user.subscriptionTier = 'free'
         }
-      }
-      
-      return token
-    },
-    async session({ session, token }) {
-      if (token && session.user) {
-        session.user.id = token.id as string
-        session.user.rewardPreference = token.rewardPreference as string
-        session.user.pointValue = token.pointValue as number
-        session.user.enableSubCategories = token.enableSubCategories as boolean
-        session.user.subscriptionTier = token.subscriptionTier as string
       }
       return session
     },
@@ -156,46 +154,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           userId: user?.id, 
           userEmail: user?.email 
         })
-        
-        // Manually handle user creation/update since we're not using Prisma adapter
-        if (user?.email) {
-          try {
-            let dbUser = await prisma.user.findUnique({
-              where: { email: user.email }
-            })
-            
-            if (!dbUser) {
-              // Create new user
-              dbUser = await prisma.user.create({
-                data: {
-                  email: user.email,
-                  name: user.name || user.email.split('@')[0],
-                  image: user.image,
-                  emailVerified: new Date(),
-                }
-              })
-              console.log('✅ Created new user:', dbUser.id)
-            } else {
-              // Update existing user info if needed
-              if (user.name && user.name !== dbUser.name) {
-                await prisma.user.update({
-                  where: { id: dbUser.id },
-                  data: { 
-                    name: user.name,
-                    image: user.image,
-                  }
-                })
-                console.log('✅ Updated existing user:', dbUser.id)
-              }
-            }
-            
-            // Set the user ID for the token
-            user.id = dbUser.id
-          } catch (dbError) {
-            console.error('❌ Database error during sign in:', dbError)
-            // Continue with sign in even if database fails
-          }
-        }
         
         // Allow sign in for all configured providers
         if (account?.provider === "google" && hasGoogleCredentials) {
@@ -242,18 +200,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       })
     },
     async signOut(message) {
-      console.log('🔐 NextAuth signOut event:', { 
-        userId: 'token' in message ? message.token?.id : undefined,
-        userEmail: 'token' in message ? message.token?.email : undefined
-      })
-      // Clear any cached data or perform cleanup if needed
+      try {
+        console.log('🔐 NextAuth signOut event triggered')
+        
+        // Clean up expired sessions periodically for better session management
+        await prisma.session.deleteMany({
+          where: {
+            expires: {
+              lt: new Date()
+            }
+          }
+        })
+        console.log('✅ Cleaned up expired sessions')
+      } catch (error) {
+        console.error('❌ SignOut event error:', error)
+      }
     },
     async createUser({ user }) {
       console.log('🔐 NextAuth createUser event:', { userId: user.id, userEmail: user.email })
     },
-  },
-  session: {
-    strategy: "jwt",
   },
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === "development",
