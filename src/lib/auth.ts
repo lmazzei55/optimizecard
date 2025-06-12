@@ -106,10 +106,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     maxAge: 30 * 24 * 60 * 60,
     updateAge: 24 * 60 * 60,
   },
+  // Ensure proper URL configuration for callbacks
+  basePath: "/api/auth",
+  useSecureCookies: process.env.NODE_ENV === "production",
   callbacks: {
     async session({ session, user }) {
-      // Load user preferences from database for database session strategy
+      // Ensure session is created successfully first
       if (session?.user && user?.id) {
+        session.user.id = user.id
+        
+        // Try to load user preferences, but don't fail session creation if this fails
         try {
           const dbUser = await prisma.user.findUnique({
             where: { id: user.id },
@@ -122,37 +128,42 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           })
           
           if (dbUser) {
-            session.user.id = user.id
             session.user.rewardPreference = dbUser.rewardPreference
             session.user.pointValue = dbUser.pointValue
             session.user.enableSubCategories = dbUser.enableSubCategories
             session.user.subscriptionTier = dbUser.subscriptionTier
           } else {
             // Set defaults if user preferences not found
-            session.user.id = user.id
             session.user.rewardPreference = 'cashback'
             session.user.pointValue = 0.01
             session.user.enableSubCategories = false
             session.user.subscriptionTier = 'free'
           }
         } catch (error) {
-          console.error('Error loading user preferences in session callback:', error)
-          // Set defaults if database is unavailable
-          session.user.id = user.id
+          console.error('⚠️ Error loading user preferences in session callback (session still valid):', error)
+          // Set defaults if database query fails - but keep session valid
           session.user.rewardPreference = 'cashback'
           session.user.pointValue = 0.01
           session.user.enableSubCategories = false
           session.user.subscriptionTier = 'free'
         }
       }
+      
+      console.log('🔐 Session callback completed:', { 
+        userId: session?.user?.id, 
+        email: session?.user?.email,
+        hasPreferences: !!session?.user?.rewardPreference 
+      })
+      
       return session
     },
     async signIn({ user, account, profile }) {
       try {
-        console.log('🔐 NextAuth signIn callback:', { 
+        console.log('🔐 NextAuth signIn callback started:', { 
           provider: account?.provider, 
           userId: user?.id, 
-          userEmail: user?.email 
+          userEmail: user?.email,
+          accountType: account?.type
         })
         
         // Allow sign in for all configured providers
@@ -173,7 +184,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return true
         }
         if (account?.provider === "resend" && hasResendCredentials) {
-          console.log('✅ Resend sign-in allowed')
+          console.log('✅ Resend (email) sign-in allowed')
           return true
         }
         
@@ -183,7 +194,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return true
         }
         
-        console.log('❌ Sign-in denied for provider:', account?.provider)
+        console.log('❌ Sign-in denied for provider:', account?.provider, 'Available providers:', {
+          google: hasGoogleCredentials,
+          github: hasGitHubCredentials,
+          facebook: hasFacebookCredentials,
+          twitter: hasTwitterCredentials,
+          resend: hasResendCredentials
+        })
         return false
       } catch (error) {
         console.error('❌ Sign in callback error:', error)
@@ -197,6 +214,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         provider: account?.provider, 
         userId: user?.id, 
         userEmail: user?.email 
+      })
+    },
+    async session({ session, token }) {
+      console.log('🔐 NextAuth session event:', {
+        userId: session?.user?.id,
+        userEmail: session?.user?.email,
+        sessionExists: !!session
       })
     },
     async signOut(message) {
