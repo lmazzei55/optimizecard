@@ -108,7 +108,7 @@ export function SpendingForm() {
   const [upgradePromptOpen, setUpgradePromptOpen] = useState(false)
   const [upgradePromptFeature, setUpgradePromptFeature] = useState('')
   const [upgradePromptDescription, setUpgradePromptDescription] = useState('')
-  const [userSubscriptionTier, setUserSubscriptionTier] = useState<'free' | 'premium'>('free')
+  const [userSubscriptionTier, setUserSubscriptionTier] = useState<'free' | 'premium' | null>(null)
 
   // Track if we've loaded initial data to prevent conflicts
   const [initialDataLoaded, setInitialDataLoaded] = useState(false)
@@ -192,8 +192,9 @@ export function SpendingForm() {
       const newPointValue = session.user.pointValue || 0.01
       const newEnableSubcategories = session.user.enableSubCategories || false
       
-      // CRITICAL: Validate reward preference against subscription tier
-      if (userSubscriptionTier === 'free' && (newRewardPreference === 'points' || newRewardPreference === 'best_overall')) {
+      // CRITICAL FIX: Only validate against subscription tier if it has been loaded
+      // This prevents race condition where tier is still 'free' (default) while loading
+      if (userSubscriptionTier !== null && userSubscriptionTier === 'free' && (newRewardPreference === 'points' || newRewardPreference === 'best_overall')) {
         console.warn(`⚠️ User has ${newRewardPreference} preference but free tier - resetting to cashback`)
         newRewardPreference = 'cashback'
         // Update the database to fix the invalid state
@@ -202,6 +203,9 @@ export function SpendingForm() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ rewardPreference: 'cashback' }),
         }).catch(error => console.error('Failed to reset invalid preference:', error))
+      } else if (userSubscriptionTier === null) {
+        // If subscription tier is still loading, don't validate yet - just load the preference
+        console.log('ℹ️ Subscription tier still loading, deferring preference validation')
       }
       
       // Only update if values have actually changed to avoid unnecessary re-renders
@@ -1038,6 +1042,7 @@ export function SpendingForm() {
 
   const handleRewardPreferenceChange = (newPreference: 'cashback' | 'points' | 'best_overall') => {
     // Check if user is trying to access premium features without subscription
+    // Only check if subscription tier has been loaded (not null)
     if (userSubscriptionTier === 'free' && (newPreference === 'points' || newPreference === 'best_overall')) {
       setUpgradePromptFeature(newPreference === 'points' ? 'Points Optimization' : 'Best Overall Analysis')
       setUpgradePromptDescription(
@@ -1047,6 +1052,11 @@ export function SpendingForm() {
       )
       setUpgradePromptOpen(true)
       return
+    }
+    
+    // If subscription tier is still loading (null), allow the change but don't validate yet
+    if (userSubscriptionTier === null && (newPreference === 'points' || newPreference === 'best_overall')) {
+      console.log('ℹ️ Subscription tier still loading, allowing preference change without validation')
     }
     
     setRewardPreference(newPreference)
