@@ -8,6 +8,7 @@ import { formatCurrency } from "@/lib/utils"
 import { CardCustomizationModal } from "@/components/CardCustomizationModal"
 import { MultiCardStrategies } from './MultiCardStrategies'
 import { UpgradePrompt } from './UpgradePrompt'
+import { StackedCards } from './ui/StackedCards'
 import { warmupManager } from '@/lib/warmup-manager'
 
 interface SpendingCategory {
@@ -1475,16 +1476,10 @@ export function SpendingForm() {
       {/* Recommendations */}
       {recommendations.length > 0 && (
         <div className="space-y-8">
-          {/* Header */}
-          <div className="text-center">
-            <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-green-600 bg-clip-text text-transparent mb-4">
-              🏆 Your Personalized Recommendations
-            </h2>
-            <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              Based on your {formatCurrency(totalMonthlySpend)} monthly spending across {spending.filter(s => s.monthlySpend > 0).length} categories
-            </p>
-            {userSubscriptionTier === 'free' && (
-              <div className="mt-4 inline-flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-4 py-2 rounded-full text-sm">
+          {/* Free tier notice */}
+          {userSubscriptionTier === 'free' && (
+            <div className="text-center">
+              <div className="inline-flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-4 py-2 rounded-full text-sm">
                 <span>💳</span>
                 <span>Showing no-annual-fee cards only</span>
                 <button
@@ -1498,241 +1493,260 @@ export function SpendingForm() {
                   Upgrade for more
                 </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* Cards Grid */}
-          <div className="space-y-6">
-            {recommendations.map((rec, index) => {
-              const rankColors = [
-                'from-yellow-400 to-orange-500', // Gold for #1
-                'from-gray-300 to-gray-500',     // Silver for #2
-                'from-amber-600 to-amber-800',   // Bronze for #3
-                'from-blue-400 to-blue-600',     // Blue for others
-              ];
-              const rankColor = rankColors[Math.min(index, 3)];
-              
-              return (
-                <div 
-                  key={rec.cardId} 
-                  className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden transform hover:scale-105 transition-all duration-300"
-                >
-                  {/* Card Header */}
-                  <div className="relative">
-                    <div className={`bg-gradient-to-r ${rankColor} p-6 text-white`}>
-                      <div className="flex justify-between items-start">
-                        <div className="flex items-center space-x-4">
-                          <div className="bg-white/20 backdrop-blur-sm rounded-full p-3">
-                            <span className="text-3xl font-bold">#{index + 1}</span>
-                          </div>
-                          <div>
-                            <h3 className="text-2xl font-bold">{rec.cardName}</h3>
-                            <p className="text-lg opacity-90">{rec.issuer}</p>
-                            <div className="flex items-center space-x-2 mt-2">
-                              <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium">
-                                {rec.rewardType === 'cashback' ? '💵 Cashback' : '🎯 Points'}
-                              </span>
+          {/* Modern Stacked Cards Display */}
+          <StackedCards 
+            recommendations={recommendations}
+            onCustomizeCard={openCardCustomization}
+          />
+
+          {/* Detailed breakdown for remaining cards (if more than 4) */}
+          {recommendations.length > 4 && (
+            <div className="space-y-6">
+              <div className="text-center">
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                  Additional Recommendations
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400">
+                  More great options based on your spending patterns
+                </p>
+              </div>
+              <div className="space-y-6">
+                {recommendations.slice(4).map((rec, index) => {
+                  const actualIndex = index + 4
+                  const rankColors = [
+                    'from-yellow-400 to-orange-500', // Gold for #1
+                    'from-gray-300 to-gray-500',     // Silver for #2
+                    'from-amber-600 to-amber-800',   // Bronze for #3
+                    'from-blue-400 to-blue-600',     // Blue for others
+                  ];
+                  const rankColor = rankColors[Math.min(actualIndex, 3)];
+                  
+                  return (
+                    <div 
+                      key={rec.cardId} 
+                      className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden transform hover:scale-105 transition-all duration-300"
+                    >
+                      {/* Card Header */}
+                      <div className="relative">
+                        <div className={`bg-gradient-to-r ${rankColor} p-6 text-white`}>
+                          <div className="flex justify-between items-start">
+                            <div className="flex items-center space-x-4">
+                              <div className="bg-white/20 backdrop-blur-sm rounded-full p-3">
+                                <span className="text-3xl font-bold">#{actualIndex + 1}</span>
+                              </div>
+                              <div>
+                                <h3 className="text-2xl font-bold">{rec.cardName}</h3>
+                                <p className="text-lg opacity-90">{rec.issuer}</p>
+                                <div className="flex items-center space-x-2 mt-2">
+                                  <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium">
+                                    {rec.rewardType === 'cashback' ? '💵 Cashback' : '🎯 Points'}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-3xl font-bold">{formatCurrency(rec.netAnnualValue)}</div>
-                          <div className="text-lg opacity-90">net annual value</div>
-                          <div className="flex flex-col space-y-2 mt-3">
-                            {rec.applicationUrl && (
-                              <div className="space-y-2">
+                            <div className="text-right">
+                              <div className="text-3xl font-bold">{formatCurrency(rec.netAnnualValue)}</div>
+                              <div className="text-lg opacity-90">net annual value</div>
+                              <div className="flex flex-col space-y-2 mt-3">
+                                {rec.applicationUrl && (
+                                  <div className="space-y-2">
+                                    <Button
+                                      onClick={() => window.open(rec.applicationUrl, '_blank')}
+                                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white border-0 shadow-lg transform hover:scale-105 transition-all duration-200 font-semibold w-full"
+                                      size="sm"
+                                    >
+                                      🚀 Apply Now
+                                    </Button>
+                                    <div className="text-xs text-white/80 text-center">
+                                      ⚠️ Affiliate Link - We may earn a commission
+                                    </div>
+                                  </div>
+                                )}
                                 <Button
-                                  onClick={() => window.open(rec.applicationUrl, '_blank')}
-                                  className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white border-0 shadow-lg transform hover:scale-105 transition-all duration-200 font-semibold w-full"
+                                  onClick={() => openCardCustomization(rec.cardId)}
+                                  variant="outline"
                                   size="sm"
+                                  className="bg-white/10 border-white/30 text-white hover:bg-white/20 backdrop-blur-sm"
                                 >
-                                  🚀 Apply Now
+                                  ⚙️ Customize Card
                                 </Button>
-                                <div className="text-xs text-white/80 text-center">
-                                  ⚠️ Affiliate Link - We may earn a commission
-                                </div>
-                              </div>
-                            )}
-                            <Button
-                              onClick={() => openCardCustomization(rec.cardId)}
-                              variant="outline"
-                              size="sm"
-                              className="bg-white/10 border-white/30 text-white hover:bg-white/20 backdrop-blur-sm"
-                            >
-                              ⚙️ Customize Card
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Value Breakdown Bar */}
-                    <div className="bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-700 dark:to-gray-600 p-4">
-                      <div className="grid grid-cols-4 gap-4 text-center">
-                        <div className="space-y-1">
-                          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                            {formatCurrency(rec.totalAnnualValue)}
-                          </div>
-                          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Annual Rewards</div>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                            {formatCurrency(rec.benefitsValue)}
-                          </div>
-                          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Benefits Value</div>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-                            -{formatCurrency(rec.annualFee)}
-                          </div>
-                          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Annual Fee</div>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                            {((rec.netAnnualValue / (totalMonthlySpend * 12)) * 100).toFixed(1)}%
-                          </div>
-                          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Effective Rate</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Card Body */}
-                  <div className="p-6 space-y-6">
-                    {/* Category Rewards Breakdown */}
-                    {rec.categoryBreakdown && rec.categoryBreakdown.length > 0 && (
-                      <div>
-                        <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                          💳 Earning Breakdown by Category
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {rec.categoryBreakdown.map((breakdown, idx) => {
-                            const categoryIcons: { [key: string]: string } = {
-                              'Dining': '🍽️',
-                              'Travel': '✈️',
-                              'Gas': '⛽',
-                              'Groceries': '🛒',
-                              'Entertainment': '🎬',
-                              'Online Shopping': '🛍️',
-                              'Department Stores': '🏬',
-                              'General': '💳'
-                            };
-                            const icon = categoryIcons[breakdown.categoryName] || '💳';
-                            
-                            // Format reward rate properly for points vs cashback
-                            const rewardDisplay = rec.rewardType === 'points' 
-                              ? `${breakdown.rewardRate}x` 
-                              : `${(breakdown.rewardRate * 100).toFixed(1)}%`;
-                            
-                            return (
-                              <div 
-                                key={idx} 
-                                className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-700 dark:to-gray-600 rounded-2xl p-4 border border-gray-200 dark:border-gray-600 shadow-lg"
-                              >
-                                <div className="flex items-center justify-between mb-3">
-                                  <div className="flex items-center space-x-2">
-                                    <span className="text-2xl">{icon}</span>
-                                    <span className="font-semibold text-gray-900 dark:text-white">
-                                      {breakdown.categoryName}
-                                    </span>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="text-lg font-bold text-green-600 dark:text-green-400">
-                                      {rewardDisplay}
-                                    </div>
-                                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                                      {rec.rewardType === 'points' ? 'points' : 'cashback'}
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="space-y-2">
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-gray-600 dark:text-gray-300">Monthly Spend:</span>
-                                    <span className="font-medium">{formatCurrency(breakdown.monthlySpend)}</span>
-                                  </div>
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-gray-600 dark:text-gray-300">Monthly Earnings:</span>
-                                    <span className="font-medium text-green-600 dark:text-green-400">
-                                      {formatCurrency(breakdown.monthlyValue)}
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between text-lg font-bold border-t pt-2">
-                                    <span className="text-gray-900 dark:text-white">Annual Value:</span>
-                                    <span className="text-green-600 dark:text-green-400">
-                                      {formatCurrency(breakdown.annualValue)}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Benefits Section */}
-                    {rec.benefitsBreakdown && rec.benefitsBreakdown.length > 0 && rec.benefitsValue > 0 && (
-                      <div>
-                        <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                          🎁 Benefits You Value
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {rec.benefitsBreakdown
-                            .filter(benefit => benefit.personalValue > 0)
-                            .map((benefit, idx) => (
-                            <div 
-                              key={idx} 
-                              className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-2xl p-4 border border-blue-200 dark:border-blue-700"
-                            >
-                              <div className="flex justify-between items-start">
-                                <div className="flex-1">
-                                  <h5 className="font-semibold text-gray-900 dark:text-white mb-2">
-                                    {benefit.benefitName}
-                                  </h5>
-                                  <div className="space-y-1 text-sm">
-                                    <div className="flex justify-between">
-                                      <span className="text-gray-600 dark:text-gray-300">Official Value:</span>
-                                      <span className="font-medium">{formatCurrency(benefit.officialValue)}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                      <span className="text-gray-600 dark:text-gray-300">Your Value:</span>
-                                      <span className="font-bold text-blue-600 dark:text-blue-400">
-                                        {formatCurrency(benefit.personalValue)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
                               </div>
                             </div>
-                          ))}
+                          </div>
+                        </div>
+                        
+                        {/* Value Breakdown Bar */}
+                        <div className="bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-700 dark:to-gray-600 p-4">
+                          <div className="grid grid-cols-4 gap-4 text-center">
+                            <div className="space-y-1">
+                              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                                {formatCurrency(rec.totalAnnualValue)}
+                              </div>
+                              <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Annual Rewards</div>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                                {formatCurrency(rec.benefitsValue)}
+                              </div>
+                              <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Benefits Value</div>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                                -{formatCurrency(rec.annualFee)}
+                              </div>
+                              <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Annual Fee</div>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                                {((rec.netAnnualValue / (totalMonthlySpend * 12)) * 100).toFixed(1)}%
+                              </div>
+                              <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Effective Rate</div>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    )}
 
-                    {/* Signup Bonus */}
-                    {rec.signupBonus && (
-                      <div className="bg-gradient-to-r from-yellow-100 to-orange-100 dark:from-yellow-900/30 dark:to-orange-900/30 rounded-2xl p-6 border-2 border-yellow-300 dark:border-yellow-600">
-                        <div className="flex items-center space-x-4">
-                          <div className="text-4xl">🎁</div>
-                          <div className="flex-1">
-                            <h4 className="text-xl font-bold text-yellow-800 dark:text-yellow-300 mb-2">
-                              Welcome Bonus
+                      {/* Card Body */}
+                      <div className="p-6 space-y-6">
+                        {/* Category Rewards Breakdown */}
+                        {rec.categoryBreakdown && rec.categoryBreakdown.length > 0 && (
+                          <div>
+                            <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                              💳 Earning Breakdown by Category
                             </h4>
-                            <div className="text-lg font-semibold text-yellow-900 dark:text-yellow-200">
-                              Earn {formatCurrency(rec.signupBonus.amount)}
-                            </div>
-                            <div className="text-sm text-yellow-700 dark:text-yellow-300">
-                              when you spend {formatCurrency(rec.signupBonus.requiredSpend)} in the first {rec.signupBonus.timeframe} months
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {rec.categoryBreakdown.map((breakdown, idx) => {
+                                const categoryIcons: { [key: string]: string } = {
+                                  'Dining': '🍽️',
+                                  'Travel': '✈️',
+                                  'Gas': '⛽',
+                                  'Groceries': '🛒',
+                                  'Entertainment': '🎬',
+                                  'Online Shopping': '🛍️',
+                                  'Department Stores': '🏬',
+                                  'General': '💳'
+                                };
+                                const icon = categoryIcons[breakdown.categoryName] || '💳';
+                                
+                                // Format reward rate properly for points vs cashback
+                                const rewardDisplay = rec.rewardType === 'points' 
+                                  ? `${breakdown.rewardRate}x` 
+                                  : `${(breakdown.rewardRate * 100).toFixed(1)}%`;
+                                
+                                return (
+                                  <div 
+                                    key={idx} 
+                                    className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-700 dark:to-gray-600 rounded-2xl p-4 border border-gray-200 dark:border-gray-600 shadow-lg"
+                                  >
+                                    <div className="flex items-center justify-between mb-3">
+                                      <div className="flex items-center space-x-2">
+                                        <span className="text-2xl">{icon}</span>
+                                        <span className="font-semibold text-gray-900 dark:text-white">
+                                          {breakdown.categoryName}
+                                        </span>
+                                      </div>
+                                      <div className="text-right">
+                                        <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                                          {rewardDisplay}
+                                        </div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                                          {rec.rewardType === 'points' ? 'points' : 'cashback'}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                      <div className="flex justify-between text-sm">
+                                        <span className="text-gray-600 dark:text-gray-300">Monthly Spend:</span>
+                                        <span className="font-medium">{formatCurrency(breakdown.monthlySpend)}</span>
+                                      </div>
+                                      <div className="flex justify-between text-sm">
+                                        <span className="text-gray-600 dark:text-gray-300">Monthly Earnings:</span>
+                                        <span className="font-medium text-green-600 dark:text-green-400">
+                                          {formatCurrency(breakdown.monthlyValue)}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between text-lg font-bold border-t pt-2">
+                                        <span className="text-gray-900 dark:text-white">Annual Value:</span>
+                                        <span className="text-green-600 dark:text-green-400">
+                                          {formatCurrency(breakdown.annualValue)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
-                        </div>
+                        )}
+
+                        {/* Benefits Section */}
+                        {rec.benefitsBreakdown && rec.benefitsBreakdown.length > 0 && rec.benefitsValue > 0 && (
+                          <div>
+                            <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                              🎁 Benefits You Value
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {rec.benefitsBreakdown
+                                .filter(benefit => benefit.personalValue > 0)
+                                .map((benefit, idx) => (
+                                <div 
+                                  key={idx} 
+                                  className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-2xl p-4 border border-blue-200 dark:border-blue-700"
+                                >
+                                  <div className="flex justify-between items-start">
+                                    <div className="flex-1">
+                                      <h5 className="font-semibold text-gray-900 dark:text-white mb-2">
+                                        {benefit.benefitName}
+                                      </h5>
+                                      <div className="space-y-1 text-sm">
+                                        <div className="flex justify-between">
+                                          <span className="text-gray-600 dark:text-gray-300">Official Value:</span>
+                                          <span className="font-medium">{formatCurrency(benefit.officialValue)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span className="text-gray-600 dark:text-gray-300">Your Value:</span>
+                                          <span className="font-bold text-blue-600 dark:text-blue-400">
+                                            {formatCurrency(benefit.personalValue)}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Signup Bonus */}
+                        {rec.signupBonus && (
+                          <div className="bg-gradient-to-r from-yellow-100 to-orange-100 dark:from-yellow-900/30 dark:to-orange-900/30 rounded-2xl p-6 border-2 border-yellow-300 dark:border-yellow-600">
+                            <div className="flex items-center space-x-4">
+                              <div className="text-4xl">🎁</div>
+                              <div className="flex-1">
+                                <h4 className="text-xl font-bold text-yellow-800 dark:text-yellow-300 mb-2">
+                                  Welcome Bonus
+                                </h4>
+                                <div className="text-lg font-semibold text-yellow-900 dark:text-yellow-200">
+                                  Earn {formatCurrency(rec.signupBonus.amount)}
+                                </div>
+                                <div className="text-sm text-yellow-700 dark:text-yellow-300">
+                                  when you spend {formatCurrency(rec.signupBonus.requiredSpend)} in the first {rec.signupBonus.timeframe} months
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
