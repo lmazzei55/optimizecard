@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from "@/components/SessionProvider";
+import { Footer } from "@/components/Footer";
 
 const geist = Geist({
   variable: "--font-geist-sans",
@@ -64,7 +65,8 @@ export default function RootLayout({
         className={`${geist.variable} ${geistMono.variable} antialiased bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-indigo-900 min-h-screen transition-all duration-500`}
       >
         <SessionProvider>
-        {children}
+          {children}
+          <Footer />
         </SessionProvider>
       </body>
     </html>

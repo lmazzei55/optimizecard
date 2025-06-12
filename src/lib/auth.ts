@@ -116,6 +116,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               rewardPreference: true,
               pointValue: true,
               enableSubCategories: true,
+              subscriptionTier: true,
             }
           })
           
@@ -123,6 +124,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             token.rewardPreference = dbUser.rewardPreference
             token.pointValue = dbUser.pointValue
             token.enableSubCategories = dbUser.enableSubCategories
+            token.subscriptionTier = dbUser.subscriptionTier
           }
         } catch (error) {
           console.error('Error loading user preferences in JWT callback:', error)
@@ -130,6 +132,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.rewardPreference = token.rewardPreference || 'cashback'
           token.pointValue = token.pointValue || 0.01
           token.enableSubCategories = token.enableSubCategories || false
+          token.subscriptionTier = token.subscriptionTier || 'free'
         }
       }
       
@@ -141,6 +144,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.rewardPreference = token.rewardPreference as string
         session.user.pointValue = token.pointValue as number
         session.user.enableSubCategories = token.enableSubCategories as boolean
+        session.user.subscriptionTier = token.subscriptionTier as string
       }
       return session
     },
@@ -184,6 +188,7 @@ declare module "next-auth" {
       rewardPreference?: string
       pointValue?: number
       enableSubCategories?: boolean
+      subscriptionTier?: string
     }
   }
 } 

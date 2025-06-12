@@ -5,6 +5,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Header } from "@/components/Header"
 import Link from "next/link"
+import { UpgradePrompt } from '@/components/UpgradePrompt'
 
 interface CreditCard {
   id: string
@@ -23,16 +24,23 @@ export default function Profile() {
   const [isSaved, setIsSaved] = useState(false)
   
   // Owned cards state
-  const [allCards, setAllCards] = useState<CreditCard[]>([])
+  const [cards, setCards] = useState<CreditCard[]>([])
   const [ownedCardIds, setOwnedCardIds] = useState<string[]>([])
   const [isLoadingCards, setIsLoadingCards] = useState(true)
   const [isUpdatingCards, setIsUpdatingCards] = useState(false)
+
+  // Add subscription tier and upgrade prompt state
+  const [userSubscriptionTier, setUserSubscriptionTier] = useState<'free' | 'premium'>('free')
+  const [upgradePromptOpen, setUpgradePromptOpen] = useState(false)
+  const [upgradePromptFeature, setUpgradePromptFeature] = useState('')
+  const [upgradePromptDescription, setUpgradePromptDescription] = useState('')
 
   useEffect(() => {
     if (session?.user) {
       setRewardPreference(session.user.rewardPreference as any || 'cashback')
       setPointValue(session.user.pointValue || 0.01)
       setEnableSubCategories(session.user.enableSubCategories || false)
+      setUserSubscriptionTier(session.user.subscriptionTier as any || 'free')
     }
   }, [session])
 
@@ -45,7 +53,7 @@ export default function Profile() {
         const response = await fetch('/api/user/cards')
         if (response.ok) {
           const data = await response.json()
-          setAllCards(data.allCards)
+          setCards(data.allCards)
           setOwnedCardIds(data.ownedCardIds)
         } else if (response.status === 503) {
           console.warn('⚠️ Database temporarily unavailable - cards will load when available')
@@ -98,6 +106,22 @@ export default function Profile() {
     )
   }
 
+  const handleRewardPreferenceChange = (newPreference: 'cashback' | 'points' | 'best_overall') => {
+    // Check if user is trying to access premium features without subscription
+    if (userSubscriptionTier === 'free' && (newPreference === 'points' || newPreference === 'best_overall')) {
+      setUpgradePromptFeature(newPreference === 'points' ? 'Points Optimization' : 'Best Overall Analysis')
+      setUpgradePromptDescription(
+        newPreference === 'points' 
+          ? 'Access premium travel and points cards with advanced optimization for maximum point earning potential.'
+          : 'Compare both cashback and points cards to find the absolute best option for your spending patterns.'
+      )
+      setUpgradePromptOpen(true)
+      return
+    }
+    
+    setRewardPreference(newPreference)
+  }
+
   const handleSave = async () => {
     if (!session?.user?.id) return
 
@@ -114,7 +138,7 @@ export default function Profile() {
       })
 
       if (response.ok) {
-        // Update the session with new preferences instead of reloading
+        // Update the session with new preferences WITHOUT page reload
         await update({
           rewardPreference,
           pointValue,
@@ -226,7 +250,7 @@ export default function Profile() {
                 </label>
                 <div className="grid grid-cols-3 gap-3">
                   <button
-                    onClick={() => setRewardPreference('cashback')}
+                    onClick={() => handleRewardPreferenceChange('cashback')}
                     className={`p-4 rounded-xl border-2 transition-all duration-200 ${
                       rewardPreference === 'cashback'
                         ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
@@ -240,8 +264,8 @@ export default function Profile() {
                   </button>
                   
                   <button
-                    onClick={() => setRewardPreference('points')}
-                    className={`p-4 rounded-xl border-2 transition-all duration-200 ${
+                    onClick={() => handleRewardPreferenceChange('points')}
+                    className={`p-4 rounded-xl border-2 transition-all duration-200 relative ${
                       rewardPreference === 'points'
                         ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300'
                         : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:border-purple-300 dark:hover:border-purple-500'
@@ -250,12 +274,17 @@ export default function Profile() {
                     <div className="text-center">
                       <div className="text-2xl mb-2">🎯</div>
                       <div className="font-semibold">Points</div>
+                      {userSubscriptionTier === 'free' && (
+                        <div className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                          PRO
+                        </div>
+                      )}
                     </div>
                   </button>
 
                   <button
-                    onClick={() => setRewardPreference('best_overall')}
-                    className={`p-4 rounded-xl border-2 transition-all duration-200 ${
+                    onClick={() => handleRewardPreferenceChange('best_overall')}
+                    className={`p-4 rounded-xl border-2 transition-all duration-200 relative ${
                       rewardPreference === 'best_overall'
                         ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
                         : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:border-green-300 dark:hover:border-green-500'
@@ -264,6 +293,11 @@ export default function Profile() {
                     <div className="text-center">
                       <div className="text-2xl mb-2">🏆</div>
                       <div className="font-semibold">Best Overall</div>
+                      {userSubscriptionTier === 'free' && (
+                        <div className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                          PRO
+                        </div>
+                      )}
                     </div>
                   </button>
                 </div>
@@ -370,7 +404,7 @@ export default function Profile() {
             ) : (
               <>
                 <div className="grid gap-3 max-h-96 overflow-y-auto">
-                  {allCards.map((card) => (
+                  {cards.map((card) => (
                     <div
                       key={card.id}
                       onClick={() => toggleCard(card.id)}
@@ -446,6 +480,14 @@ export default function Profile() {
 
         </div>
       </main>
+
+      {/* Upgrade Prompt Modal */}
+      <UpgradePrompt
+        isOpen={upgradePromptOpen}
+        onClose={() => setUpgradePromptOpen(false)}
+        feature={upgradePromptFeature}
+        description={upgradePromptDescription}
+      />
     </div>
   )
 } 

@@ -183,8 +183,10 @@ export function SpendingForm() {
     setIsMounted(true)
   }, [])
 
-  // Load user preferences from session
+  // Load user preferences from session with localStorage backup
   useEffect(() => {
+    if (!isMounted) return // Wait for hydration
+    
     if (session?.user) {
       const newRewardPreference = session.user.rewardPreference as any || 'cashback'
       const newPointValue = session.user.pointValue || 0.01
@@ -193,20 +195,34 @@ export function SpendingForm() {
       // Only update if values have actually changed to avoid unnecessary re-renders
       if (rewardPreference !== newRewardPreference) {
         setRewardPreference(newRewardPreference)
+        // Backup to localStorage for tab switching persistence
+        localStorage.setItem('rewardPreference', newRewardPreference)
       }
       if (pointValue !== newPointValue) {
         setPointValue(newPointValue)
+        localStorage.setItem('pointValue', newPointValue.toString())
       }
       if (enableSubcategories !== newEnableSubcategories) {
         setEnableSubcategories(newEnableSubcategories)
+        localStorage.setItem('enableSubcategories', JSON.stringify(newEnableSubcategories))
       }
     } else if (status === 'unauthenticated') {
-      // For users without a session, ensure cashback is selected as default
-      if (rewardPreference !== 'cashback') {
-        setRewardPreference('cashback')
+      // For users without a session, load from localStorage or use defaults
+      const savedRewardPref = localStorage.getItem('rewardPreference') as any || 'cashback'
+      const savedPointValue = parseFloat(localStorage.getItem('pointValue') || '0.01')
+      const savedSubcategories = JSON.parse(localStorage.getItem('enableSubcategories') || 'false')
+      
+      if (rewardPreference !== savedRewardPref) {
+        setRewardPreference(savedRewardPref)
+      }
+      if (pointValue !== savedPointValue) {
+        setPointValue(savedPointValue)
+      }
+      if (enableSubcategories !== savedSubcategories) {
+        setEnableSubcategories(savedSubcategories)
       }
     }
-  }, [session, session?.user?.rewardPreference, session?.user?.pointValue, session?.user?.enableSubCategories, status])
+  }, [session, session?.user?.rewardPreference, session?.user?.pointValue, session?.user?.enableSubCategories, status, isMounted])
 
   // Check for preference updates from localStorage
   useEffect(() => {
@@ -1016,6 +1032,8 @@ export function SpendingForm() {
     }
     
     setRewardPreference(newPreference)
+    // Save to localStorage for persistence across tab switches
+    localStorage.setItem('rewardPreference', newPreference)
   }
 
   if (loading) {
