@@ -833,6 +833,7 @@ export function SpendingForm() {
       setRecommendations(data)
       
       // Show upgrade prompt for free users if they got limited results
+      // Only show if subscription tier has been loaded and is 'free'
       if (userSubscriptionTier === 'free' && data.length > 0) {
         // Add a small delay so user sees their results first
         setTimeout(() => {
@@ -952,6 +953,7 @@ export function SpendingForm() {
             }
             
             // Show upgrade prompt for free users if they got limited results
+            // Only show if subscription tier has been loaded and is 'free'
             if (userSubscriptionTier === 'free' && data.length > 0) {
               // Add a small delay so user sees their results first
               setTimeout(() => {
