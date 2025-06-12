@@ -102,7 +102,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     error: "/auth/error",
   },
   session: {
-    strategy: "database",
+    strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60,
     updateAge: 24 * 60 * 60,
   },
@@ -110,15 +110,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   basePath: "/api/auth",
   useSecureCookies: process.env.NODE_ENV === "production",
   callbacks: {
-    async session({ session, user }) {
-      // Ensure session is created successfully first
-      if (session?.user && user?.id) {
-        session.user.id = user.id
-        
-        // Try to load user preferences, but don't fail session creation if this fails
+    async jwt({ token, user, trigger }) {
+      // Set user ID on initial sign in
+      if (user) {
+        token.id = user.id
+        console.log('🔐 JWT callback - user sign in:', { userId: user.id, email: user.email })
+      }
+      
+      // Load user preferences on sign in or when session is updated
+      if (trigger === "signIn" || trigger === "update") {
         try {
           const dbUser = await prisma.user.findUnique({
-            where: { id: user.id },
+            where: { id: token.id as string },
             select: {
               rewardPreference: true,
               pointValue: true,
@@ -128,32 +131,51 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           })
           
           if (dbUser) {
-            session.user.rewardPreference = dbUser.rewardPreference
-            session.user.pointValue = dbUser.pointValue
-            session.user.enableSubCategories = dbUser.enableSubCategories
-            session.user.subscriptionTier = dbUser.subscriptionTier
+            token.rewardPreference = dbUser.rewardPreference
+            token.pointValue = dbUser.pointValue
+            token.enableSubCategories = dbUser.enableSubCategories
+            token.subscriptionTier = dbUser.subscriptionTier
+            console.log('🔐 JWT callback - loaded preferences:', { 
+              userId: token.id, 
+              tier: dbUser.subscriptionTier,
+              preference: dbUser.rewardPreference 
+            })
           } else {
             // Set defaults if user preferences not found
-            session.user.rewardPreference = 'cashback'
-            session.user.pointValue = 0.01
-            session.user.enableSubCategories = false
-            session.user.subscriptionTier = 'free'
+            token.rewardPreference = 'cashback'
+            token.pointValue = 0.01
+            token.enableSubCategories = false
+            token.subscriptionTier = 'free'
+            console.log('🔐 JWT callback - using defaults:', { userId: token.id })
           }
         } catch (error) {
-          console.error('⚠️ Error loading user preferences in session callback (session still valid):', error)
-          // Set defaults if database query fails - but keep session valid
-          session.user.rewardPreference = 'cashback'
-          session.user.pointValue = 0.01
-          session.user.enableSubCategories = false
-          session.user.subscriptionTier = 'free'
+          console.error('⚠️ Error loading user preferences in JWT callback:', error)
+          // Set defaults if database query fails
+          token.rewardPreference = token.rewardPreference || 'cashback'
+          token.pointValue = token.pointValue || 0.01
+          token.enableSubCategories = token.enableSubCategories || false
+          token.subscriptionTier = token.subscriptionTier || 'free'
         }
       }
       
-      console.log('🔐 Session callback completed:', { 
-        userId: session?.user?.id, 
-        email: session?.user?.email,
-        hasPreferences: !!session?.user?.rewardPreference 
-      })
+      return token
+    },
+    async session({ session, token }) {
+      // Transfer token data to session
+      if (token && session.user) {
+        session.user.id = token.id as string
+        session.user.rewardPreference = token.rewardPreference as string
+        session.user.pointValue = token.pointValue as number
+        session.user.enableSubCategories = token.enableSubCategories as boolean
+        session.user.subscriptionTier = token.subscriptionTier as string
+        
+        console.log('🔐 Session callback completed:', { 
+          userId: session.user.id, 
+          email: session.user.email,
+          tier: session.user.subscriptionTier,
+          hasPreferences: !!session.user.rewardPreference 
+        })
+      }
       
       return session
     },
@@ -216,18 +238,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         userEmail: user?.email 
       })
     },
-    async session({ session, token }) {
-      console.log('🔐 NextAuth session event:', {
-        userId: session?.user?.id,
-        userEmail: session?.user?.email,
-        sessionExists: !!session
-      })
-    },
     async signOut(message) {
       try {
-        console.log('🔐 NextAuth signOut event triggered')
+        const userId = 'token' in message ? message.token?.id : undefined
+        const userEmail = 'token' in message ? message.token?.email : undefined
         
-        // Clean up expired sessions periodically for better session management
+        console.log('🔐 NextAuth signOut event:', {
+          userId,
+          userEmail
+        })
+        
+        // Clean up expired database sessions periodically (even with JWT)
         await prisma.session.deleteMany({
           where: {
             expires: {
@@ -235,7 +256,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             }
           }
         })
-        console.log('✅ Cleaned up expired sessions')
+        console.log('✅ Cleaned up expired database sessions')
       } catch (error) {
         console.error('❌ SignOut event error:', error)
       }
