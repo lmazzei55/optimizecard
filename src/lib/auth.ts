@@ -94,8 +94,18 @@ if (process.env.NODE_ENV === "development") {
   }))
 }
 
+// Create adapter with error handling
+let adapter
+try {
+  adapter = PrismaAdapter(prisma)
+} catch (error) {
+  console.error('❌ Failed to initialize Prisma adapter:', error)
+  // In production, we'll use JWT-only mode if database is unavailable
+  adapter = undefined
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  adapter: PrismaAdapter(prisma),
+  adapter,
   providers,
   pages: {
     signIn: "/auth/signin",
@@ -150,23 +160,58 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     async signIn({ user, account, profile }) {
       try {
-        // Allow sign in for all configured providers
-        if (account?.provider === "google" && hasGoogleCredentials) return true
-        if (account?.provider === "github" && hasGitHubCredentials) return true
-        if (account?.provider === "facebook" && hasFacebookCredentials) return true
-        if (account?.provider === "twitter" && hasTwitterCredentials) return true
-        if (account?.provider === "resend" && hasResendCredentials) return true
+        console.log('🔐 NextAuth signIn callback:', { 
+          provider: account?.provider, 
+          userId: user?.id, 
+          userEmail: user?.email 
+        })
         
-        // Allow demo credentials in development
-        if (process.env.NODE_ENV === "development" && account?.provider === "credentials") {
+        // Allow sign in for all configured providers
+        if (account?.provider === "google" && hasGoogleCredentials) {
+          console.log('✅ Google sign-in allowed')
+          return true
+        }
+        if (account?.provider === "github" && hasGitHubCredentials) {
+          console.log('✅ GitHub sign-in allowed')
+          return true
+        }
+        if (account?.provider === "facebook" && hasFacebookCredentials) {
+          console.log('✅ Facebook sign-in allowed')
+          return true
+        }
+        if (account?.provider === "twitter" && hasTwitterCredentials) {
+          console.log('✅ Twitter sign-in allowed')
+          return true
+        }
+        if (account?.provider === "resend" && hasResendCredentials) {
+          console.log('✅ Resend sign-in allowed')
           return true
         }
         
+        // Allow demo credentials in development
+        if (process.env.NODE_ENV === "development" && account?.provider === "credentials") {
+          console.log('✅ Demo credentials sign-in allowed (development)')
+          return true
+        }
+        
+        console.log('❌ Sign-in denied for provider:', account?.provider)
         return false
       } catch (error) {
-        console.error('Sign in callback error:', error)
+        console.error('❌ Sign in callback error:', error)
         return false
       }
+    },
+  },
+  events: {
+    async signIn({ user, account }) {
+      console.log('🔐 NextAuth signIn event:', { 
+        provider: account?.provider, 
+        userId: user?.id, 
+        userEmail: user?.email 
+      })
+    },
+    async createUser({ user }) {
+      console.log('🔐 NextAuth createUser event:', { userId: user.id, userEmail: user.email })
     },
   },
   session: {
