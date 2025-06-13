@@ -61,6 +61,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <meta name="fo-verify" content="18b08b14-7fe2-4741-aaa8-2295d85db8c7" />
+      </head>
       <body
         className={`${geist.variable} ${geistMono.variable} antialiased bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-indigo-900 min-h-screen transition-all duration-500`}
       >
