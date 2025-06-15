@@ -1,30 +1,85 @@
 import { PrismaClient } from '../generated/prisma'
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
+declare global {
+  var prisma: PrismaClient | undefined
 }
 
-// Function to create a new Prisma client
-function createPrismaClient() {
+// Create a new Prisma client with configuration to handle prepared statement conflicts
+const createPrismaClient = () => {
   return new PrismaClient({
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL,
-    },
-  },
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-    // Enhanced settings for serverless cold starts and connection pooling
-  ...(process.env.NODE_ENV === 'production' && {
-    transactionOptions: {
-        timeout: 30000, // 30 seconds for cold starts
-    },
-  }),
-})
+    log: ['error', 'warn'],
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL
+      }
+    }
+  })
 }
 
-export let prisma = globalForPrisma.prisma ?? createPrismaClient()
+// Use a singleton pattern but with better error handling
+export let prisma = globalThis.prisma ?? createPrismaClient()
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+if (process.env.NODE_ENV !== 'production') {
+  globalThis.prisma = prisma
+}
+
+// Enhanced retry function that handles prepared statement conflicts
+export async function withRetry<T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<T> {
+  let lastError: any
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation()
+    } catch (error: any) {
+      lastError = error
+      
+      // Check if it's a prepared statement conflict
+      const isPreparedStatementError = 
+        error?.code === '42P05' || 
+        error?.message?.includes('prepared statement') ||
+        error?.message?.includes('already exists')
+
+      if (isPreparedStatementError && attempt < maxRetries) {
+        console.log(`⚠️ Prepared statement conflict (attempt ${attempt}/${maxRetries}), retrying...`)
+        
+        // Exponential backoff with jitter
+        const delay = baseDelay * Math.pow(2, attempt - 1) + Math.random() * 1000
+        await new Promise(resolve => setTimeout(resolve, delay))
+        
+        // For prepared statement conflicts, we'll create a fresh query
+        continue
+      } else if (!isPreparedStatementError) {
+        // For non-prepared statement errors, throw immediately
+        throw error
+      }
+    }
+  }
+
+  // If we get here, all retries failed
+  console.error(`❌ All ${maxRetries} retries failed for operation`)
+  throw lastError
+}
+
+// Alternative query function that bypasses prepared statements for critical operations
+export async function executeRawQuery<T = any>(query: string, params: any[] = []): Promise<T[]> {
+  try {
+    // Use $queryRawUnsafe to bypass prepared statements
+    const result = await prisma.$queryRawUnsafe(query, ...params)
+    return result as T[]
+  } catch (error: any) {
+    console.error('❌ Raw query failed:', error)
+    throw error
+  }
+}
+
+// Graceful shutdown
+export async function disconnectPrisma() {
+  await prisma.$disconnect()
+}
 
 // Function to reset Prisma client completely
 export async function resetPrismaClient() {
@@ -33,20 +88,11 @@ export async function resetPrismaClient() {
     await prisma.$disconnect()
     prisma = createPrismaClient()
     if (process.env.NODE_ENV !== 'production') {
-      globalForPrisma.prisma = prisma
+      globalThis.prisma = prisma
     }
     console.log('✅ Prisma client reset successfully')
   } catch (error) {
     console.warn('⚠️ Error during Prisma client reset:', error)
-  }
-}
-
-// Connection cleanup for serverless
-export async function disconnectPrisma() {
-  try {
-    await prisma.$disconnect()
-  } catch (error) {
-    console.warn('Error disconnecting Prisma:', error)
   }
 }
 
@@ -61,74 +107,6 @@ export async function initializeDatabase() {
     console.log('Database connection failed:', error)
     return false
   }
-}
-
-// Enhanced retry logic for serverless cold starts
-export async function withRetry<T>(
-  operation: () => Promise<T>, 
-  maxRetries: number = 4,  // Increased for cold starts
-  baseDelayMs: number = 1000
-): Promise<T> {
-  let lastError: any
-  
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const result = await operation()
-      
-      if (attempt > 1) {
-        console.log(`✅ Database operation succeeded on attempt ${attempt}`)
-      }
-      
-      return result
-    } catch (error: any) {
-      lastError = error
-      console.log(`❌ Database operation attempt ${attempt}/${maxRetries} failed:`, error?.code || error?.message)
-      
-      // Enhanced retry conditions for serverless environments
-      const isRetryable = (
-        (error?.code === 'P2010' || // Connection error
-         error?.code === 'P2024' || // Timeout
-         error?.code === 'P1001' || // Can't reach database
-         error?.code === '42P05' || // Prepared statement exists
-         error?.message?.includes('timeout') ||
-         error?.message?.includes('connection') ||
-         error?.message?.includes('prepared statement') ||
-         error?.message?.includes('ECONNRESET') ||
-         error?.message?.includes('ETIMEDOUT')) && 
-        attempt < maxRetries
-      )
-      
-      if (isRetryable) {
-        // For prepared statement conflicts, reset the entire client
-        if (error?.code === '42P05' || error?.message?.includes('prepared statement')) {
-          console.log('🔄 Prepared statement conflict detected, resetting Prisma client...')
-          await resetPrismaClient()
-          // Longer delay for client reset
-          await new Promise(resolve => setTimeout(resolve, 1000))
-        } else {
-          // For other connection issues, just disconnect and reconnect
-          try {
-            await disconnectPrisma()
-            await new Promise(resolve => setTimeout(resolve, 200))
-          } catch (disconnectError) {
-            console.warn('Error during disconnect:', disconnectError)
-          }
-        }
-        
-        // Exponential backoff with jitter for cold starts
-        const jitter = Math.random() * 500
-        const delay = (baseDelayMs * Math.pow(2, attempt - 1)) + jitter
-        console.log(`🔄 Retrying in ${Math.round(delay)}ms...`)
-        await new Promise(resolve => setTimeout(resolve, delay))
-        continue
-      }
-      
-      // Don't retry if it's not a clear connection error
-      throw error
-    }
-  }
-  
-  throw lastError
 }
 
 // Health check function for monitoring - using simple operations instead of raw queries
