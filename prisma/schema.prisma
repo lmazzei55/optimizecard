@@ -158,11 +158,6 @@ model CategoryReward {
   maxReward  Float? // Maximum reward per period
   period     String? // "monthly", "quarterly", "yearly"
   
-  // Portal bonus fields
-  hasPortalBonus Boolean @default(false) // True if higher rate when booked through issuer's portal
-  portalRewardRate Float? // Higher reward rate when booked through portal (e.g., 10x = 10.0)
-  portalDescription String? // Description of portal bonus (e.g., "Higher rate when booked through Chase Travel")
-  
   card        CreditCard      @relation(fields: [cardId], references: [id], onDelete: Cascade)
   category    SpendingCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   subCategory SubCategory?     @relation(fields: [subCategoryId], references: [id], onDelete: Cascade)

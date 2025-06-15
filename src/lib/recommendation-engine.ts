@@ -28,9 +28,6 @@ export interface CardRecommendation {
     rewardRate: number
     monthlyValue: number
     annualValue: number
-    hasPortalBonus?: boolean
-    portalRewardRate?: number
-    portalDescription?: string
   }[]
   benefitsBreakdown: {
     benefitName: string
@@ -119,10 +116,38 @@ export async function calculateCardRecommendations(
         })
       })
     } catch (error: any) {
-      // Handle prepared statement conflicts gracefully
+      // Handle prepared statement conflicts with multiple retries
       if (error?.code === '42P05' || error?.message?.includes('prepared statement')) {
-        console.log('⚠️ Prepared statement conflict in recommendation engine, returning empty results')
-        return [] // Return empty recommendations instead of throwing error
+        console.log('⚠️ Prepared statement conflict in recommendation engine, retrying with fresh connection...')
+        
+        // Try multiple times with delays
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            await new Promise(resolve => setTimeout(resolve, attempt * 1000)) // Wait 1s, 2s, 3s
+            
+            cards = await prisma.creditCard.findMany({
+              where: whereClause,
+              include: {
+                categoryRewards: {
+                  include: {
+                    category: true,
+                    subCategory: true,
+                  },
+                },
+                benefits: true,
+              },
+            })
+            console.log(`✅ Retry ${attempt} successful, found ${cards.length} cards`)
+            break // Success, exit retry loop
+          } catch (retryError: any) {
+            console.log(`⚠️ Retry ${attempt} failed:`, retryError.message)
+            if (attempt === 3) {
+              // On final attempt, return empty array with warning
+              console.log('❌ All retries failed, returning empty results')
+              return []
+            }
+          }
+        }
       } else {
         throw error // Re-throw other errors
       }
@@ -138,9 +163,6 @@ export async function calculateCardRecommendations(
         rewardRate: number
         monthlyValue: number
         annualValue: number
-        hasPortalBonus?: boolean
-        portalRewardRate?: number
-        portalDescription?: string
       }>()
       
       // Get card-specific customizations or use defaults
@@ -173,14 +195,6 @@ export async function calculateCardRecommendations(
         // Use category-specific reward rate if available
         if (categoryReward) {
           rewardRate = categoryReward.rewardRate
-          
-          // Check for portal bonus - for now, we'll use the base rate
-          // In the future, this could be user-configurable based on their booking preferences
-          if (categoryReward.hasPortalBonus && categoryReward.portalRewardRate) {
-            // For now, we'll use the base rate as conservative estimate
-            // Users who frequently use portals could get higher value
-            rewardRate = categoryReward.rewardRate
-          }
         }
 
         // For points cards, use card-specific point valuation if available, or user's preference
@@ -259,9 +273,6 @@ export async function calculateCardRecommendations(
             rewardRate: weightedRate,
             monthlyValue: totalMonthlyValue,
             annualValue: totalAnnualValue,
-            hasPortalBonus: categoryReward?.hasPortalBonus,
-            portalRewardRate: categoryReward?.portalRewardRate,
-            portalDescription: categoryReward?.portalDescription,
           })
         } else {
           // Add new breakdown entry
@@ -271,9 +282,6 @@ export async function calculateCardRecommendations(
             rewardRate: categoryReward?.rewardRate || card.baseReward,
             monthlyValue,
             annualValue,
-            hasPortalBonus: categoryReward?.hasPortalBonus,
-            portalRewardRate: categoryReward?.portalRewardRate,
-            portalDescription: categoryReward?.portalDescription,
           })
         }
       }
