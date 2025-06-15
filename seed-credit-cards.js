@@ -248,7 +248,10 @@ async function seedCreditCards() {
                     categoryId: categoryId,
                     rewardRate: reward.rewardRate,
                     maxReward: reward.maxReward,
-                    period: reward.period
+                    period: reward.period,
+                    hasPortalBonus: reward.hasPortalBonus || false,
+                    portalRewardRate: reward.portalRewardRate,
+                    portalDescription: reward.portalDescription
                   }
                 });
                 console.log(`  ✅ Added ${reward.categoryName} reward: ${reward.rewardRate * 100}%`);

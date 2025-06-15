@@ -28,6 +28,9 @@ export interface CardRecommendation {
     rewardRate: number
     monthlyValue: number
     annualValue: number
+    hasPortalBonus?: boolean
+    portalRewardRate?: number
+    portalDescription?: string
   }[]
   benefitsBreakdown: {
     benefitName: string
@@ -135,6 +138,9 @@ export async function calculateCardRecommendations(
         rewardRate: number
         monthlyValue: number
         annualValue: number
+        hasPortalBonus?: boolean
+        portalRewardRate?: number
+        portalDescription?: string
       }>()
       
       // Get card-specific customizations or use defaults
@@ -167,6 +173,14 @@ export async function calculateCardRecommendations(
         // Use category-specific reward rate if available
         if (categoryReward) {
           rewardRate = categoryReward.rewardRate
+          
+          // Check for portal bonus - for now, we'll use the base rate
+          // In the future, this could be user-configurable based on their booking preferences
+          if (categoryReward.hasPortalBonus && categoryReward.portalRewardRate) {
+            // For now, we'll use the base rate as conservative estimate
+            // Users who frequently use portals could get higher value
+            rewardRate = categoryReward.rewardRate
+          }
         }
 
         // For points cards, use card-specific point valuation if available, or user's preference
@@ -245,6 +259,9 @@ export async function calculateCardRecommendations(
             rewardRate: weightedRate,
             monthlyValue: totalMonthlyValue,
             annualValue: totalAnnualValue,
+            hasPortalBonus: categoryReward?.hasPortalBonus,
+            portalRewardRate: categoryReward?.portalRewardRate,
+            portalDescription: categoryReward?.portalDescription,
           })
         } else {
           // Add new breakdown entry
@@ -254,6 +271,9 @@ export async function calculateCardRecommendations(
             rewardRate: categoryReward?.rewardRate || card.baseReward,
             monthlyValue,
             annualValue,
+            hasPortalBonus: categoryReward?.hasPortalBonus,
+            portalRewardRate: categoryReward?.portalRewardRate,
+            portalDescription: categoryReward?.portalDescription,
           })
         }
       }

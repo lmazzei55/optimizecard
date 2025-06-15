@@ -7,19 +7,19 @@ const globalForPrisma = globalThis as unknown as {
 // Function to create a new Prisma client
 function createPrismaClient() {
   return new PrismaClient({
-    datasources: {
-      db: {
-        url: process.env.DATABASE_URL,
-      },
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL,
     },
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  },
+  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
     // Enhanced settings for serverless cold starts and connection pooling
-    ...(process.env.NODE_ENV === 'production' && {
-      transactionOptions: {
+  ...(process.env.NODE_ENV === 'production' && {
+    transactionOptions: {
         timeout: 30000, // 30 seconds for cold starts
-      },
-    }),
-  })
+    },
+  }),
+})
 }
 
 export let prisma = globalForPrisma.prisma ?? createPrismaClient()

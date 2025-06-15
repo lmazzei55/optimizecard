@@ -88,19 +88,19 @@ const creditCards = [
 
 const categoryRewards = [
   // Chase Freedom Unlimited
-  { cardId: 'chase-freedom-unlimited', categoryName: 'Dining', rewardRate: 0.03 },
-  { cardId: 'chase-freedom-unlimited', categoryName: 'Groceries', rewardRate: 0.03 },
+  { cardId: 'chase-freedom-unlimited', categoryName: 'Dining', rewardRate: 0.03, hasPortalBonus: false },
+  { cardId: 'chase-freedom-unlimited', categoryName: 'Groceries', rewardRate: 0.03, hasPortalBonus: false },
   
   // Chase Sapphire Preferred
-  { cardId: 'chase-sapphire-preferred', categoryName: 'Dining', rewardRate: 0.03 },
-  { cardId: 'chase-sapphire-preferred', categoryName: 'Travel', rewardRate: 0.02 },
+  { cardId: 'chase-sapphire-preferred', categoryName: 'Dining', rewardRate: 0.03, hasPortalBonus: false },
+  { cardId: 'chase-sapphire-preferred', categoryName: 'Travel', rewardRate: 0.02, hasPortalBonus: true, portalRewardRate: 0.05, portalDescription: 'Higher rate when booked through Chase Travel' },
   
   // Amex Gold
-  { cardId: 'amex-gold', categoryName: 'Dining', rewardRate: 0.04 },
-  { cardId: 'amex-gold', categoryName: 'Groceries', rewardRate: 0.04 },
+  { cardId: 'amex-gold', categoryName: 'Dining', rewardRate: 0.04, hasPortalBonus: false },
+  { cardId: 'amex-gold', categoryName: 'Groceries', rewardRate: 0.04, hasPortalBonus: false },
   
   // Discover it Cash Back (rotating categories)
-  { cardId: 'discover-it-cash-back', categoryName: 'Gas', rewardRate: 0.05, maxReward: 75, period: 'quarterly' },
+  { cardId: 'discover-it-cash-back', categoryName: 'Gas', rewardRate: 0.05, maxReward: 75, period: 'quarterly', hasPortalBonus: false },
 ]
 
 export async function POST() {
@@ -185,7 +185,10 @@ export async function POST() {
                   categoryId: category.id,
                   rewardRate: rewardData.rewardRate,
                   maxReward: rewardData.maxReward,
-                  period: rewardData.period as any
+                  period: rewardData.period as any,
+                  hasPortalBonus: rewardData.hasPortalBonus || false,
+                  portalRewardRate: rewardData.portalRewardRate,
+                  portalDescription: rewardData.portalDescription
                 }
               })
             })
