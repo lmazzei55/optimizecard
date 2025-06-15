@@ -66,19 +66,24 @@ export async function POST(request: NextRequest) {
     console.log('🎯 Recommendations with:', { 
       userSpending: userSpending?.length, 
       rewardPreference, 
-      subscriptionTier 
+      subscriptionTier,
+      pointValue 
     })
 
     // Validate input
     if (!userSpending || userSpending.length === 0) {
+      console.log('❌ No user spending provided')
       return NextResponse.json([])
     }
 
     // Filter out zero spending
     const activeSpending = userSpending.filter(s => s.monthlySpend > 0)
     if (activeSpending.length === 0) {
+      console.log('❌ No active spending (all zero amounts)')
       return NextResponse.json([])
     }
+
+    console.log('✅ Active spending:', activeSpending)
 
     // Get user session for subscription tier
     let userSubscriptionTier = subscriptionTier
@@ -102,31 +107,47 @@ export async function POST(request: NextRequest) {
     // Get cards using direct database connection
     const cards = await getCreditCardsWithRewards({
       rewardType: rewardPreference === 'best_overall' ? undefined : rewardPreference,
+      // Free tier users can only see cashback cards, premium users see all cards
       tier: userSubscriptionTier === 'free' ? 'free' : undefined,
       isActive: true
     })
 
     console.log(`📋 Found ${cards.length} cards via direct connection`)
+    console.log('🃏 Card names:', cards.map(c => c.name))
 
     if (cards.length === 0) {
+      console.log('❌ No cards found matching criteria')
+      return NextResponse.json([])
+    }
+
+    // Additional filtering for free tier users requesting points cards
+    let availableCards = cards
+    if (userSubscriptionTier === 'free' && rewardPreference === 'points') {
+      console.log('🚫 Free tier user requesting points cards - returning empty results')
       return NextResponse.json([])
     }
 
     // Filter out owned cards
-    const availableCards = ownedCardIds.length > 0 
-      ? cards.filter(card => !ownedCardIds.includes(card.id))
-      : cards
+    availableCards = ownedCardIds.length > 0 
+      ? availableCards.filter(card => !ownedCardIds.includes(card.id))
+      : availableCards
+
+    console.log(`🎯 Available cards after filtering owned: ${availableCards.length}`)
 
     const recommendations: CardRecommendation[] = []
 
     // Process each card
     for (const card of availableCards) {
       try {
+        console.log(`\n🔍 Processing card: ${card.name}`)
+        
         // Get category rewards and benefits in parallel
         const [categoryRewards, benefits] = await Promise.all([
           getCategoryRewards(card.id),
           getCardBenefits(card.id)
         ])
+
+        console.log(`  📊 Found ${categoryRewards.length} category rewards, ${benefits.length} benefits`)
 
         // Calculate value for user spending
         let totalAnnualValue = 0
@@ -138,6 +159,7 @@ export async function POST(request: NextRequest) {
           
           for (const reward of categoryRewards) {
             if (reward.categoryName === spending.categoryName) {
+              console.log(`  🎯 Found matching reward: ${reward.categoryName} at ${reward.rewardRate}`)
               // Handle spending caps if they exist
               if (reward.maxReward && reward.period) {
                 const periodMultiplier = reward.period === 'monthly' ? 1 : 
@@ -167,6 +189,8 @@ export async function POST(request: NextRequest) {
           const annualValue = monthlyValue * 12
           totalAnnualValue += annualValue
 
+          console.log(`  💰 ${spending.categoryName}: $${spending.monthlySpend}/mo × ${bestRewardRate} = $${monthlyValue.toFixed(2)}/mo`)
+
           categoryBreakdown.push({
             categoryName: spending.categoryName,
             monthlySpend: spending.monthlySpend,
@@ -181,6 +205,8 @@ export async function POST(request: NextRequest) {
           sum + (benefit.annualValue || 0), 0)
         
         const netAnnualValue = totalAnnualValue + benefitsValue - card.annualFee
+
+        console.log(`  📈 Total annual value: $${totalAnnualValue.toFixed(2)}, Benefits: $${benefitsValue.toFixed(2)}, Net: $${netAnnualValue.toFixed(2)}`)
 
         // Create recommendation object
         const recommendation: CardRecommendation = {
@@ -199,41 +225,38 @@ export async function POST(request: NextRequest) {
             officialValue: benefit.annualValue || 0,
             personalValue: benefit.annualValue || 0,
             category: benefit.category
-          }))
-        }
-
-        // Add signup bonus if available
-        if (card.signupBonus && card.signupSpend && card.signupTimeframe) {
-          recommendation.signupBonus = {
+          })),
+          signupBonus: card.signupBonus ? {
             amount: card.signupBonus,
-            requiredSpend: card.signupSpend,
-            timeframe: card.signupTimeframe
-          }
+            requiredSpend: card.signupSpend || 0,
+            timeframe: card.signupTimeframe || 3
+          } : undefined
         }
 
         recommendations.push(recommendation)
+        console.log(`  ✅ Added recommendation for ${card.name}`)
 
-      } catch (cardError: any) {
-        console.log(`⚠️ Error processing ${card.name}:`, cardError.message)
-        // Continue with other cards
+      } catch (error) {
+        console.error(`❌ Error processing card ${card.name}:`, error)
+        continue
       }
     }
 
-    // Sort by net annual value (highest first)
+    console.log(`\n🎉 Generated ${recommendations.length} recommendations`)
+
+    // Sort by net annual value (descending)
     recommendations.sort((a, b) => b.netAnnualValue - a.netAnnualValue)
 
-    console.log(`🎉 Returning ${recommendations.length} recommendations`)
+    // Return top 10 recommendations
+    const topRecommendations = recommendations.slice(0, 10)
+    console.log('🏆 Top recommendations:', topRecommendations.map(r => `${r.cardName}: $${r.netAnnualValue.toFixed(2)}`))
 
-    return NextResponse.json(recommendations)
+    return NextResponse.json(topRecommendations)
 
-  } catch (error: any) {
-    console.error('❌ Recommendations error:', error)
+  } catch (error) {
+    console.error('❌ Recommendations API error:', error)
     return NextResponse.json(
-      { 
-        error: 'Failed to calculate recommendations', 
-        details: error.message,
-        timestamp: new Date().toISOString()
-      },
+      { error: 'Failed to generate recommendations' },
       { status: 500 }
     )
   }

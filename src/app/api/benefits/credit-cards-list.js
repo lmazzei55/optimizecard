@@ -14,13 +14,7 @@ const creditCards = [
     signupTimeframe: 3,
     isActive: true,
     categoryRewards: [
-      { 
-        categoryName: 'Travel', 
-        rewardRate: 0.03,
-        hasPortalBonus: true,
-        portalRewardRate: 0.10,
-        portalDescription: 'Higher rate when booked through Chase Travel'
-      },
+      { categoryName: 'Travel', rewardRate: 0.03 },
       { categoryName: 'Dining', rewardRate: 0.03 }
     ],
     benefits: [
@@ -36,6 +30,27 @@ const creditCards = [
         description: 'Unlimited Priority Pass lounge access',
         annualValue: 429,
         category: 'travel',
+        isRecurring: true
+      },
+      {
+        name: 'Global Entry Credit',
+        description: '$100 Global Entry/TSA PreCheck credit every 4 years',
+        annualValue: 25,
+        category: 'travel',
+        isRecurring: true
+      },
+      {
+        name: 'DashPass Credit',
+        description: 'Complimentary DashPass membership',
+        annualValue: 96,
+        category: 'dining',
+        isRecurring: true
+      },
+      {
+        name: 'Lyft Credit',
+        description: '$60 annual Lyft credit',
+        annualValue: 60,
+        category: 'transportation',
         isRecurring: true
       }
     ]
@@ -55,19 +70,20 @@ const creditCards = [
     signupTimeframe: 6,
     isActive: true,
     categoryRewards: [
-      { 
-        categoryName: 'Travel', 
-        rewardRate: 0.05,
-        hasPortalBonus: true,
-        portalRewardRate: 0.05,
-        portalDescription: 'Same rate for direct bookings and AmEx Travel'
-      }
+      { categoryName: 'Travel', rewardRate: 0.05 }
     ],
     benefits: [
       {
-        name: 'Annual Travel Credits',
-        description: '$200 airline fee credit + $200 hotel credit',
-        annualValue: 400,
+        name: 'Uber Cash',
+        description: '$200 annual Uber Cash ($15/month + $20 in December)',
+        annualValue: 200,
+        category: 'transportation',
+        isRecurring: true
+      },
+      {
+        name: 'Hotel Credit',
+        description: '$200 annual hotel credit',
+        annualValue: 200,
         category: 'travel',
         isRecurring: true
       },
@@ -76,6 +92,41 @@ const creditCards = [
         description: 'Access to Centurion Lounges and Priority Pass',
         annualValue: 550,
         category: 'travel',
+        isRecurring: true
+      },
+      {
+        name: 'Clear Credit',
+        description: '$189 annual Clear membership credit',
+        annualValue: 189,
+        category: 'travel',
+        isRecurring: true
+      },
+      {
+        name: 'Digital Entertainment Credit',
+        description: '$240 annual digital entertainment credit ($20/month)',
+        annualValue: 240,
+        category: 'entertainment',
+        isRecurring: true
+      },
+      {
+        name: 'Airline Fee Credit',
+        description: '$200 annual airline incidental fee credit',
+        annualValue: 200,
+        category: 'travel',
+        isRecurring: true
+      },
+      {
+        name: 'Global Entry Credit',
+        description: '$100 Global Entry/TSA PreCheck credit every 4 years',
+        annualValue: 25,
+        category: 'travel',
+        isRecurring: true
+      },
+      {
+        name: 'Saks Credit',
+        description: '$100 annual Saks Fifth Avenue credit',
+        annualValue: 100,
+        category: 'shopping',
         isRecurring: true
       }
     ]
@@ -95,13 +146,7 @@ const creditCards = [
     signupTimeframe: 3,
     isActive: true,
     categoryRewards: [
-      { 
-        categoryName: 'Travel', 
-        rewardRate: 0.02,
-        hasPortalBonus: true,
-        portalRewardRate: 0.05,
-        portalDescription: 'Higher rate when booked through Chase Travel'
-      },
+      { categoryName: 'Travel', rewardRate: 0.02 },
       { categoryName: 'Dining', rewardRate: 0.02 },
       { categoryName: 'Groceries', rewardRate: 0.02 },
       { categoryName: 'Entertainment', rewardRate: 0.02 }
@@ -112,6 +157,20 @@ const creditCards = [
         description: '$50 annual Ultimate Rewards hotel credit',
         annualValue: 50,
         category: 'travel',
+        isRecurring: true
+      },
+      {
+        name: 'DashPass Credit',
+        description: 'Complimentary DashPass membership',
+        annualValue: 96,
+        category: 'dining',
+        isRecurring: true
+      },
+      {
+        name: 'Travel Protection',
+        description: 'Trip cancellation/interruption insurance',
+        annualValue: 50,
+        category: 'insurance',
         isRecurring: true
       }
     ]
@@ -133,17 +192,27 @@ const creditCards = [
     categoryRewards: [
       { categoryName: 'Dining', rewardRate: 0.04 },
       { categoryName: 'Groceries', rewardRate: 0.04, maxReward: 1000, period: 'yearly' },
-      { 
-        categoryName: 'Travel', 
-        rewardRate: 0.03,
-        hasPortalBonus: false // Same rate for all travel bookings
-      }
+      { categoryName: 'Travel', rewardRate: 0.03 }
     ],
     benefits: [
       {
-        name: 'Dining Credits',
-        description: '$120 Uber Cash + $120 dining credit',
-        annualValue: 240,
+        name: 'Uber Cash',
+        description: '$120 annual Uber Cash ($10/month)',
+        annualValue: 120,
+        category: 'transportation',
+        isRecurring: true
+      },
+      {
+        name: 'Dining Credit',
+        description: '$120 annual dining credit',
+        annualValue: 120,
+        category: 'dining',
+        isRecurring: true
+      },
+      {
+        name: 'Resy Credit',
+        description: '$100 annual Resy credit',
+        annualValue: 100,
         category: 'dining',
         isRecurring: true
       }
@@ -164,13 +233,7 @@ const creditCards = [
     signupTimeframe: 3,
     isActive: true,
     categoryRewards: [
-      { 
-        categoryName: 'Travel', 
-        rewardRate: 0.05,
-        hasPortalBonus: true,
-        portalRewardRate: 0.10,
-        portalDescription: 'Higher rate when booked through Capital One Travel'
-      }
+      { categoryName: 'Travel', rewardRate: 0.05 }
     ],
     benefits: [
       {
@@ -185,6 +248,20 @@ const creditCards = [
         description: 'Unlimited Priority Pass lounge access',
         annualValue: 429,
         category: 'travel',
+        isRecurring: true
+      },
+      {
+        name: 'Global Entry Credit',
+        description: '$100 Global Entry/TSA PreCheck credit every 4 years',
+        annualValue: 25,
+        category: 'travel',
+        isRecurring: true
+      },
+      {
+        name: 'Anniversary Bonus',
+        description: '10,000 bonus miles on account anniversary',
+        annualValue: 100,
+        category: 'bonus',
         isRecurring: true
       }
     ]
@@ -204,21 +281,22 @@ const creditCards = [
     signupTimeframe: 3,
     isActive: true,
     categoryRewards: [
-      { 
-        categoryName: 'Travel', 
-        rewardRate: 0.02,
-        hasPortalBonus: true,
-        portalRewardRate: 0.05,
-        portalDescription: 'Higher rate when booked through Capital One Travel'
-      }
+      { categoryName: 'Travel', rewardRate: 0.02 }
     ],
     benefits: [
       {
         name: 'Global Entry Credit',
-        description: '$100 Global Entry/TSA PreCheck credit',
-        annualValue: 20, // Amortized over 5 years
+        description: '$100 Global Entry/TSA PreCheck credit every 4 years',
+        annualValue: 25,
         category: 'travel',
-        isRecurring: false
+        isRecurring: true
+      },
+      {
+        name: 'Travel Protection',
+        description: 'Trip cancellation/interruption insurance',
+        annualValue: 50,
+        category: 'insurance',
+        isRecurring: true
       }
     ]
   },
@@ -240,7 +318,15 @@ const creditCards = [
       { categoryName: 'Groceries', rewardRate: 0.03 },
       { categoryName: 'Gas', rewardRate: 0.03 }
     ],
-    benefits: []
+    benefits: [
+      {
+        name: 'Purchase Protection',
+        description: 'Purchase protection and extended warranty',
+        annualValue: 25,
+        category: 'insurance',
+        isRecurring: true
+      }
+    ]
   },
   {
     id: 'chase-freedom-flex',
@@ -260,7 +346,15 @@ const creditCards = [
       { categoryName: 'Groceries', rewardRate: 0.05, maxReward: 75, period: 'quarterly' },
       { categoryName: 'Gas', rewardRate: 0.05, maxReward: 75, period: 'quarterly' }
     ],
-    benefits: []
+    benefits: [
+      {
+        name: 'Purchase Protection',
+        description: 'Purchase protection and extended warranty',
+        annualValue: 25,
+        category: 'insurance',
+        isRecurring: true
+      }
+    ]
   },
   {
     id: 'citi-double-cash',
@@ -274,7 +368,15 @@ const creditCards = [
     signupBonus: 0,
     isActive: true,
     categoryRewards: [],
-    benefits: []
+    benefits: [
+      {
+        name: 'Citi Price Rewind',
+        description: 'Price protection for purchases',
+        annualValue: 50,
+        category: 'shopping',
+        isRecurring: true
+      }
+    ]
   },
   {
     id: 'wells-fargo-active-cash',
@@ -294,6 +396,13 @@ const creditCards = [
       {
         name: 'Cell Phone Protection',
         description: 'Up to $600 protection for cell phone damage/theft',
+        annualValue: 25,
+        category: 'insurance',
+        isRecurring: true
+      },
+      {
+        name: 'Zero Liability Protection',
+        description: 'Fraud protection for unauthorized transactions',
         annualValue: 25,
         category: 'insurance',
         isRecurring: true
@@ -323,6 +432,13 @@ const creditCards = [
         annualValue: 200,
         category: 'bonus',
         isRecurring: false
+      },
+      {
+        name: 'FICO Credit Score',
+        description: 'Free FICO credit score monitoring',
+        annualValue: 60,
+        category: 'financial',
+        isRecurring: true
       }
     ]
   },
@@ -344,7 +460,22 @@ const creditCards = [
       { categoryName: 'Entertainment', rewardRate: 0.06, maxReward: 360, period: 'yearly' },
       { categoryName: 'Gas', rewardRate: 0.03 }
     ],
-    benefits: []
+    benefits: [
+      {
+        name: 'Purchase Protection',
+        description: 'Purchase protection and extended warranty',
+        annualValue: 50,
+        category: 'insurance',
+        isRecurring: true
+      },
+      {
+        name: 'Return Protection',
+        description: 'Return protection for eligible purchases',
+        annualValue: 25,
+        category: 'shopping',
+        isRecurring: true
+      }
+    ]
   },
   {
     id: 'amex-blue-cash-everyday',
@@ -363,7 +494,15 @@ const creditCards = [
       { categoryName: 'Groceries', rewardRate: 0.03, maxReward: 180, period: 'yearly' },
       { categoryName: 'Gas', rewardRate: 0.02 }
     ],
-    benefits: []
+    benefits: [
+      {
+        name: 'Purchase Protection',
+        description: 'Purchase protection and extended warranty',
+        annualValue: 25,
+        category: 'insurance',
+        isRecurring: true
+      }
+    ]
   }
 ];
 
