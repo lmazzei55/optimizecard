@@ -7,6 +7,8 @@ import { RecommendationItem } from '@/components/RecommendationItem'
 import { Button } from '@/components/ui/button'
 import { formatCurrency } from '@/lib/utils'
 import { Header } from '@/components/Header'
+import { CardCustomizationModal } from '@/components/CardCustomizationModal'
+import { useState as useStateReact } from 'react'
 
 export default function ResultsPage() {
   const router = useRouter()
@@ -15,6 +17,7 @@ export default function ResultsPage() {
   const [sortKey, setSortKey] = useState<'name' | 'value'>('value')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [filterType, setFilterType] = useState<'all' | 'cashback' | 'points'>('all')
+  const [editingCardId, setEditingCardId] = useState<string|null>(null)
 
   // read saved payload
   useEffect(() => {
@@ -49,6 +52,9 @@ export default function ResultsPage() {
       }
       return sortDir === 'asc' ? a.netAnnualValue - b.netAnnualValue : b.netAnnualValue - a.netAnnualValue
     })
+
+  const openCustomization = (id:string) => setEditingCardId(id)
+  const closeCustomization = () => setEditingCardId(null)
 
   if (loading) {
     return (
@@ -120,11 +126,25 @@ export default function ResultsPage() {
               key={rec.cardId}
               recommendation={rec}
               rank={idx}
-              onCustomize={() => {}}
+              onCustomize={() => openCustomization(rec.cardId)}
             />
           ))}
         </div>
       </div>
+
+      {editingCardId && (
+        <CardCustomizationModal
+          isOpen={true}
+          onClose={closeCustomization}
+          onSave={() => {}}
+          card={{
+            id: editingCardId,
+            name: processed.find(r=>r.cardId===editingCardId)?.cardName||'',
+            type: processed.find(r=>r.cardId===editingCardId)?.rewardType||'cashback',
+            benefits: processed.find(r=>r.cardId===editingCardId)?.benefitsBreakdown.map(b=>({id:b.benefitName,name:b.benefitName,value:b.officialValue}))||[]
+          }}
+        />
+      )}
     </>
   )
 } 

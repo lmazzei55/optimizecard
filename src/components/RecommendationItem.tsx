@@ -101,7 +101,7 @@ export const RecommendationItem: React.FC<Props> = ({ recommendation: rec, rank,
                   <div key={c.categoryName} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/40 rounded-md px-3 py-2">
                     <span className="truncate max-w-[120px]">{c.categoryName}</span>
                     <span className="font-medium text-purple-600 dark:text-purple-400">
-                      {rec.rewardType === 'points' ? `${c.rewardRate}x` : `${(c.rewardRate*100).toFixed(1)}%`}
+                      {rec.rewardType === 'points' ? `${(c.rewardRate/0.01).toFixed(0)}x` : `${(c.rewardRate*100).toFixed(1)}%`}
                     </span>
                   </div>
                 ))}
