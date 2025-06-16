@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 }
 
 export default function TermsOfService() {
-  return (
+    return (
     <>
       <Header />
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-indigo-900 py-12">
@@ -203,5 +203,5 @@ export default function TermsOfService() {
         </div>
       </div>
     </>
-  )
-} 
+    )
+  }

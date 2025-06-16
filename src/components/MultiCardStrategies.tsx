@@ -42,12 +42,9 @@ export function MultiCardStrategies({ userSpending, benefitValuations, rewardPre
 
       if (!response.ok) {
         const errorData = await response.json()
-        if (response.status === 403) {
+        if (response.status === 403 || response.status === 401) {
+          // Free tier or unauthenticated users should see upgrade prompt
           onUpgradePrompt?.()
-          return
-        } else if (response.status === 401) {
-          setError('Authentication error - please refresh the page and try again')
-          console.warn('⚠️ Authentication error in multi-card strategies - not triggering logout')
           return
         } else {
           setError(errorData.error || 'Failed to fetch strategies')

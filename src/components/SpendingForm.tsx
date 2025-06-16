@@ -9,6 +9,8 @@ import { CardCustomizationModal } from "@/components/CardCustomizationModal"
 import { MultiCardStrategies } from './MultiCardStrategies'
 import { UpgradePrompt } from './UpgradePrompt'
 import { warmupManager } from '@/lib/warmup-manager'
+import { RecommendationItem } from './RecommendationItem'
+import { useRouter } from 'next/navigation'
 
 interface SpendingCategory {
   id: string
@@ -113,6 +115,8 @@ export function SpendingForm() {
   // Track if we've loaded initial data to prevent conflicts
   const [initialDataLoaded, setInitialDataLoaded] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+
+  const router = useRouter()
 
   // Enhanced warmup system with global state management
   const warmupAPIs = async () => {
@@ -851,182 +855,22 @@ export function SpendingForm() {
   }
 
   const calculateRecommendations = async () => {
+    // Save payload to localStorage then redirect to results page
+    const activeSpending = spending.filter(s => s.monthlySpend > 0)
+    const payload = {
+      userSpending: activeSpending,
+      rewardPreference,
+      pointValue: 0.01,
+      cardCustomizations,
+    }
+    localStorage.setItem('cc-recommendation-input', JSON.stringify(payload))
+    // also save just the spending array so the wizard is pre-populated when user returns
+    localStorage.setItem('spending-data', JSON.stringify(spending))
+    // small delay to show loading state
     setCalculating(true)
-    setError(null) // Clear previous errors
-    
-    // Validate reward preference is selected
-    if (!rewardPreference) {
-      setError('⚠️ Please select a reward type preference before getting recommendations.')
-      setCalculating(false)
-      return
-    }
-    
-    try {
-      const activeSpending = spending.filter(s => s.monthlySpend > 0)
-      
-      // Enhanced retry logic for cold starts and database issues
-      let lastError: any
-      let success = false
-      const maxRetries = 4 // Increased for database issues
-      
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          console.log(`🎯 Calculating recommendations (attempt ${attempt}/${maxRetries})...`)
-          
-          // For first attempt, try a quick warmup check if system isn't ready
-          if (!systemReady && attempt === 1) {
-            console.log('⏳ System not ready, attempting quick warmup...')
-            try {
-              // Try lightweight warmup first
-              const quickWarmup = await warmupManager.warmupIfNeeded()
-              if (quickWarmup) {
-                setSystemReady(true)
-                console.log('✅ Quick warmup successful')
-              } else {
-                console.warn('⚠️ Quick warmup failed, but continuing with request...')
-              }
-            } catch (warmupError) {
-              console.warn('⚠️ Quick warmup error, but continuing:', warmupError)
-            }
-          }
-          
-          const response = await fetch('/api/recommendations', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userSpending: activeSpending,
-              rewardPreference,
-              pointValue: 0.01 // Always use 1¢ for initial calculation
-            })
-          })
-          
-          if (!response.ok) {
-            const errorText = await response.text()
-            let errorMessage = `HTTP ${response.status}: ${response.statusText}`
-            
-            try {
-              const errorData = JSON.parse(errorText)
-              if (errorData.error) {
-                errorMessage = errorData.error
-              }
-            } catch (parseError) {
-              // Use the raw text if JSON parsing fails
-              if (errorText) {
-                errorMessage = errorText
-              }
-            }
-            
-            throw new Error(errorMessage)
-          }
-          
-          const data = await response.json()
-          
-          if (data.error) {
-            throw new Error(data.error)
-          }
-          
-          // Check if we got valid recommendations
-          if (!Array.isArray(data)) {
-            throw new Error('Invalid response format: expected array of recommendations')
-          }
-          
-          if (data.length === 0) {
-            // Empty results might indicate a system issue, especially on first attempts
-            if (attempt < maxRetries) {
-              throw new Error('No recommendations returned - system may be warming up')
-            } else {
-              // On final attempt, accept empty results as valid
-              console.warn('⚠️ No credit card recommendations found for your spending pattern')
-              setError('🔍 No credit cards match your spending pattern. Try adjusting your spending amounts or categories.')
-              setRecommendations([])
-              success = true
-              break
-            }
-          } else {
-            setRecommendations(data)
-            success = true
-            
-            // Mark system as ready if we got successful results
-            if (!systemReady) {
-              setSystemReady(true)
-              console.log('✅ System is now ready (confirmed by successful API call)')
-            }
-            
-            // Show upgrade prompt for free users if they got limited results
-            // Only show if subscription tier has been loaded and is 'free'
-            if (userSubscriptionTier === 'free' && data.length > 0) {
-              // Add a small delay so user sees their results first
-              setTimeout(() => {
-                setUpgradePromptFeature('Premium Credit Cards')
-                setUpgradePromptDescription('You\'re seeing no-annual-fee cards only. Upgrade to access premium cards like Chase Sapphire, Amex Gold/Platinum, and Capital One Venture X for potentially higher rewards.')
-                setUpgradePromptOpen(true)
-              }, 3000) // Show after 3 seconds
-            }
-            
-            break // Success, exit retry loop
-          }
-          
-        } catch (error: any) {
-          lastError = error
-          console.warn(`❌ Recommendation attempt ${attempt} failed:`, error.message)
-          
-          // Enhanced retry conditions for database issues
-          const isRetryable = (
-            error.message.includes('500') || 
-            error.message.includes('503') ||
-            error.message.includes('408') || // Timeout
-            error.message.includes('timeout') ||
-            error.message.includes('fetch') ||
-            error.message.includes('Database temporarily unavailable') ||
-            error.message.includes('prepared statement') ||
-            error.message.includes('connection') ||
-            error.message.includes('No recommendations returned') ||
-            error.message.includes('warming up') ||
-            error.message.includes('Service Unavailable')
-          )
-          
-          if (attempt < maxRetries && isRetryable) {
-            // Progressive delay with longer waits for database issues
-            const baseDelay = error.message.includes('Database') || error.message.includes('503') ? 3000 : 1500
-            const delay = baseDelay * attempt
-            console.log(`🔄 Retrying in ${delay}ms...`)
-            await new Promise(resolve => setTimeout(resolve, delay))
-            continue
-          }
-          
-          // If it's not retryable or we're out of retries, break
-          break
-        }
-      }
-      
-      if (!success) {
-        throw lastError || new Error('Failed to get recommendations after multiple attempts')
-      }
-      
-    } catch (error: any) {
-      console.error('Error calculating recommendations:', error)
-      
-      // Enhanced user-friendly error messages
-      if (error.message.includes('Database temporarily unavailable') || 
-          error.message.includes('prepared statement') ||
-          error.message.includes('connection')) {
-        setError('🔄 Database is warming up. Please wait a moment and try again.')
-      } else if (error.message.includes('503') || error.message.includes('Service Unavailable')) {
-        setError('🔥 System is starting up. Please try again in a few seconds.')
-      } else if (error.message.includes('408') || error.message.includes('timeout')) {
-        setError('⏰ Request timed out. The system may be warming up. Please try again.')
-      } else if (error.message.includes('500')) {
-        setError('⚠️ Server error occurred. Please try again.')
-      } else if (error.message.includes('fetch')) {
-        setError('🌐 Connection timeout. Please check your internet and try again.')
-      } else if (error.message.includes('No recommendations returned')) {
-        setError('🔍 No credit cards match your spending pattern. Try adjusting your spending amounts.')
-      } else {
-        setError('❌ Unable to calculate recommendations. Please try again.')
-      }
-    } finally {
-      setCalculating(false)
-    }
+    setTimeout(() => {
+      router.push('/results')
+    }, 4500)
   }
 
   const totalMonthlySpend = spending.reduce((sum, s) => sum + s.monthlySpend, 0)
@@ -1065,6 +909,25 @@ export function SpendingForm() {
     // Save to localStorage for persistence across tab switches
     localStorage.setItem('rewardPreference', newPreference)
   }
+
+  // hydrate spending from localStorage immediately on mount (before interactions)
+  useEffect(() => {
+    const saved = localStorage.getItem('spending-data')
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setSpending(prev => {
+            // merge by id to preserve categories order
+            return prev.map(item => {
+              const found = parsed.find((p:any)=> p.categoryName===item.categoryName)
+              return found ? { ...item, monthlySpend: found.monthlySpend } : item
+            })
+          })
+        }
+      } catch {}
+    }
+  }, [])
 
   if (loading) {
     return (
@@ -1501,237 +1364,16 @@ export function SpendingForm() {
             )}
           </div>
 
-          {/* Cards Grid */}
-          <div className="space-y-6">
-            {recommendations.map((rec, index) => {
-              const rankColors = [
-                'from-yellow-400 to-orange-500', // Gold for #1
-                'from-gray-300 to-gray-500',     // Silver for #2
-                'from-amber-600 to-amber-800',   // Bronze for #3
-                'from-blue-400 to-blue-600',     // Blue for others
-              ];
-              const rankColor = rankColors[Math.min(index, 3)];
-              
-              return (
-                <div 
-                  key={rec.cardId} 
-                  className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden transform hover:scale-105 transition-all duration-300"
-                >
-                  {/* Card Header */}
-                  <div className="relative">
-                    <div className={`bg-gradient-to-r ${rankColor} p-6 text-white`}>
-                      <div className="flex justify-between items-start">
-                        <div className="flex items-center space-x-4">
-                          <div className="bg-white/20 backdrop-blur-sm rounded-full p-3">
-                            <span className="text-3xl font-bold">#{index + 1}</span>
-                          </div>
-                          <div>
-                            <h3 className="text-2xl font-bold">{rec.cardName}</h3>
-                            <p className="text-lg opacity-90">{rec.issuer}</p>
-                            <div className="flex items-center space-x-2 mt-2">
-                              <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium">
-                                {rec.rewardType === 'cashback' ? '💵 Cashback' : '🎯 Points'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-3xl font-bold">{formatCurrency(rec.netAnnualValue)}</div>
-                          <div className="text-lg opacity-90">net annual value</div>
-                          <div className="flex flex-col space-y-2 mt-3">
-                            {rec.applicationUrl && (
-                              <div className="space-y-2">
-                                <Button
-                                  onClick={() => window.open(rec.applicationUrl, '_blank')}
-                                  className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white border-0 shadow-lg transform hover:scale-105 transition-all duration-200 font-semibold w-full"
-                                  size="sm"
-                                >
-                                  🚀 Apply Now
-                                </Button>
-                                <div className="text-xs text-white/80 text-center">
-                                  ⚠️ Affiliate Link - We may earn a commission
-                                </div>
-                              </div>
-                            )}
-                            <Button
-                              onClick={() => openCardCustomization(rec.cardId)}
-                              variant="outline"
-                              size="sm"
-                              className="bg-white/10 border-white/30 text-white hover:bg-white/20 backdrop-blur-sm"
-                            >
-                              ⚙️ Customize Card
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Value Breakdown Bar */}
-                    <div className="bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-700 dark:to-gray-600 p-4">
-                      <div className="grid grid-cols-4 gap-4 text-center">
-                        <div className="space-y-1">
-                          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                            {formatCurrency(rec.totalAnnualValue)}
-                          </div>
-                          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Annual Rewards</div>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                            {formatCurrency(rec.benefitsValue)}
-                          </div>
-                          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Benefits Value</div>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-                            -{formatCurrency(rec.annualFee)}
-                          </div>
-                          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Annual Fee</div>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                            {((rec.netAnnualValue / (totalMonthlySpend * 12)) * 100).toFixed(1)}%
-                          </div>
-                          <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Effective Rate</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Card Body */}
-                  <div className="p-6 space-y-6">
-                    {/* Category Rewards Breakdown */}
-                    {rec.categoryBreakdown && rec.categoryBreakdown.length > 0 && (
-                      <div>
-                        <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                          💳 Earning Breakdown by Category
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {rec.categoryBreakdown.map((breakdown, idx) => {
-                            const categoryIcons: { [key: string]: string } = {
-                              'Dining': '🍽️',
-                              'Travel': '✈️',
-                              'Gas': '⛽',
-                              'Groceries': '🛒',
-                              'Entertainment': '🎬',
-                              'Online Shopping': '🛍️',
-                              'Department Stores': '🏬',
-                              'General': '💳'
-                            };
-                            const icon = categoryIcons[breakdown.categoryName] || '💳';
-                            
-                            // Format reward rate properly for points vs cashback
-                            const rewardDisplay = rec.rewardType === 'points' 
-                              ? `${breakdown.rewardRate}x` 
-                              : `${(breakdown.rewardRate * 100).toFixed(1)}%`;
-                            
-                            return (
-                              <div 
-                                key={idx} 
-                                className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-700 dark:to-gray-600 rounded-2xl p-4 border border-gray-200 dark:border-gray-600 shadow-lg"
-                              >
-                                <div className="flex items-center justify-between mb-3">
-                                  <div className="flex items-center space-x-2">
-                                    <span className="text-2xl">{icon}</span>
-                                    <span className="font-semibold text-gray-900 dark:text-white">
-                                      {breakdown.categoryName}
-                                    </span>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="text-lg font-bold text-green-600 dark:text-green-400">
-                                      {rewardDisplay}
-                                    </div>
-                                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                                      {rec.rewardType === 'points' ? 'points' : 'cashback'}
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="space-y-2">
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-gray-600 dark:text-gray-300">Monthly Spend:</span>
-                                    <span className="font-medium">{formatCurrency(breakdown.monthlySpend)}</span>
-                                  </div>
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-gray-600 dark:text-gray-300">Monthly Earnings:</span>
-                                    <span className="font-medium text-green-600 dark:text-green-400">
-                                      {formatCurrency(breakdown.monthlyValue)}
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between text-lg font-bold border-t pt-2">
-                                    <span className="text-gray-900 dark:text-white">Annual Value:</span>
-                                    <span className="text-green-600 dark:text-green-400">
-                                      {formatCurrency(breakdown.annualValue)}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Benefits Section */}
-                    {rec.benefitsBreakdown && rec.benefitsBreakdown.length > 0 && rec.benefitsValue > 0 && (
-                      <div>
-                        <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                          🎁 Benefits You Value
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {rec.benefitsBreakdown
-                            .filter(benefit => benefit.personalValue > 0)
-                            .map((benefit, idx) => (
-                            <div 
-                              key={idx} 
-                              className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-2xl p-4 border border-blue-200 dark:border-blue-700"
-                            >
-                              <div className="flex justify-between items-start">
-                                <div className="flex-1">
-                                  <h5 className="font-semibold text-gray-900 dark:text-white mb-2">
-                                    {benefit.benefitName}
-                                  </h5>
-                                  <div className="space-y-1 text-sm">
-                                    <div className="flex justify-between">
-                                      <span className="text-gray-600 dark:text-gray-300">Official Value:</span>
-                                      <span className="font-medium">{formatCurrency(benefit.officialValue)}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                      <span className="text-gray-600 dark:text-gray-300">Your Value:</span>
-                                      <span className="font-bold text-blue-600 dark:text-blue-400">
-                                        {formatCurrency(benefit.personalValue)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Signup Bonus */}
-                    {rec.signupBonus && (
-                      <div className="bg-gradient-to-r from-yellow-100 to-orange-100 dark:from-yellow-900/30 dark:to-orange-900/30 rounded-2xl p-6 border-2 border-yellow-300 dark:border-yellow-600">
-                        <div className="flex items-center space-x-4">
-                          <div className="text-4xl">🎁</div>
-                          <div className="flex-1">
-                            <h4 className="text-xl font-bold text-yellow-800 dark:text-yellow-300 mb-2">
-                              Welcome Bonus
-                            </h4>
-                            <div className="text-lg font-semibold text-yellow-900 dark:text-yellow-200">
-                              Earn {formatCurrency(rec.signupBonus.amount)}
-                            </div>
-                            <div className="text-sm text-yellow-700 dark:text-yellow-300">
-                              when you spend {formatCurrency(rec.signupBonus.requiredSpend)} in the first {rec.signupBonus.timeframe} months
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+          {/* Cards List */}
+          <div className="space-y-4">
+            {recommendations.map((rec, index) => (
+              <RecommendationItem
+                key={rec.cardId}
+                recommendation={rec}
+                rank={index}
+                onCustomize={openCardCustomization}
+              />
+            ))}
           </div>
         </div>
       )}
@@ -1783,6 +1425,15 @@ export function SpendingForm() {
           feature={upgradePromptFeature}
           description={upgradePromptDescription}
         />
+      )}
+
+      {calculating && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="text-center space-y-4">
+            <div className="animate-spin rounded-full h-20 w-20 border-b-4 border-purple-500 mx-auto"></div>
+            <p className="text-xl font-semibold text-white">Finding your perfect card…</p>
+          </div>
+        </div>
       )}
     </div>
   )
