@@ -18,6 +18,7 @@ export default function ResultsPage() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [filterType, setFilterType] = useState<'all' | 'cashback' | 'points'>('all')
   const [editingCardId, setEditingCardId] = useState<string|null>(null)
+  const [cardCustomizations, setCardCustomizations] = useState<Record<string, any>>({})
 
   // read saved payload
   useEffect(() => {
@@ -32,10 +33,16 @@ export default function ResultsPage() {
         const res = await fetch('/api/recommendations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            userSpending: payload.userSpending || [],
+            rewardPreference: payload.rewardPreference || 'cashback',
+            pointValue: 0.01,
+            cardCustomizations: payload.cardCustomizations || {}
+          })
         })
         const data = await res.json()
         setRecommendations(data)
+        setCardCustomizations(payload.cardCustomizations || {})
       } catch (err) {
         console.error('Failed to load recs', err)
       } finally {
@@ -55,6 +62,26 @@ export default function ResultsPage() {
 
   const openCustomization = (id:string) => setEditingCardId(id)
   const closeCustomization = () => setEditingCardId(null)
+
+  const handleSaveCustomization = (cust: any) => {
+    if (!editingCardId) return;
+    const updated = {...cardCustomizations, [editingCardId]: cust};
+    setCardCustomizations(updated);
+    localStorage.setItem('cc-card-custom', JSON.stringify(updated));
+    // refetch recommendations
+    setLoading(true);
+    fetch('/api/recommendations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userSpending: JSON.parse(localStorage.getItem('cc-recommendation-input') || '{}').userSpending || [],
+        rewardPreference: JSON.parse(localStorage.getItem('cc-recommendation-input') || '{}').rewardPreference || 'cashback',
+        pointValue: 0.01,
+        cardCustomizations: updated
+      })
+    }).then(r => r.json()).then(d => setRecommendations(d)).finally(() => setLoading(false));
+    closeCustomization();
+  }
 
   if (loading) {
     return (
@@ -136,13 +163,14 @@ export default function ResultsPage() {
         <CardCustomizationModal
           isOpen={true}
           onClose={closeCustomization}
-          onSave={() => {}}
+          onSave={handleSaveCustomization}
           card={{
             id: editingCardId,
             name: processed.find(r=>r.cardId===editingCardId)?.cardName||'',
             type: processed.find(r=>r.cardId===editingCardId)?.rewardType||'cashback',
             benefits: processed.find(r=>r.cardId===editingCardId)?.benefitsBreakdown.map(b=>({id:b.benefitName,name:b.benefitName,value:b.officialValue}))||[]
           }}
+          currentCustomization={cardCustomizations[editingCardId]}
         />
       )}
     </>
