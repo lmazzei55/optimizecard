@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 }
 
 export default function PrivacyPolicy() {
-  return (
+    return (
     <>
       <Header />
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-indigo-900 py-12">
@@ -53,7 +53,7 @@ export default function PrivacyPolicy() {
                   </ul>
                   <p className="font-semibold text-blue-600 dark:text-blue-400">
                     We never sell your personal data to third parties.
-                  </p>
+            </p>
                 </div>
               </section>
 
@@ -141,12 +141,12 @@ export default function PrivacyPolicy() {
                 <p>
                   We may update this privacy policy from time to time. We will notify users of any material changes 
                   by posting the new policy on this page and updating the "Last updated" date.
-                </p>
+            </p>
               </section>
             </div>
           </div>
         </div>
       </div>
     </>
-  )
-}
+    )
+  }

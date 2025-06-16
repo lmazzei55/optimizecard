@@ -43,15 +43,16 @@ export async function GET() {
   } catch (error: any) {
     console.error('❌ Subscription API Error:', error)
     
-    // Return 503 for database connection issues
+    // Return 200 fallback instead of 503 for database connection issues
     if (error?.code === 'P2010' || error?.message?.includes('prepared statement') || error?.message?.includes('connection')) {
       return NextResponse.json(
         { 
           error: 'Database temporarily unavailable', 
           tier: 'free',  // Fallback to free tier
-          status: 'active'
+          status: 'active',
+          fallback: true
         },
-        { status: 503 }
+        { status: 200 }
       )
     }
     

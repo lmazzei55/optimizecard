@@ -43,8 +43,8 @@ export async function GET(request: NextRequest) {
         error?.message?.includes('connection')) {
       console.error('Database connection pool issue in spending API')
       return NextResponse.json(
-        { error: 'Database temporarily unavailable', code: 'DB_POOL_ERROR' },
-        { status: 503 }
+        { error: 'Database temporarily unavailable', code: 'DB_POOL_ERROR', fallback: true, spending: [] },
+        { status: 200 }
       )
     }
     
@@ -87,8 +87,8 @@ export async function POST(request: NextRequest) {
         error?.message?.includes('prepared statement') ||
         error?.message?.includes('connection')) {
       return NextResponse.json(
-        { error: 'Database temporarily unavailable', code: 'DB_POOL_ERROR' },
-        { status: 503 }
+        { error: 'Database temporarily unavailable', code: 'DB_POOL_ERROR', fallback: true },
+        { status: 200 }
       )
     }
     

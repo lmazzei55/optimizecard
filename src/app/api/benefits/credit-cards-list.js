@@ -220,7 +220,7 @@ const creditCards = [
   },
   {
     id: 'capital-one-venture-x',
-    name: 'Capital One Venture X',
+    name: 'Capital One',
     issuer: 'Capital One',
     annualFee: 395,
     tier: 'premium',

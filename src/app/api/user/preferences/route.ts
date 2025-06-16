@@ -47,9 +47,10 @@ export async function GET() {
           error: 'Database temporarily unavailable',
           rewardPreference: 'cashback',  // Default fallback - lowercase to match schema
           pointValue: 0.01,
-          enableSubCategories: false
+          enableSubCategories: false,
+          fallback: true
         },
-        { status: 503 }
+        { status: 200 }
       )
     }
     
@@ -131,8 +132,8 @@ export async function POST(request: NextRequest) {
         error?.message?.includes('prepared statement') || 
         error?.message?.includes('connection')) {
       return NextResponse.json(
-        { error: 'Database temporarily unavailable' },
-        { status: 503 }
+        { error: 'Database temporarily unavailable', fallback: true },
+        { status: 200 }
       )
     }
     
