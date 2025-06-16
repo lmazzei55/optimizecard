@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
           let bestRewardRate = card.baseReward
           
           for (const reward of categoryRewards) {
-            if (reward.categoryName === spending.categoryName) {
+            if (reward.categoryName === spending.categoryName || reward.subCategoryName === spending.categoryName) {
               console.log(`  🎯 Found matching reward: ${reward.categoryName} at ${reward.rewardRate}`)
               // Handle spending caps if they exist
               if (reward.maxReward && reward.period) {
@@ -182,12 +182,23 @@ export async function POST(request: NextRequest) {
           }
 
           // For points cards, apply point value
-          let monthlyValue = spending.monthlySpend * bestRewardRate
+          let monthlyValue: number
+
           if (card.rewardType === 'points') {
-            // Use card-specific point value if customized
+            // Points cards may store rewardRate either as a monetary equivalent (<1) or as points-per-dollar (>=1)
             const cardCustomization = cardCustomizations[card.id]
             const effectivePointValue = cardCustomization?.pointValue || pointValue
-            monthlyValue = monthlyValue * effectivePointValue
+
+            if (bestRewardRate < 1) {
+              // rewardRate already represents $ value per $1 spend (e.g. 0.05 for 5x at 1cpp)
+              monthlyValue = spending.monthlySpend * bestRewardRate
+            } else {
+              // rewardRate is points per $1. Convert to dollars using pointValue
+              monthlyValue = spending.monthlySpend * bestRewardRate * effectivePointValue
+            }
+          } else {
+            // Cashback cards – rewardRate is direct cash percentage or dollar multiplier
+            monthlyValue = spending.monthlySpend * bestRewardRate
           }
 
           const annualValue = monthlyValue * 12

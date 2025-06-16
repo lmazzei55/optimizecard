@@ -303,8 +303,13 @@ const CREDIT_CARDS = [
     signupTimeframe: 3,
     applicationUrl: 'https://www.capitalone.com/credit-cards/venture-x/',
     categoryRewards: [
-      { subCategory: 'Hotels', rewardRate: 5.0 },
-      { subCategory: 'Car Rental', rewardRate: 5.0 },
+      // General travel booked outside portal earns 5x
+      { category: 'Travel', rewardRate: 5.0 },
+      // Portal bookings on hotels & rental cars earn 10x
+      { subCategory: 'Hotels', rewardRate: 10.0 },
+      { subCategory: 'Car Rental', rewardRate: 10.0 },
+      // Dining earns 2x
+      { category: 'Dining', rewardRate: 2.0 },
     ] as CategoryRewardSeed[],
   },
   {
