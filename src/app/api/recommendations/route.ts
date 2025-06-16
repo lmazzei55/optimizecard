@@ -67,7 +67,8 @@ export async function POST(request: NextRequest) {
       userSpending: userSpending?.length, 
       rewardPreference, 
       subscriptionTier,
-      pointValue 
+      pointValue,
+      cardCustomizations: Object.keys(cardCustomizations).length > 0 ? 'Yes' : 'No'
     })
 
     // Validate input
@@ -183,7 +184,10 @@ export async function POST(request: NextRequest) {
           // For points cards, apply point value
           let monthlyValue = spending.monthlySpend * bestRewardRate
           if (card.rewardType === 'points') {
-            monthlyValue = monthlyValue * pointValue
+            // Use card-specific point value if customized
+            const cardCustomization = cardCustomizations[card.id]
+            const effectivePointValue = cardCustomization?.pointValue || pointValue
+            monthlyValue = monthlyValue * effectivePointValue
           }
 
           const annualValue = monthlyValue * 12
@@ -200,9 +204,39 @@ export async function POST(request: NextRequest) {
           })
         }
 
-        // Calculate benefits value
-        const benefitsValue = benefits.reduce((sum: number, benefit: any) => 
-          sum + (benefit.annualValue || 0), 0)
+        // Calculate benefits value with customizations
+        let benefitsValue = 0
+        const benefitsBreakdown = []
+        
+        // Get card-specific customizations
+        const cardCustomization = cardCustomizations[card.id]
+        
+        for (const benefit of benefits) {
+          let personalValue = 0
+          
+          // Check if we have customizations for this card
+          if (cardCustomization?.benefitValues && cardCustomization?.enabledBenefits) {
+            // Use new format: benefit is enabled and has custom value
+            const isEnabled = cardCustomization.enabledBenefits[benefit.name] !== false // Default to enabled
+            if (isEnabled) {
+              personalValue = cardCustomization.benefitValues[benefit.name] || benefit.annualValue || 0
+            }
+            // If not enabled, personalValue stays 0
+            console.log(`  🎁 ${benefit.name}: ${isEnabled ? 'enabled' : 'disabled'}, value: $${personalValue}`)
+          } else {
+            // Default case: use official benefit value when no customizations exist
+            personalValue = benefit.annualValue || 0
+          }
+          
+          benefitsValue += personalValue
+          
+          benefitsBreakdown.push({
+            benefitName: benefit.name,
+            officialValue: benefit.annualValue || 0,
+            personalValue,
+            category: benefit.category
+          })
+        }
         
         const netAnnualValue = totalAnnualValue + benefitsValue - card.annualFee
 
@@ -220,12 +254,7 @@ export async function POST(request: NextRequest) {
           benefitsValue,
           netAnnualValue,
           categoryBreakdown,
-          benefitsBreakdown: benefits.map((benefit: any) => ({
-            benefitName: benefit.name,
-            officialValue: benefit.annualValue || 0,
-            personalValue: benefit.annualValue || 0,
-            category: benefit.category
-          })),
+          benefitsBreakdown,
           signupBonus: card.signupBonus ? {
             amount: card.signupBonus,
             requiredSpend: card.signupSpend || 0,
