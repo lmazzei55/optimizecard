@@ -101,6 +101,12 @@ export async function POST(request: NextRequest) {
           userSubscriptionTier = user.subscriptionTier as 'free' | 'premium'
         }
       }
+      console.log('🔍 User subscription tier check:', {
+        sessionExists: !!session?.user?.email,
+        originalTier: subscriptionTier,
+        dbTier: userSubscriptionTier,
+        rewardPreference
+      })
     } catch (error) {
       console.log('⚠️ Could not get user subscription tier, using default:', subscriptionTier)
     }
@@ -121,12 +127,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json([])
     }
 
-    // Additional filtering for free tier users requesting points cards
+    // Filter cards based on subscription tier - but don't return empty, just filter the list
     let availableCards = cards
-    if (userSubscriptionTier === 'free' && rewardPreference === 'points') {
-      console.log('🚫 Free tier user requesting points cards - returning empty results')
-      return NextResponse.json([])
+    if (userSubscriptionTier === 'free' && (rewardPreference === 'points' || rewardPreference === 'best_overall')) {
+      console.log('🚫 Free tier user requesting premium features - filtering to cashback cards only')
+      availableCards = cards.filter(card => card.rewardType === 'cashback')
     }
+    
+    console.log(`🎯 Available cards after tier filtering: ${availableCards.length}`)
 
     // Filter out owned cards
     availableCards = ownedCardIds.length > 0 

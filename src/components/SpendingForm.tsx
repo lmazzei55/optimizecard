@@ -196,8 +196,13 @@ export function SpendingForm() {
       const newPointValue = session.user.pointValue || 0.01
       const newEnableSubcategories = session.user.enableSubCategories || false
       
-      // CRITICAL FIX: Only validate against subscription tier if it has been loaded
-      // This prevents race condition where tier is still 'free' (default) while loading
+      console.log('🔍 Preference validation check:', {
+        userSubscriptionTier,
+        newRewardPreference,
+        sessionEmail: session?.user?.email,
+        shouldValidate: userSubscriptionTier !== null
+      })
+      
       if (userSubscriptionTier !== null && userSubscriptionTier === 'free' && (newRewardPreference === 'points' || newRewardPreference === 'best_overall')) {
         console.warn(`⚠️ User has ${newRewardPreference} preference but free tier - resetting to cashback`)
         newRewardPreference = 'cashback'
@@ -210,6 +215,8 @@ export function SpendingForm() {
       } else if (userSubscriptionTier === null) {
         // If subscription tier is still loading, don't validate yet - just load the preference
         console.log('ℹ️ Subscription tier still loading, deferring preference validation')
+      } else if (userSubscriptionTier === 'premium') {
+        console.log('✅ Premium user - allowing all preferences:', newRewardPreference)
       }
       
       // Only update if values have actually changed to avoid unnecessary re-renders
