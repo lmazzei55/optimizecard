@@ -101,222 +101,45 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: "/auth/signin",
     error: "/auth/error",
   },
-  session: {
-    strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-    updateAge: 24 * 60 * 60, // 24 hours
-  },
-  // Enhanced cookie configuration for better logout/login cycle
-  cookies: {
-    sessionToken: {
-      name: `${process.env.NODE_ENV === "production" ? "__Secure-" : ""}next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-        // Ensure cookies are properly cleared on logout
-        maxAge: undefined, // Let NextAuth handle this
-      },
-    },
-    callbackUrl: {
-      name: `${process.env.NODE_ENV === "production" ? "__Secure-" : ""}next-auth.callback-url`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-      },
-    },
-    csrfToken: {
-      name: `${process.env.NODE_ENV === "production" ? "__Host-" : ""}next-auth.csrf-token`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-      },
-    },
-  },
-  // Ensure proper URL configuration for callbacks
-  basePath: "/api/auth",
-  useSecureCookies: process.env.NODE_ENV === "production",
   callbacks: {
-    async jwt({ token, user, trigger }) {
-      // Set user ID on initial sign in
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id
-        console.log('🔐 JWT callback - user sign in:', { userId: user.id, email: user.email })
       }
-      
-      // Load user preferences on sign in or when session is updated
-      if (trigger === "signIn" || trigger === "update") {
-        try {
-          const dbUser = await prisma.user.findUnique({
-            where: { id: token.id as string },
-            select: {
-              rewardPreference: true,
-              pointValue: true,
-              enableSubCategories: true,
-              subscriptionTier: true,
-            }
-          })
-          
-          if (dbUser) {
-            token.rewardPreference = dbUser.rewardPreference
-            token.pointValue = dbUser.pointValue
-            token.enableSubCategories = dbUser.enableSubCategories
-            token.subscriptionTier = dbUser.subscriptionTier
-            console.log('🔐 JWT callback - loaded preferences:', { 
-              userId: token.id, 
-              tier: dbUser.subscriptionTier,
-              preference: dbUser.rewardPreference 
-            })
-          } else {
-            // Set defaults if user preferences not found
-            token.rewardPreference = 'cashback'
-            token.pointValue = 0.01
-            token.enableSubCategories = false
-            token.subscriptionTier = 'free'
-            console.log('🔐 JWT callback - using defaults:', { userId: token.id })
-          }
-        } catch (error) {
-          console.error('⚠️ Error loading user preferences in JWT callback:', error)
-          // Set defaults if database query fails
-          token.rewardPreference = token.rewardPreference || 'cashback'
-          token.pointValue = token.pointValue || 0.01
-          token.enableSubCategories = token.enableSubCategories || false
-          token.subscriptionTier = token.subscriptionTier || 'free'
-        }
-      }
-      
       return token
     },
     async session({ session, token }) {
-      // Transfer token data to session
       if (token && session.user) {
         session.user.id = token.id as string
-        session.user.rewardPreference = token.rewardPreference as string
-        session.user.pointValue = token.pointValue as number
-        session.user.enableSubCategories = token.enableSubCategories as boolean
-        session.user.subscriptionTier = token.subscriptionTier as string
-        
-        console.log('🔐 Session callback completed:', { 
-          userId: session.user.id, 
-          email: session.user.email,
-          tier: session.user.subscriptionTier,
-          hasPreferences: !!session.user.rewardPreference 
-        })
       }
-      
       return session
     },
     async signIn({ user, account, profile }) {
       try {
-        console.log('🔐 NextAuth signIn callback started:', { 
-          provider: account?.provider, 
-          userId: user?.id, 
-          userEmail: user?.email,
-          accountType: account?.type
-        })
-        
         // Allow sign in for all configured providers
-        if (account?.provider === "google" && hasGoogleCredentials) {
-          console.log('✅ Google sign-in allowed')
-          return true
-        }
-        if (account?.provider === "github" && hasGitHubCredentials) {
-          console.log('✅ GitHub sign-in allowed')
-          return true
-        }
-        if (account?.provider === "facebook" && hasFacebookCredentials) {
-          console.log('✅ Facebook sign-in allowed')
-          return true
-        }
-        if (account?.provider === "twitter" && hasTwitterCredentials) {
-          console.log('✅ Twitter sign-in allowed')
-          return true
-        }
-        if (account?.provider === "resend" && hasResendCredentials) {
-          console.log('✅ Resend (email) sign-in allowed')
-          return true
-        }
+        if (account?.provider === "google" && hasGoogleCredentials) return true
+        if (account?.provider === "github" && hasGitHubCredentials) return true
+        if (account?.provider === "facebook" && hasFacebookCredentials) return true
+        if (account?.provider === "twitter" && hasTwitterCredentials) return true
+        if (account?.provider === "resend" && hasResendCredentials) return true
         
         // Allow demo credentials in development
         if (process.env.NODE_ENV === "development" && account?.provider === "credentials") {
-          console.log('✅ Demo credentials sign-in allowed (development)')
           return true
         }
         
-        console.log('❌ Sign-in denied for provider:', account?.provider, 'Available providers:', {
-          google: hasGoogleCredentials,
-          github: hasGitHubCredentials,
-          facebook: hasFacebookCredentials,
-          twitter: hasTwitterCredentials,
-          resend: hasResendCredentials
-        })
         return false
       } catch (error) {
-        console.error('❌ Sign in callback error:', error)
+        console.error('Sign in callback error:', error)
         return false
       }
     },
   },
-  events: {
-    async signIn({ user, account }) {
-      console.log('🔐 NextAuth signIn event:', { 
-        provider: account?.provider, 
-        userId: user?.id, 
-        userEmail: user?.email 
-      })
-    },
-    async signOut(message) {
-      try {
-        const userId = 'token' in message ? message.token?.id : undefined
-        const userEmail = 'token' in message ? message.token?.email : undefined
-        
-        console.log('🔐 NextAuth signOut event started:', {
-          userId,
-          userEmail
-        })
-        
-        // Enhanced cleanup for better logout/login cycle
-        try {
-          // Clean up expired database sessions
-          const deletedSessions = await prisma.session.deleteMany({
-            where: {
-              expires: {
-                lt: new Date()
-              }
-            }
-          })
-          console.log('✅ Cleaned up expired database sessions:', deletedSessions.count)
-          
-          // Also clean up any sessions for the current user if we have userId
-          if (userId) {
-            const userSessions = await prisma.session.deleteMany({
-              where: {
-                userId: userId as string
-              }
-            })
-            console.log('✅ Cleaned up user sessions:', userSessions.count)
-          }
-        } catch (dbError) {
-          console.warn('⚠️ Database cleanup during signOut failed (non-critical):', dbError)
-        }
-        
-        console.log('🔐 NextAuth signOut event completed successfully')
-      } catch (error) {
-        console.error('❌ SignOut event error:', error)
-      }
-    },
-    async createUser({ user }) {
-      console.log('🔐 NextAuth createUser event:', { userId: user.id, userEmail: user.email })
-    },
+  session: {
+    strategy: "jwt",
   },
-  // Enhanced debug logging for development
-  debug: process.env.NODE_ENV === "development",
   secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === "development",
   trustHost: true,
 })
 

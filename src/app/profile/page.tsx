@@ -30,7 +30,7 @@ export default function Profile() {
   const [isUpdatingCards, setIsUpdatingCards] = useState(false)
 
   // Add subscription tier and upgrade prompt state
-  const [userSubscriptionTier, setUserSubscriptionTier] = useState<'free' | 'premium'>('free')
+  const [userSubscriptionTier, setUserSubscriptionTier] = useState<'free' | 'premium' | null>(null)
   const [upgradePromptOpen, setUpgradePromptOpen] = useState(false)
   const [upgradePromptFeature, setUpgradePromptFeature] = useState('')
   const [upgradePromptDescription, setUpgradePromptDescription] = useState('')
@@ -40,7 +40,7 @@ export default function Profile() {
       setRewardPreference(session.user.rewardPreference as any || 'cashback')
       setPointValue(session.user.pointValue || 0.01)
       setEnableSubCategories(session.user.enableSubCategories || false)
-      setUserSubscriptionTier(session.user.subscriptionTier as any || 'free')
+      setUserSubscriptionTier((session.user.subscriptionTier as any) || 'free')
     }
   }, [session])
 
@@ -148,6 +148,7 @@ export default function Profile() {
     console.log('🔍 Profile: Reward preference change attempted:', newPreference, 'Current tier:', userSubscriptionTier)
     
     // Check if user is trying to access premium features without subscription
+    // Only validate if subscription tier has been loaded (not null)
     if (userSubscriptionTier === 'free' && (newPreference === 'points' || newPreference === 'best_overall')) {
       console.log('🚫 Profile: Blocking premium preference for free user, showing upgrade prompt')
       setUpgradePromptFeature(newPreference === 'points' ? 'Points Optimization' : 'Best Overall Analysis')
@@ -160,6 +161,11 @@ export default function Profile() {
       return
     }
     
+    // If subscription tier is still loading (null), allow the change but don't validate yet
+    if (userSubscriptionTier === null && (newPreference === 'points' || newPreference === 'best_overall')) {
+      console.log('ℹ️ Subscription tier still loading, allowing preference change without validation')
+    }
+    
     console.log('✅ Profile: Allowing preference change to:', newPreference)
     setRewardPreference(newPreference)
   }
@@ -170,6 +176,7 @@ export default function Profile() {
     console.log('🔍 Profile: Save attempted with:', { rewardPreference, userSubscriptionTier })
 
     // CRITICAL: Validate subscription tier before saving premium preferences
+    // Only validate if subscription tier has been loaded (not null)
     if (userSubscriptionTier === 'free' && (rewardPreference === 'points' || rewardPreference === 'best_overall')) {
       console.log('🚫 Profile: Blocking save of premium preference for free user, showing upgrade prompt')
       setUpgradePromptFeature(rewardPreference === 'points' ? 'Points Optimization' : 'Best Overall Analysis')
@@ -180,6 +187,13 @@ export default function Profile() {
       )
       setUpgradePromptOpen(true)
       return // Don't save premium preferences for free users
+    }
+
+    // If subscription tier is still loading (null), defer the save
+    if (userSubscriptionTier === null && (rewardPreference === 'points' || rewardPreference === 'best_overall')) {
+      console.log('ℹ️ Subscription tier still loading, deferring save for premium preference')
+      // You might want to show a loading state or retry the save
+      return
     }
 
     setIsLoading(true)

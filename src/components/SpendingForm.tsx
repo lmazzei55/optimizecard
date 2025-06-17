@@ -214,7 +214,7 @@ export function SpendingForm() {
         }).catch(error => console.error('Failed to reset invalid preference:', error))
       } else if (userSubscriptionTier === null) {
         // If subscription tier is still loading, don't validate yet - just load the preference
-        console.log('ℹ️ Subscription tier still loading, deferring preference validation')
+        console.log('ℹ️ Subscription tier still loading, deferring preference validation for:', newRewardPreference)
       } else if (userSubscriptionTier === 'premium') {
         console.log('✅ Premium user - allowing all preferences:', newRewardPreference)
       }
@@ -867,7 +867,7 @@ export function SpendingForm() {
     const payload = {
       userSpending: activeSpending,
       rewardPreference,
-      pointValue: 0.01,
+      pointValue,
       cardCustomizations,
     }
     localStorage.setItem('cc-recommendation-input', JSON.stringify(payload))

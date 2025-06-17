@@ -68,7 +68,8 @@ export async function POST(request: NextRequest) {
       rewardPreference, 
       subscriptionTier,
       pointValue,
-      cardCustomizations: Object.keys(cardCustomizations).length > 0 ? 'Yes' : 'No'
+      cardCustomizations: Object.keys(cardCustomizations).length > 0 ? 'Yes' : 'No',
+      ownedCardIds: ownedCardIds?.length || 0
     })
 
     // Validate input
