@@ -10,6 +10,8 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    console.log('🔍 Preferences API: Getting preferences for:', session.user.email)
+
     const user = await withRetry(async () => {
       return await prisma.user.findUnique({
         where: { email: session.user.email! },
@@ -22,10 +24,16 @@ export async function GET() {
     })
 
     if (!user) {
+      console.log('❌ User not found in preferences API:', session.user.email)
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    console.log(`✅ Preferences API: Retrieved for user`)
+    console.log('✅ Preferences API: Retrieved for user:', {
+      email: session.user.email,
+      rewardPreference: user.rewardPreference,
+      pointValue: user.pointValue,
+      enableSubCategories: user.enableSubCategories
+    })
 
     return NextResponse.json({
       rewardPreference: user.rewardPreference,
@@ -70,7 +78,7 @@ export async function POST(request: NextRequest) {
 
     const { rewardPreference, pointValue, enableSubCategories } = await request.json()
 
-    // Validate input data - use lowercase to match database schema
+    // Validate input data
     if (rewardPreference && !['cashback', 'points', 'best_overall'].includes(rewardPreference.toLowerCase())) {
       return NextResponse.json({ error: 'Invalid reward preference' }, { status: 400 })
     }

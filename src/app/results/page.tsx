@@ -105,13 +105,16 @@ export default function ResultsPage() {
       .then((r) => r.json())
       .then((d) => {
         console.log('✅ Received updated recommendations:', d?.length || 0, 'cards')
-        setRecommendations(d)
-        // Only close modal after successful refetch
-        closeCustomization()
+        if (Array.isArray(d) && d.length > 0) {
+          setRecommendations(d)
+          closeCustomization()
+        } else {
+          console.warn('⚠️ Received empty recommendations, keeping current ones')
+          closeCustomization()
+        }
       })
       .catch((err) => {
         console.error('Recalc error', err)
-        // Close modal even on error to avoid stuck state
         closeCustomization()
       })
       .finally(() => setCustomizationLoading(false))

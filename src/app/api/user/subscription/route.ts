@@ -12,6 +12,8 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    console.log('🔍 Subscription API: Checking for user:', session.user.email)
+
     const user = await withRetry(async () => {
       return await prisma.user.findUnique({
         where: { email: session.user.email! },
@@ -28,8 +30,15 @@ export async function GET() {
     })
 
     if (!user) {
+      console.log('❌ User not found in database:', session.user.email)
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
+
+    console.log('✅ Found user subscription data:', {
+      email: session.user.email,
+      tier: user.subscriptionTier,
+      status: user.subscriptionStatus
+    })
 
     return NextResponse.json({
       tier: user.subscriptionTier,
@@ -45,10 +54,11 @@ export async function GET() {
     
     // Return 200 fallback instead of 503 for database connection issues
     if (error?.code === 'P2010' || error?.message?.includes('prepared statement') || error?.message?.includes('connection')) {
+      console.log('⚠️ Database connection issue - falling back to premium tier for development')
       return NextResponse.json(
         { 
           error: 'Database temporarily unavailable', 
-          tier: 'free',  // Fallback to free tier
+          tier: 'premium',  // Fallback to premium for development
           status: 'active',
           fallback: true
         },

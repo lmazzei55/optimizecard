@@ -562,7 +562,35 @@ async function main() {
     console.log(`✅ Created ${cardData.name}`)
   }
 
-  console.log('🎉 Seed data created successfully!')
+  console.log('🎯 Seeding complete! Summary:')
+  console.log(`  - ${CREDIT_CARDS.length} credit cards`)
+  console.log(`  - ${CREDIT_CARDS.reduce((total, card) => total + card.categoryRewards.length, 0)} category rewards`)
+  console.log(`  - ${CREDIT_CARDS.reduce((total, card) => total + CARD_BENEFITS[card.id as keyof typeof CARD_BENEFITS].length, 0)} card benefits`)
+  
+  // Ensure test user is premium
+  console.log('👤 Setting up test user...')
+  await prisma.user.upsert({
+    where: { email: 'leoermeyor@gmail.com' },
+    update: { 
+      subscriptionTier: 'premium',
+      subscriptionStatus: 'active',
+      rewardPreference: 'points',
+      pointValue: 0.01,
+      enableSubCategories: true
+    },
+    create: {
+      email: 'leoermeyor@gmail.com',
+      name: 'Leonardo Mazzei',
+      subscriptionTier: 'premium',
+      subscriptionStatus: 'active',
+      rewardPreference: 'points',
+      pointValue: 0.01,
+      enableSubCategories: true
+    }
+  })
+  console.log('✅ Test user set to premium')
+  
+  console.log('🎉 Database seeded successfully!')
   console.log(`📊 Created ${SPENDING_CATEGORIES.length} categories and ${CREDIT_CARDS.length} credit cards`)
 }
 
