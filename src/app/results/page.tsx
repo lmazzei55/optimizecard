@@ -74,9 +74,13 @@ export default function ResultsPage() {
     if (!editingCardId) return
 
     console.log('🔧 Saving customization for card:', editingCardId, cust)
+    console.log('🔧 Current card customizations before update:', cardCustomizations)
+    console.log('🔧 New customization data:', cust)
 
     const updated = { ...cardCustomizations, [editingCardId]: cust }
     setCardCustomizations(updated)
+    
+    console.log('🔧 Updated customizations:', updated)
 
     // Persist into localStorage so future navs use it
     const latestPayload = JSON.parse(localStorage.getItem('cc-recommendation-input') || '{}')
@@ -94,22 +98,44 @@ export default function ResultsPage() {
     setCustomizationLoading(true)
     fetch('/api/recommendations', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache'
+      },
       body: JSON.stringify({
         userSpending: newPayload.userSpending || [],
         rewardPreference: newPayload.rewardPreference || 'cashback',
         pointValue: newPayload.pointValue ?? 0.01,
-        cardCustomizations: updated
+        cardCustomizations: updated,
+        timestamp: Date.now() // Add timestamp to prevent caching
       })
     })
-      .then((r) => r.json())
+      .then(async (r) => {
+        const responseText = await r.text()
+        console.log('🔧 Raw API response:', responseText)
+        
+        if (!r.ok) {
+          throw new Error(`API request failed with status ${r.status}: ${responseText}`)
+        }
+        
+        try {
+          return JSON.parse(responseText)
+        } catch (parseError) {
+          console.error('🔧 Failed to parse JSON response:', parseError, 'Response:', responseText)
+          throw new Error('Invalid JSON response from API')
+        }
+      })
       .then((d) => {
         console.log('✅ Received updated recommendations:', d?.length || 0, 'cards')
+        console.log('🔧 Full recommendation data:', d)
+        
         if (Array.isArray(d) && d.length > 0) {
+          console.log('🔧 Setting new recommendations and closing modal')
           setRecommendations(d)
           closeCustomization()
         } else {
-          console.warn('⚠️ Received empty recommendations, keeping current ones')
+          console.warn('⚠️ Received empty or invalid recommendations:', d)
+          console.log('🔧 Keeping current recommendations and closing modal anyway')
           closeCustomization()
         }
       })

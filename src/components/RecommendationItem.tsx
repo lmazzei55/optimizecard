@@ -89,7 +89,14 @@ export const RecommendationItem: React.FC<Props> = ({ recommendation: rec, rank,
             </div>
             <div>
               <div className="text-gray-500 dark:text-gray-400">Effective Rate</div>
-              <div className="font-medium">{((rec.netAnnualValue / (rec.totalAnnualValue + (rec.annualFee||0))) * 100).toFixed(1)}%</div>
+              <div className="font-medium">{(() => {
+                // Calculate total annual spending from category breakdown
+                const totalAnnualSpending = rec.categoryBreakdown.reduce((sum, cat) => sum + (cat.monthlySpend * 12), 0)
+                if (totalAnnualSpending === 0) return "0.0%"
+                // Effective rate = Net Annual Value / Total Annual Spending
+                const effectiveRate = (rec.netAnnualValue / totalAnnualSpending) * 100
+                return `${effectiveRate.toFixed(1)}%`
+              })()}</div>
             </div>
           </div>
           {/* Show category breakdown & benefits in simple table */}

@@ -300,6 +300,7 @@ export async function calculateCardRecommendations(
         if (cardCustomization?.benefitValues && cardCustomization?.enabledBenefits) {
           // Use new format: benefit is enabled and has custom value
           const isEnabled = cardCustomization.enabledBenefits[benefit.name] !== false // Default to enabled
+          console.log(`  🎁 Benefit ${benefit.name}: enabled=${isEnabled}, customValue=${cardCustomization.benefitValues[benefit.name]}, defaultValue=${benefit.annualValue}`)
           if (isEnabled) {
             personalValue = cardCustomization.benefitValues[benefit.name] || benefit.annualValue
           }

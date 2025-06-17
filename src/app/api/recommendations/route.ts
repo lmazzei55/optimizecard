@@ -69,8 +69,14 @@ export async function POST(request: NextRequest) {
       subscriptionTier,
       pointValue,
       cardCustomizations: Object.keys(cardCustomizations).length > 0 ? 'Yes' : 'No',
+      cardCustomizationKeys: Object.keys(cardCustomizations),
       ownedCardIds: ownedCardIds?.length || 0
     })
+    
+    // Log detailed customizations for debugging
+    if (Object.keys(cardCustomizations).length > 0) {
+      console.log('🔧 Detailed card customizations:', JSON.stringify(cardCustomizations, null, 2))
+    }
 
     // Validate input
     if (!userSpending || userSpending.length === 0) {
@@ -89,8 +95,10 @@ export async function POST(request: NextRequest) {
 
     // Get user session for subscription tier
     let userSubscriptionTier = subscriptionTier
+    let sessionUserEmail = null
     try {
       const session = await auth()
+      sessionUserEmail = session?.user?.email
       if (session?.user?.email) {
         const user = await withRetry(async () => {
           return await prisma.user.findUnique({
@@ -104,12 +112,14 @@ export async function POST(request: NextRequest) {
       }
       console.log('🔍 User subscription tier check:', {
         sessionExists: !!session?.user?.email,
+        userEmail: sessionUserEmail,
         originalTier: subscriptionTier,
         dbTier: userSubscriptionTier,
-        rewardPreference
+        rewardPreference,
+        isAuthenticated: !!session?.user?.email
       })
     } catch (error) {
-      console.log('⚠️ Could not get user subscription tier, using default:', subscriptionTier)
+      console.log('⚠️ Could not get user subscription tier, using default:', subscriptionTier, 'Error:', error)
     }
 
     // Get cards using direct database connection
