@@ -12,6 +12,7 @@ export default function ResultsPage() {
   const router = useRouter()
 
   const [loading, setLoading] = useState(true)
+  const [customizationLoading, setCustomizationLoading] = useState(false)
   const [recommendations, setRecommendations] = useState<CardRecommendation[]>([])
   const [sortKey, setSortKey] = useState<'name' | 'value'>('value')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
@@ -90,7 +91,7 @@ export default function ResultsPage() {
     })
 
     // Re-fetch recommendations with updated customizations
-    setLoading(true)
+    setCustomizationLoading(true)
     fetch('/api/recommendations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -113,7 +114,7 @@ export default function ResultsPage() {
         // Close modal even on error to avoid stuck state
         closeCustomization()
       })
-      .finally(() => setLoading(false))
+      .finally(() => setCustomizationLoading(false))
   }
 
   if (loading) {
@@ -196,6 +197,7 @@ export default function ResultsPage() {
           isOpen
           onClose={closeCustomization}
           onSave={handleSaveCustomization}
+          isLoading={customizationLoading}
           card={{
             id: editingCardId,
             name: processed.find((r) => r.cardId === editingCardId)?.cardName || '',

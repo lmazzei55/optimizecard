@@ -14,6 +14,7 @@ interface CardCustomizationModalProps {
   isOpen: boolean
   onClose: () => void
   onSave: (customization: CardCustomization) => void
+  isLoading?: boolean
   card: {
     id: string
     name: string
@@ -33,6 +34,7 @@ export function CardCustomizationModal({
   isOpen,
   onClose,
   onSave,
+  isLoading = false,
   card,
   currentCustomization
 }: CardCustomizationModalProps) {
@@ -85,7 +87,6 @@ export function CardCustomizationModal({
       ...(card.type === 'points' && { pointValue })
     }
     onSave(customization)
-    onClose()
   }
 
   const handleBenefitValueChange = (benefitId: string, value: number) => {
@@ -257,8 +258,16 @@ export function CardCustomizationModal({
             onClick={handleSave}
             size="sm"
             className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+            disabled={isLoading}
           >
-            Save Changes
+            {isLoading ? (
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Saving...
+              </div>
+            ) : (
+              'Save Changes'
+            )}
           </Button>
         </div>
       </div>
