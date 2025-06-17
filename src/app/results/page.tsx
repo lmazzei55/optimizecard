@@ -72,6 +72,8 @@ export default function ResultsPage() {
   const handleSaveCustomization = (cust: any) => {
     if (!editingCardId) return
 
+    console.log('🔧 Saving customization for card:', editingCardId, cust)
+
     const updated = { ...cardCustomizations, [editingCardId]: cust }
     setCardCustomizations(updated)
 
@@ -80,6 +82,12 @@ export default function ResultsPage() {
     const newPayload = { ...latestPayload, cardCustomizations: updated }
     localStorage.setItem('cc-recommendation-input', JSON.stringify(newPayload))
     setBasePayload(newPayload)
+
+    console.log('🔄 Re-fetching with payload:', {
+      userSpending: newPayload.userSpending?.length || 0,
+      rewardPreference: newPayload.rewardPreference,
+      customizations: Object.keys(updated).length
+    })
 
     // Re-fetch recommendations with updated customizations
     setLoading(true)
@@ -94,11 +102,18 @@ export default function ResultsPage() {
       })
     })
       .then((r) => r.json())
-      .then((d) => setRecommendations(d))
-      .catch((err) => console.error('Recalc error', err))
+      .then((d) => {
+        console.log('✅ Received updated recommendations:', d?.length || 0, 'cards')
+        setRecommendations(d)
+        // Only close modal after successful refetch
+        closeCustomization()
+      })
+      .catch((err) => {
+        console.error('Recalc error', err)
+        // Close modal even on error to avoid stuck state
+        closeCustomization()
+      })
       .finally(() => setLoading(false))
-
-    closeCustomization()
   }
 
   if (loading) {

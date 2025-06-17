@@ -42,6 +42,8 @@ export function CardCustomizationModal({
 
   useEffect(() => {
     if (isOpen) {
+      console.log('🎛️ Modal opening for card:', card.id, 'benefits:', card.benefits?.length || 0)
+      
       // Initialize point value
       setPointValue(currentCustomization?.pointValue || 0.01)
       
@@ -49,9 +51,26 @@ export function CardCustomizationModal({
       const initialBenefitValues: Record<string, number> = {}
       const initialEnabledBenefits: Record<string, boolean> = {}
       
-      card.benefits.forEach(benefit => {
-        initialBenefitValues[benefit.id] = currentCustomization?.benefitValues[benefit.id] || benefit.value
-        initialEnabledBenefits[benefit.id] = currentCustomization?.enabledBenefits[benefit.id] !== false // Default to enabled
+      if (card.benefits && card.benefits.length > 0) {
+        card.benefits.forEach(benefit => {
+          initialBenefitValues[benefit.id] = currentCustomization?.benefitValues[benefit.id] || benefit.value
+          initialEnabledBenefits[benefit.id] = currentCustomization?.enabledBenefits[benefit.id] !== false // Default to enabled
+        })
+      } else {
+        console.warn('⚠️ No benefits found for card:', card.id, card.name)
+        // If we have previous customization data, preserve it
+        if (currentCustomization?.benefitValues) {
+          Object.assign(initialBenefitValues, currentCustomization.benefitValues)
+        }
+        if (currentCustomization?.enabledBenefits) {
+          Object.assign(initialEnabledBenefits, currentCustomization.enabledBenefits)
+        }
+      }
+      
+      console.log('🎛️ Initialized with:', {
+        benefitValues: Object.keys(initialBenefitValues).length,
+        enabledBenefits: Object.keys(initialEnabledBenefits).length,
+        pointValue
       })
       
       setBenefitValues(initialBenefitValues)
@@ -140,7 +159,7 @@ export function CardCustomizationModal({
           )}
 
           {/* Benefits Section */}
-          {card.benefits && card.benefits.length > 0 && (
+          {(card.benefits && card.benefits.length > 0) || (currentCustomization?.benefitValues && Object.keys(currentCustomization.benefitValues).length > 0) ? (
             <div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
                 🎁 Benefit Valuations
@@ -160,7 +179,7 @@ export function CardCustomizationModal({
                 </div>
                 
                 <div className="space-y-3">
-                  {card.benefits.map((benefit) => (
+                  {(card.benefits || []).map((benefit) => (
                     <div key={benefit.id} className="bg-white dark:bg-gray-700 rounded-lg p-3 border border-gray-200 dark:border-gray-600">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2 flex-1">
@@ -207,8 +226,20 @@ export function CardCustomizationModal({
                       </div>
                     </div>
                   ))}
+                  {(!card.benefits || card.benefits.length === 0) && currentCustomization?.benefitValues && (
+                    <div className="text-center py-4 text-gray-500 dark:text-gray-400">
+                      <p className="text-sm">Previous benefit customizations preserved.</p>
+                      <p className="text-xs mt-1">Click "Save Changes" to apply your existing settings.</p>
+                    </div>
+                  )}
                 </div>
               </div>
+            </div>
+          ) : (
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-xl p-4 border border-yellow-200 dark:border-yellow-600">
+              <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                ⚠️ No benefits data available for this card at the moment.
+              </p>
             </div>
           )}
         </div>
