@@ -6,7 +6,7 @@ import Twitter from "next-auth/providers/twitter"
 import Resend from "next-auth/providers/resend"
 import Credentials from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@auth/prisma-adapter"
-import { prisma } from "./prisma"
+import { prisma, withRetry } from "./prisma"
 
 // Helper to check if provider credentials are available
 const hasGoogleCredentials = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
@@ -64,17 +64,21 @@ if (process.env.NODE_ENV === "development") {
     async authorize(credentials) {
       if (credentials?.email) {
         try {
-          let user = await prisma.user.findUnique({
-            where: { email: credentials.email as string }
+          let user = await withRetry(async () => {
+            return await prisma.user.findUnique({
+              where: { email: credentials.email as string }
+            })
           })
           
           if (!user) {
-            user = await prisma.user.create({
-              data: {
-                email: credentials.email as string,
-                name: credentials.email?.toString().split('@')[0] || 'Demo User',
-                emailVerified: new Date(),
-              }
+            user = await withRetry(async () => {
+              return await prisma.user.create({
+                data: {
+                  email: credentials.email as string,
+                  name: credentials.email?.toString().split('@')[0] || 'Demo User',
+                  emailVerified: new Date(),
+                }
+              })
             })
           }
           
@@ -112,16 +116,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (token && session.user) {
         session.user.id = token.id as string
         
-        // Load user preferences from database
+        // Load user preferences from database with proper error handling
         try {
-          const user = await prisma.user.findUnique({
-            where: { id: token.id as string },
-            select: {
-              rewardPreference: true,
-              pointValue: true,
-              enableSubCategories: true,
-              subscriptionTier: true
-            }
+          const user = await withRetry(async () => {
+            return await prisma.user.findUnique({
+              where: { id: token.id as string },
+              select: {
+                rewardPreference: true,
+                pointValue: true,
+                enableSubCategories: true,
+                subscriptionTier: true
+              }
+            })
           })
           
           if (user) {
@@ -132,7 +138,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           }
         } catch (error) {
           console.error('Error loading user preferences in session:', error)
-          // Don't fail the session, just skip loading preferences
+          // Don't fail the session, continue with defaults to prevent auth failures
+          session.user.rewardPreference = 'cashback'
+          session.user.pointValue = 0.01
+          session.user.enableSubCategories = false
+          session.user.subscriptionTier = 'free'
         }
       }
       return session
