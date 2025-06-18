@@ -1,26 +1,15 @@
 import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
 import GitHub from "next-auth/providers/github"
-import Facebook from "next-auth/providers/facebook"
-import Twitter from "next-auth/providers/twitter"
-import Resend from "next-auth/providers/resend"
 import Credentials from "next-auth/providers/credentials"
-import { PrismaAdapter } from "@auth/prisma-adapter"
-import { prisma, withRetry } from "./prisma"
-import type { Provider } from "next-auth/providers"
 
 // Helper to check if provider credentials are available
 const hasGoogleCredentials = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
 const hasGitHubCredentials = !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET)
-const hasFacebookCredentials = !!(process.env.FACEBOOK_CLIENT_ID && process.env.FACEBOOK_CLIENT_SECRET)
-const hasTwitterCredentials = !!(process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET)
-const hasResendCredentials = !!(process.env.AUTH_RESEND_KEY)
 
-// Build providers array conditionally
-const providers: Provider[] = []
-let hasConfigurationError = false
+// Build providers array - minimal setup for debugging
+const providers = []
 
-// Only add OAuth providers if they have credentials
 if (hasGoogleCredentials) {
   providers.push(Google({
     clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -35,27 +24,6 @@ if (hasGitHubCredentials) {
   }))
 }
 
-if (hasFacebookCredentials) {
-  providers.push(Facebook({
-    clientId: process.env.FACEBOOK_CLIENT_ID!,
-    clientSecret: process.env.FACEBOOK_CLIENT_SECRET!,
-  }))
-}
-
-if (hasTwitterCredentials) {
-  providers.push(Twitter({
-    clientId: process.env.TWITTER_CLIENT_ID!,
-    clientSecret: process.env.TWITTER_CLIENT_SECRET!,
-  }))
-}
-
-if (hasResendCredentials) {
-  providers.push(Resend({
-    apiKey: process.env.AUTH_RESEND_KEY!,
-    from: process.env.EMAIL_FROM || "noreply@optimizecard.com",
-  }))
-}
-
 // Always add demo credentials in development
 if (process.env.NODE_ENV === "development") {
   providers.push(Credentials({
@@ -65,34 +33,10 @@ if (process.env.NODE_ENV === "development") {
     },
     async authorize(credentials) {
       if (credentials?.email) {
-        try {
-          let user = await withRetry(async () => {
-            return await prisma.user.findUnique({
-              where: { email: credentials.email as string }
-            })
-          })
-          
-          if (!user) {
-            user = await withRetry(async () => {
-              return await prisma.user.create({
-                data: {
-                  email: credentials.email as string,
-                  name: credentials.email?.toString().split('@')[0] || 'Demo User',
-                  emailVerified: new Date(),
-                }
-              })
-            })
-          }
-          
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            image: user.image,
-          }
-        } catch (error) {
-          console.error('Demo auth error:', error)
-          return null
+        return {
+          id: "demo-user",
+          email: credentials.email as string,
+          name: credentials.email?.toString().split('@')[0] || 'Demo User',
         }
       }
       return null
@@ -100,105 +44,23 @@ if (process.env.NODE_ENV === "development") {
   }))
 }
 
-// Check if we have at least one provider configured
+// Add fallback if no providers
 if (providers.length === 0) {
-  console.error('🚨 NextAuth Configuration Error: No authentication providers configured!')
-  console.error('Available provider checks:')
-  console.error(`  Google: ${hasGoogleCredentials ? '✅' : '❌'} (GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET)`)
-  console.error(`  GitHub: ${hasGitHubCredentials ? '✅' : '❌'} (GITHUB_CLIENT_ID + GITHUB_CLIENT_SECRET)`)
-  console.error(`  Facebook: ${hasFacebookCredentials ? '✅' : '❌'} (FACEBOOK_CLIENT_ID + FACEBOOK_CLIENT_SECRET)`)
-  console.error(`  Twitter: ${hasTwitterCredentials ? '✅' : '❌'} (TWITTER_CLIENT_ID + TWITTER_CLIENT_SECRET)`)
-  console.error(`  Resend: ${hasResendCredentials ? '✅' : '❌'} (AUTH_RESEND_KEY)`)
-  
-  hasConfigurationError = true
-  
-  // Add a placeholder provider to prevent NextAuth configuration error
+  console.error('🚨 No authentication providers configured!')
   providers.push(Credentials({
     name: "Configuration Error",
     credentials: {},
     async authorize() {
-      return null // Always reject
+      return null
     }
   }))
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  adapter: PrismaAdapter(prisma),
   providers,
   pages: {
     signIn: "/auth/signin",
     error: "/auth/error",
-  },
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id
-      }
-      return token
-    },
-    async session({ session, token }) {
-      if (token && session.user) {
-        session.user.id = token.id as string
-        
-        // Load user preferences from database with proper error handling
-        try {
-          const user = await withRetry(async () => {
-            return await prisma.user.findUnique({
-              where: { id: token.id as string },
-              select: {
-                rewardPreference: true,
-                pointValue: true,
-                enableSubCategories: true,
-                subscriptionTier: true
-              }
-            })
-          })
-          
-          if (user) {
-            session.user.rewardPreference = user.rewardPreference
-            session.user.pointValue = user.pointValue
-            session.user.enableSubCategories = user.enableSubCategories
-            session.user.subscriptionTier = user.subscriptionTier
-          }
-        } catch (error) {
-          console.error('Error loading user preferences in session:', error)
-          // Don't fail the session, continue with defaults to prevent auth failures
-          session.user.rewardPreference = 'cashback'
-          session.user.pointValue = 0.01
-          session.user.enableSubCategories = false
-          session.user.subscriptionTier = 'free'
-        }
-      }
-      return session
-    },
-    async signIn({ user, account, profile }) {
-      try {
-        // Block authentication if no valid providers are configured
-        if (hasConfigurationError) {
-          console.error('🚨 Authentication blocked: No valid providers configured')
-          return false
-        }
-
-        // Allow sign in if the provider is properly configured
-        if (account?.provider === "google" && hasGoogleCredentials) return true
-        if (account?.provider === "github" && hasGitHubCredentials) return true
-        if (account?.provider === "facebook" && hasFacebookCredentials) return true
-        if (account?.provider === "twitter" && hasTwitterCredentials) return true
-        if (account?.provider === "resend" && hasResendCredentials) return true
-        
-        // Allow demo credentials in development
-        if (process.env.NODE_ENV === "development" && account?.provider === "credentials") {
-          return true
-        }
-        
-        // If we get here, the provider exists but credentials are missing
-        console.error(`Authentication blocked: Provider ${account?.provider} attempted but credentials not configured`)
-        return false
-      } catch (error) {
-        console.error('Sign in callback error:', error)
-        return false
-      }
-    },
   },
   session: {
     strategy: "jwt",

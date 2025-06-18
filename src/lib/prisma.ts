@@ -1,66 +1,63 @@
 import { PrismaClient } from '../generated/prisma'
 
-declare global {
-  var prisma: PrismaClient | undefined
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined
 }
 
-// Create a new Prisma client with configuration to handle prepared statement conflicts
-const createPrismaClient = () => {
-  return new PrismaClient({
-    log: ['error', 'warn'],
-    datasources: {
-      db: {
-        url: process.env.DATABASE_URL
-      }
-    }
+export let prisma = globalForPrisma.prisma ?? new PrismaClient({
+  log: ['query'],
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL,
+    },
+  },
+})
+
+// Add connection pool management for serverless
+if (process.env.NODE_ENV === 'production') {
+  // Disconnect after each serverless function execution
+  process.on('beforeExit', async () => {
+    await prisma.$disconnect()
   })
 }
 
-// Use a singleton pattern but with better error handling
-export let prisma = globalThis.prisma ?? createPrismaClient()
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
 
-if (process.env.NODE_ENV !== 'production') {
-  globalThis.prisma = prisma
-}
-
-// Enhanced retry function that handles prepared statement conflicts
+// Retry wrapper for database operations with exponential backoff
 export async function withRetry<T>(
   operation: () => Promise<T>,
   maxRetries: number = 3,
-  baseDelay: number = 1000
+  baseDelay: number = 100
 ): Promise<T> {
-  let lastError: any
+  let lastError: Error | undefined
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       return await operation()
-    } catch (error: any) {
-      lastError = error
+    } catch (error) {
+      lastError = error as Error
       
-      // Check if it's a prepared statement conflict
-      const isPreparedStatementError = 
-        error?.code === '42P05' || 
-        error?.message?.includes('prepared statement') ||
-        error?.message?.includes('already exists')
-
-      if (isPreparedStatementError && attempt < maxRetries) {
-        console.log(`⚠️ Prepared statement conflict (attempt ${attempt}/${maxRetries}), retrying...`)
-        
-        // Exponential backoff with jitter
-        const delay = baseDelay * Math.pow(2, attempt - 1) + Math.random() * 1000
-        await new Promise(resolve => setTimeout(resolve, delay))
-        
-        // For prepared statement conflicts, we'll create a fresh query
-        continue
-      } else if (!isPreparedStatementError) {
-        // For non-prepared statement errors, throw immediately
-        throw error
+      // Don't retry for certain types of errors
+      if (
+        lastError.message.includes('unique constraint') ||
+        lastError.message.includes('foreign key constraint') ||
+        lastError.message.includes('not found')
+      ) {
+        throw lastError
       }
+
+      if (attempt === maxRetries) {
+        console.error(`Database operation failed after ${maxRetries} attempts:`, lastError.message)
+        throw lastError
+      }
+
+      // Exponential backoff with jitter
+      const delay = baseDelay * Math.pow(2, attempt - 1) + Math.random() * 100
+      console.warn(`Database operation failed (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms...`)
+      await new Promise(resolve => setTimeout(resolve, delay))
     }
   }
 
-  // If we get here, all retries failed
-  console.error(`❌ All ${maxRetries} retries failed for operation`)
   throw lastError
 }
 
@@ -86,9 +83,16 @@ export async function resetPrismaClient() {
   try {
     console.log('🔄 Resetting Prisma client due to connection issues...')
     await prisma.$disconnect()
-    prisma = createPrismaClient()
+    prisma = new PrismaClient({
+      log: ['query'],
+      datasources: {
+        db: {
+          url: process.env.DATABASE_URL
+        }
+      }
+    })
     if (process.env.NODE_ENV !== 'production') {
-      globalThis.prisma = prisma
+      globalForPrisma.prisma = prisma
     }
     console.log('✅ Prisma client reset successfully')
   } catch (error) {
