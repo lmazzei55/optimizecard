@@ -24,8 +24,7 @@ export async function POST(request: NextRequest) {
           subscriptionTier: 'premium',
           subscriptionStatus: 'active',
           rewardPreference: 'points',
-          pointValue: 0.01,
-          enableSubCategories: true
+          pointValue: 0.01
         },
         select: {
           email: true,
