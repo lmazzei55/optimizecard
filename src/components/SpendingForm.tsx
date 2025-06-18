@@ -99,6 +99,10 @@ export function SpendingForm() {
   // Subcategory support
   const [enableSubcategories, setEnableSubcategories] = useState(false)
   
+  // Add confirmation dialog state for subcategory toggle
+  const [subcategoryToggleDialogOpen, setSubcategoryToggleDialogOpen] = useState(false)
+  const [pendingSubcategoryState, setPendingSubcategoryState] = useState(false)
+  
   // Card customization modal state
   const [customizationOpen, setCustomizationOpen] = useState(false)
   const [editingCardId, setEditingCardId] = useState<string | null>(null)
@@ -926,7 +930,7 @@ export function SpendingForm() {
 
   const handleRewardPreferenceChange = (newPreference: 'cashback' | 'points' | 'best_overall') => {
     // Check if user is trying to access premium features without subscription
-    // Only check if subscription tier has been loaded (not null)
+    // Only validate if subscription tier has been loaded (not null)
     if (userSubscriptionTier === 'free' && (newPreference === 'points' || newPreference === 'best_overall')) {
       setUpgradePromptFeature(newPreference === 'points' ? 'Points Optimization' : 'Best Overall Analysis')
       setUpgradePromptDescription(
@@ -946,6 +950,35 @@ export function SpendingForm() {
     setRewardPreference(newPreference)
     // Save to localStorage for persistence across tab switches
     localStorage.setItem('rewardPreference', newPreference)
+  }
+
+  // Handle subcategory toggle with confirmation
+  const handleSubcategoryToggle = () => {
+    const newState = !enableSubcategories
+    setPendingSubcategoryState(newState)
+    
+    // If there's existing spending data, show confirmation dialog
+    const hasSpendingData = spending.some(s => s.monthlySpend > 0)
+    if (hasSpendingData) {
+      setSubcategoryToggleDialogOpen(true)
+    } else {
+      // No spending data, safe to switch immediately
+      setEnableSubcategories(newState)
+      localStorage.setItem('enableSubcategories', JSON.stringify(newState))
+    }
+  }
+
+  // Confirm subcategory toggle change
+  const confirmSubcategoryToggle = () => {
+    setEnableSubcategories(pendingSubcategoryState)
+    localStorage.setItem('enableSubcategories', JSON.stringify(pendingSubcategoryState))
+    setSubcategoryToggleDialogOpen(false)
+  }
+
+  // Cancel subcategory toggle change
+  const cancelSubcategoryToggle = () => {
+    setSubcategoryToggleDialogOpen(false)
+    setPendingSubcategoryState(enableSubcategories) // Reset to current state
   }
 
   // hydrate spending from localStorage immediately on mount (before interactions)
@@ -994,7 +1027,8 @@ export function SpendingForm() {
                 🎯 Enable Subcategories
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-300">
-                Get more precise recommendations with specific subcategories like Amazon, Whole Foods, Hotels, etc.
+                Switch between simple categories (Dining, Travel) and detailed subcategories (Amazon, Whole Foods, Hotels). 
+                <span className="font-medium text-orange-600 dark:text-orange-400">This changes which categories are shown.</span>
               </p>
               {enableSubcategories && (
                 <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium">
@@ -1003,7 +1037,7 @@ export function SpendingForm() {
               )}
             </div>
             <button
-              onClick={() => setEnableSubcategories(!enableSubcategories)}
+              onClick={handleSubcategoryToggle}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
                 enableSubcategories 
                   ? 'bg-blue-600' 
@@ -1470,6 +1504,46 @@ export function SpendingForm() {
           <div className="text-center space-y-4">
             <div className="animate-spin rounded-full h-20 w-20 border-b-4 border-purple-500 mx-auto"></div>
             <p className="text-xl font-semibold text-white">Finding your perfect card…</p>
+          </div>
+        </div>
+      )}
+
+      {/* Subcategory Toggle Confirmation Dialog */}
+      {subcategoryToggleDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md mx-4 p-6 border border-gray-200 dark:border-gray-700">
+            <div className="text-center space-y-4">
+              <div className="text-4xl mb-4">🔄</div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                {pendingSubcategoryState ? 'Enable Subcategories?' : 'Disable Subcategories?'}
+              </h3>
+              <div className="text-sm text-gray-600 dark:text-gray-300 space-y-2">
+                <p>
+                  {pendingSubcategoryState 
+                    ? 'This will show detailed subcategories like Amazon, Whole Foods, Hotels, etc.'
+                    : 'This will show simplified categories like Dining, Travel, Gas, etc.'
+                  }
+                </p>
+                <p className="font-medium text-yellow-700 dark:text-yellow-400">
+                  ⚠️ Your spending data will be preserved, but the category structure will change.
+                </p>
+              </div>
+              
+              <div className="flex space-x-3">
+                <button
+                  onClick={cancelSubcategoryToggle}
+                  className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmSubcategoryToggle}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  {pendingSubcategoryState ? 'Enable' : 'Disable'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
