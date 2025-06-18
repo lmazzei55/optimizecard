@@ -85,23 +85,44 @@ export default function Profile() {
   // Fetch all cards and owned cards
   useEffect(() => {
     const fetchCards = async () => {
-      if (!session?.user?.id) return
+      if (!session?.user?.id) {
+        console.log('🔍 Profile: No session user ID, skipping card fetch')
+        setIsLoadingCards(false)
+        return
+      }
+      
+      console.log('🔍 Profile: Fetching cards for user:', session.user.email)
       
       try {
-        const response = await fetch('/api/user/cards')
+        const response = await fetch('/api/user/cards', {
+          headers: {
+            'Cache-Control': 'no-cache',
+          }
+        })
+        
+        console.log('🔍 Profile: Cards API response status:', response.status)
+        
         if (response.ok) {
           const data = await response.json()
-          setCards(data.allCards)
-          setOwnedCardIds(data.ownedCardIds)
+          console.log('✅ Profile: Cards loaded:', { 
+            allCardsCount: data.allCards?.length, 
+            ownedCardIds: data.ownedCardIds,
+            fallback: data.fallback 
+          })
+          setCards(data.allCards || [])
+          setOwnedCardIds(data.ownedCardIds || [])
         } else if (response.status === 503) {
           console.warn('⚠️ Database temporarily unavailable - cards will load when available')
           // Keep trying to load cards, but don't show error to user
         } else {
-          console.error('Failed to fetch cards, status:', response.status)
+          console.error('❌ Profile: Failed to fetch cards, status:', response.status)
+          const errorText = await response.text()
+          console.error('❌ Profile: Error response:', errorText)
         }
       } catch (error) {
-        console.error('Error fetching cards:', error)
+        console.error('❌ Profile: Error fetching cards:', error)
       } finally {
+        console.log('🔍 Profile: Setting isLoadingCards to false')
         setIsLoadingCards(false)
       }
     }
@@ -171,9 +192,21 @@ export default function Profile() {
   }
 
   const handleSave = async () => {
-    if (!session?.user?.id) return
+    console.log('🔍 Profile: handleSave function called')
+    
+    if (!session?.user?.id) {
+      console.error('❌ Profile: No session or user ID available for save')
+      return
+    }
 
-    console.log('🔍 Profile: Save attempted with:', { rewardPreference, userSubscriptionTier })
+    console.log('🔍 Profile: Save attempted with:', { 
+      rewardPreference, 
+      userSubscriptionTier,
+      pointValue,
+      enableSubCategories,
+      sessionUserId: session.user.id,
+      sessionUserEmail: session.user.email
+    })
 
     setIsLoading(true)
     try {
@@ -187,7 +220,12 @@ export default function Profile() {
         }),
       })
 
+      console.log('🔍 Profile: Preferences API response status:', response.status)
+      
       if (response.ok) {
+        const responseData = await response.json()
+        console.log('✅ Profile: Preferences saved successfully:', responseData)
+        
         // Update session state WITHOUT using NextAuth update to prevent page reload
         if (session.user) {
           session.user.rewardPreference = rewardPreference
@@ -221,10 +259,12 @@ export default function Profile() {
         console.warn('⚠️ Database temporarily unavailable - preferences not saved')
         // Could show a user-friendly message here
       } else {
-        console.error('Failed to save preferences, status:', response.status)
+        console.error('❌ Profile: Failed to save preferences, status:', response.status)
+        const errorText = await response.text()
+        console.error('❌ Profile: Error response:', errorText)
       }
     } catch (error) {
-      console.error('Error saving preferences:', error)
+      console.error('❌ Profile: Error saving preferences:', error)
     } finally {
       setIsLoading(false)
     }
