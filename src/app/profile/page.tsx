@@ -175,27 +175,6 @@ export default function Profile() {
 
     console.log('🔍 Profile: Save attempted with:', { rewardPreference, userSubscriptionTier })
 
-    // CRITICAL: Validate subscription tier before saving premium preferences
-    // Only validate if subscription tier has been loaded (not null)
-    if (userSubscriptionTier === 'free' && (rewardPreference === 'points' || rewardPreference === 'best_overall')) {
-      console.log('🚫 Profile: Blocking save of premium preference for free user, showing upgrade prompt')
-      setUpgradePromptFeature(rewardPreference === 'points' ? 'Points Optimization' : 'Best Overall Analysis')
-      setUpgradePromptDescription(
-        rewardPreference === 'points' 
-          ? 'Access premium travel and points cards with advanced optimization for maximum point earning potential.'
-          : 'Compare both cashback and points cards to find the absolute best option for your spending patterns.'
-      )
-      setUpgradePromptOpen(true)
-      return // Don't save premium preferences for free users
-    }
-
-    // If subscription tier is still loading (null), defer the save
-    if (userSubscriptionTier === null && (rewardPreference === 'points' || rewardPreference === 'best_overall')) {
-      console.log('ℹ️ Subscription tier still loading, deferring save for premium preference')
-      // You might want to show a loading state or retry the save
-      return
-    }
-
     setIsLoading(true)
     try {
       const response = await fetch('/api/user/preferences', {

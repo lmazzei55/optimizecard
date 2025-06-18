@@ -1240,7 +1240,7 @@ export function SpendingForm() {
               
               <button
                 onClick={() => handleRewardPreferenceChange('points')}
-                className={`p-4 rounded-xl border-2 transition-all duration-200 ${
+                className={`p-4 rounded-xl border-2 transition-all duration-200 relative ${
                   rewardPreference === 'points'
                     ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300'
                     : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:border-purple-300 dark:hover:border-purple-500'
@@ -1250,12 +1250,17 @@ export function SpendingForm() {
                   <div className="text-2xl mb-2">🎯</div>
                   <div className="font-semibold">Points/Miles</div>
                   <div className="text-sm opacity-75">Travel & transfer partners</div>
+                  {userSubscriptionTier !== 'premium' && (
+                    <div className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                      PRO
+                    </div>
+                  )}
                 </div>
               </button>
 
               <button
                 onClick={() => handleRewardPreferenceChange('best_overall')}
-                className={`p-4 rounded-xl border-2 transition-all duration-200 ${
+                className={`p-4 rounded-xl border-2 transition-all duration-200 relative ${
                   rewardPreference === 'best_overall'
                     ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
                     : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:border-green-300 dark:hover:border-green-500'
@@ -1265,6 +1270,11 @@ export function SpendingForm() {
                   <div className="text-2xl mb-2">🏆</div>
                   <div className="font-semibold">Best Overall</div>
                   <div className="text-sm opacity-75">Compare cash & points</div>
+                  {userSubscriptionTier !== 'premium' && (
+                    <div className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                      PRO
+                    </div>
+                  )}
                 </div>
               </button>
             </div>
