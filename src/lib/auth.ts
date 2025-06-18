@@ -111,6 +111,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.id as string
+        
+        // Load user preferences from database
+        try {
+          const user = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: {
+              rewardPreference: true,
+              pointValue: true,
+              enableSubCategories: true,
+              subscriptionTier: true
+            }
+          })
+          
+          if (user) {
+            session.user.rewardPreference = user.rewardPreference
+            session.user.pointValue = user.pointValue
+            session.user.enableSubCategories = user.enableSubCategories
+            session.user.subscriptionTier = user.subscriptionTier
+          }
+        } catch (error) {
+          console.error('Error loading user preferences in session:', error)
+          // Don't fail the session, just skip loading preferences
+        }
       }
       return session
     },

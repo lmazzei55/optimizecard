@@ -191,6 +191,12 @@ export function SpendingForm() {
   useEffect(() => {
     if (!isMounted) return // Wait for hydration
     
+    // Prevent running during session updates to avoid overwriting preferences
+    if (status === 'loading') {
+      console.log('ℹ️ Session loading, skipping preference validation to prevent overwrites')
+      return
+    }
+    
     if (session?.user) {
       let newRewardPreference = session.user.rewardPreference as any || 'cashback'
       const newPointValue = session.user.pointValue || 0.01
@@ -200,8 +206,16 @@ export function SpendingForm() {
         userSubscriptionTier,
         newRewardPreference,
         sessionEmail: session?.user?.email,
-        shouldValidate: userSubscriptionTier !== null
+        shouldValidate: userSubscriptionTier !== null,
+        currentRewardPreference: rewardPreference,
+        sessionUpdating: localStorage.getItem('preferences-updated') !== null
       })
+      
+      // Don't validate if preferences are currently being updated
+      if (localStorage.getItem('preferences-updated')) {
+        console.log('ℹ️ Preferences are being updated, skipping validation to prevent conflicts')
+        return
+      }
       
       if (userSubscriptionTier !== null && userSubscriptionTier === 'free' && (newRewardPreference === 'points' || newRewardPreference === 'best_overall')) {
         console.warn(`⚠️ User has ${newRewardPreference} preference but free tier - resetting to cashback`)
@@ -220,10 +234,20 @@ export function SpendingForm() {
       }
       
       // Only update if values have actually changed to avoid unnecessary re-renders
+      // Also check if we're not reverting to a less privileged preference
       if (rewardPreference !== newRewardPreference) {
+        // Extra protection: don't downgrade from premium preference to cashback if user is premium
+        if (userSubscriptionTier === 'premium' && rewardPreference === 'points' && newRewardPreference === 'cashback') {
+          console.warn('🚫 Prevented downgrade from points to cashback for premium user - possible stale session data')
+          return
+        }
+        
+        console.log(`🔄 Updating reward preference from "${rewardPreference}" to "${newRewardPreference}"`)
         setRewardPreference(newRewardPreference)
         // Backup to localStorage for tab switching persistence
         localStorage.setItem('rewardPreference', newRewardPreference)
+      } else {
+        console.log(`ℹ️ Reward preference unchanged: "${rewardPreference}"`)
       }
       if (pointValue !== newPointValue) {
         setPointValue(newPointValue)
@@ -255,7 +279,7 @@ export function SpendingForm() {
         setEnableSubcategories(savedSubcategories)
       }
     }
-  }, [session, session?.user?.rewardPreference, session?.user?.pointValue, session?.user?.enableSubCategories, status, isMounted, userSubscriptionTier])
+  }, [session, status, isMounted, userSubscriptionTier])
 
   // Check for preference updates from localStorage
   useEffect(() => {
@@ -266,16 +290,23 @@ export function SpendingForm() {
         const now = Date.now()
         // If preferences were updated in the last 5 seconds, refresh the session data
         if (now - updateTime < 5000) {
-          localStorage.removeItem('preferences-updated')
           console.log('🔄 Preferences updated, refreshing session data...')
           
           // Use NextAuth's update function to refresh session
           try {
             await updateSession()
             console.log('✅ Session updated successfully')
+            // Remove the flag after successful update
+            localStorage.removeItem('preferences-updated')
           } catch (error) {
             console.error('❌ Error updating session:', error)
+            // Still remove the flag to prevent endless retry
+            localStorage.removeItem('preferences-updated')
           }
+        } else if (now - updateTime > 10000) {
+          // Clean up old flags after 10 seconds
+          localStorage.removeItem('preferences-updated')
+          console.log('🧹 Cleaned up old preferences-updated flag')
         }
       }
     }
