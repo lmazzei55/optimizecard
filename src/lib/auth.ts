@@ -65,6 +65,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   session: {
     strategy: "jwt",
   },
+  callbacks: {
+    async jwt({ token, user }) {
+      // If this is the first time the jwt callback is invoked, user object will be available
+      if (user) {
+        token.id = user.id || user.email // Use user.id or fallback to email as ID
+      }
+      return token
+    },
+    async session({ session, token }) {
+      // Send properties to the client
+      if (token) {
+        session.user.id = token.id as string
+      }
+      return session
+    },
+  },
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === "development",
   trustHost: true,

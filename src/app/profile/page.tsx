@@ -85,8 +85,8 @@ export default function Profile() {
   // Fetch all cards and owned cards
   useEffect(() => {
     const fetchCards = async () => {
-      if (!session?.user?.id) {
-        console.log('🔍 Profile: No session user ID, skipping card fetch')
+      if (!session?.user?.id && !session?.user?.email) {
+        console.log('🔍 Profile: No session user ID or email, skipping card fetch')
         setIsLoadingCards(false)
         return
       }
@@ -131,7 +131,7 @@ export default function Profile() {
   }, [session?.user?.id])
 
   const handleUpdateCards = async () => {
-    if (!session?.user?.id) return
+    if (!session?.user?.id && !session?.user?.email) return
 
     setIsUpdatingCards(true)
     try {
@@ -194,8 +194,8 @@ export default function Profile() {
   const handleSave = async () => {
     console.log('🔍 Profile: handleSave function called')
     
-    if (!session?.user?.id) {
-      console.error('❌ Profile: No session or user ID available for save')
+    if (!session?.user?.id && !session?.user?.email) {
+      console.error('❌ Profile: No session, user ID, or email available for save')
       return
     }
 
