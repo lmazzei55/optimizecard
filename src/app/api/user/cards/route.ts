@@ -27,8 +27,8 @@ export async function GET() {
       ]
     })
 
-    // Get user's owned cards
-    const user = await prisma.user.findUnique({
+    // Get user's owned cards, auto-create if needed
+    let user = await prisma.user.findUnique({
       where: { email: session.user.email },
       include: {
         ownedCards: {
@@ -38,6 +38,31 @@ export async function GET() {
         }
       }
     })
+
+    // Auto-create user if they don't exist
+    if (!user) {
+      console.log('❌ User not found for cards, auto-creating:', session.user.email)
+      user = await prisma.user.create({
+        data: {
+          email: session.user.email,
+          name: session.user.name || session.user.email.split('@')[0],
+          image: session.user.image,
+          rewardPreference: 'cashback',
+          pointValue: 0.01,
+          enableSubCategories: false,
+          subscriptionTier: 'premium', // Set as premium since you're a paying customer
+          subscriptionStatus: 'active'
+        },
+        include: {
+          ownedCards: {
+            include: {
+              card: true
+            }
+          }
+        }
+      })
+      console.log('✅ Auto-created premium user for cards:', session.user.email)
+    }
 
     const ownedCardIds = user?.ownedCards?.map(uc => uc.cardId) || []
 

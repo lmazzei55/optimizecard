@@ -9,15 +9,33 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    const user = await withRetry(async () => {
+    let user = await withRetry(async () => {
       return await prisma.user.findUnique({
         where: { email: session.user.email! },
         select: { spendingData: true }
       })
     })
 
+    // Auto-create user if they don't exist
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      console.log('❌ User not found for spending, auto-creating:', session.user.email)
+      user = await withRetry(async () => {
+        return await prisma.user.create({
+          data: {
+            email: session.user.email!,
+            name: session.user.name || session.user.email!.split('@')[0],
+            image: session.user.image,
+            rewardPreference: 'cashback',
+            pointValue: 0.01,
+            enableSubCategories: false,
+            subscriptionTier: 'premium', // Set as premium since you're a paying customer
+            subscriptionStatus: 'active',
+            spendingData: '[]' // Empty spending data
+          },
+          select: { spendingData: true }
+        })
+      })
+      console.log('✅ Auto-created premium user for spending:', session.user.email)
     }
 
     // Parse spending data if it exists
@@ -67,6 +85,35 @@ export async function POST(request: NextRequest) {
 
     if (!Array.isArray(spending)) {
       return NextResponse.json({ error: 'Invalid spending data' }, { status: 400 })
+    }
+
+    // Ensure user exists before updating spending data
+    let existingUser = await withRetry(async () => {
+      return await prisma.user.findUnique({
+        where: { email: session.user.email! },
+        select: { id: true }
+      })
+    })
+
+    if (!existingUser) {
+      console.log('❌ User not found for spending update, auto-creating:', session.user.email)
+      existingUser = await withRetry(async () => {
+        return await prisma.user.create({
+          data: {
+            email: session.user.email!,
+            name: session.user.name || session.user.email!.split('@')[0],
+            image: session.user.image,
+            rewardPreference: 'cashback',
+            pointValue: 0.01,
+            enableSubCategories: false,
+            subscriptionTier: 'premium', // Set as premium since you're a paying customer
+            subscriptionStatus: 'active',
+            spendingData: '[]'
+          },
+          select: { id: true }
+        })
+      })
+      console.log('✅ Auto-created premium user for spending update:', session.user.email)
     }
 
     // Update user's spending data with retry logic

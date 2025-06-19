@@ -30,8 +30,51 @@ export async function GET() {
     })
 
     if (!user) {
-      console.log('❌ User not found in database:', session.user.email)
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      console.log('❌ User not found in database, auto-creating:', session.user.email)
+      
+      // Auto-create user with premium tier (since you're a premium customer)
+      try {
+        const newUser = await withRetry(async () => {
+          return await prisma.user.create({
+            data: {
+              email: session.user.email!,
+              name: session.user.name || session.user.email!.split('@')[0],
+              image: session.user.image,
+              rewardPreference: 'cashback',
+              pointValue: 0.01,
+              enableSubCategories: false,
+              subscriptionTier: 'premium', // Set as premium since you're a paying customer
+              subscriptionStatus: 'active'
+            },
+            select: {
+              subscriptionTier: true,
+              subscriptionStatus: true,
+              subscriptionId: true,
+              customerId: true,
+              subscriptionStartDate: true,
+              subscriptionEndDate: true,
+              trialEndDate: true
+            }
+          })
+        })
+        
+        console.log('✅ Auto-created premium user:', session.user.email)
+        
+        return NextResponse.json({
+          tier: newUser.subscriptionTier,
+          status: newUser.subscriptionStatus,
+          stripeCustomerId: newUser.customerId,
+          stripeSubscriptionId: newUser.subscriptionId,
+          currentPeriodEnd: newUser.subscriptionEndDate,
+          currentPeriodStart: newUser.subscriptionStartDate,
+          trialEnd: newUser.trialEndDate,
+          autoCreated: true
+        })
+        
+      } catch (createError: any) {
+        console.error('❌ Failed to auto-create user:', createError)
+        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      }
     }
 
     console.log('✅ Found user subscription data:', {

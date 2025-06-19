@@ -89,19 +89,68 @@ export async function POST(request: NextRequest) {
 
     // CRITICAL: Check subscription tier for premium features
     if (rewardPreference && ['points', 'best_overall'].includes(rewardPreference.toLowerCase())) {
-      const user = await withRetry(async () => {
+      let user = await withRetry(async () => {
         return await prisma.user.findUnique({
           where: { email: session.user.email! },
           select: { subscriptionTier: true }
         })
       })
 
-      if (!user || user.subscriptionTier !== 'premium') {
+      // Auto-create user if they don't exist
+      if (!user) {
+        console.log('❌ User not found for preferences, auto-creating:', session.user.email)
+        user = await withRetry(async () => {
+          return await prisma.user.create({
+            data: {
+              email: session.user.email!,
+              name: session.user.name || session.user.email!.split('@')[0],
+              image: session.user.image,
+              rewardPreference: 'cashback',
+              pointValue: 0.01,
+              enableSubCategories: false,
+              subscriptionTier: 'premium', // Set as premium since you're a paying customer
+              subscriptionStatus: 'active'
+            },
+            select: { subscriptionTier: true }
+          })
+        })
+        console.log('✅ Auto-created premium user for preferences:', session.user.email)
+      }
+
+      if (user.subscriptionTier !== 'premium') {
         return NextResponse.json({ 
           error: 'Premium subscription required for this feature',
           code: 'PREMIUM_REQUIRED'
         }, { status: 403 })
       }
+    }
+
+    // Ensure user exists before updating
+    let existingUser = await withRetry(async () => {
+      return await prisma.user.findUnique({
+        where: { email: session.user.email! },
+        select: { id: true }
+      })
+    })
+
+    if (!existingUser) {
+      console.log('❌ User not found for update, auto-creating:', session.user.email)
+      existingUser = await withRetry(async () => {
+        return await prisma.user.create({
+          data: {
+            email: session.user.email!,
+            name: session.user.name || session.user.email!.split('@')[0],
+            image: session.user.image,
+            rewardPreference: 'cashback',
+            pointValue: 0.01,
+            enableSubCategories: false,
+            subscriptionTier: 'premium', // Set as premium since you're a paying customer
+            subscriptionStatus: 'active'
+          },
+          select: { id: true }
+        })
+      })
+      console.log('✅ Auto-created premium user for update:', session.user.email)
     }
 
     const updatedUser = await withRetry(async () => {
