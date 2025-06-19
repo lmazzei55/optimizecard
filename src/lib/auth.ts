@@ -80,6 +80,42 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
       return session
     },
+    async signIn({ user, account, profile }) {
+      // Auto-create user in database when signing in with JWT sessions
+      if (user.email) {
+        try {
+          // Dynamic import to avoid circular dependencies
+          const { prisma } = await import('@/lib/prisma')
+          
+          // Check if user already exists
+          const existingUser = await prisma.user.findUnique({
+            where: { email: user.email }
+          })
+          
+          // Create user if they don't exist
+          if (!existingUser) {
+            await prisma.user.create({
+              data: {
+                email: user.email,
+                name: user.name || user.email.split('@')[0],
+                image: user.image,
+                rewardPreference: 'cashback', // Default preference
+                pointValue: 0.01,
+                enableSubCategories: false,
+                subscriptionTier: 'free' // Default to free tier
+              }
+            })
+            console.log('✅ Auto-created user in database:', user.email)
+          } else {
+            console.log('✅ User already exists in database:', user.email)
+          }
+        } catch (error) {
+          console.error('❌ Error auto-creating user:', error)
+          // Don't block sign-in if database creation fails
+        }
+      }
+      return true
+    }
   },
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === "development",
