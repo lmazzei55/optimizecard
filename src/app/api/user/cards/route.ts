@@ -10,22 +10,38 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get all available cards
-    const allCards = await prisma.creditCard.findMany({
-      where: { isActive: true },
-      select: {
-        id: true,
-        name: true,
-        issuer: true,
-        annualFee: true,
-        rewardType: true,
-        applicationUrl: true,
-      },
-      orderBy: [
-        { issuer: 'asc' },
-        { name: 'asc' }
-      ]
-    })
+    // Get all available cards with retry logic
+    let allCards: any[] = []
+    let retryCount = 0
+    const maxRetries = 3
+    
+    while (retryCount < maxRetries) {
+      try {
+        allCards = await prisma.creditCard.findMany({
+          where: { isActive: true },
+          select: {
+            id: true,
+            name: true,
+            issuer: true,
+            annualFee: true,
+            rewardType: true,
+            applicationUrl: true,
+          },
+          orderBy: [
+            { issuer: 'asc' },
+            { name: 'asc' }
+          ]
+        })
+        break // Success, exit retry loop
+      } catch (dbError) {
+        retryCount++
+        console.warn(`⚠️ Database retry ${retryCount}/${maxRetries} for cards:`, dbError)
+        if (retryCount === maxRetries) {
+          throw dbError // Re-throw after max retries
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second before retry
+      }
+    }
 
     // Get user's owned cards, auto-create if needed
     let user = await prisma.user.findUnique({
@@ -76,21 +92,23 @@ export async function GET() {
   } catch (error: any) {
     console.error('❌ Cards API Error:', error)
     
-    // Return fallback data for any error
-    const fallbackCards = [
-      { id: '1', name: 'Chase Sapphire Preferred', issuer: 'Chase', annualFee: 95, rewardType: 'points' },
-      { id: '2', name: 'Citi Double Cash', issuer: 'Citi', annualFee: 0, rewardType: 'cashback' },
-      { id: '3', name: 'American Express Gold', issuer: 'American Express', annualFee: 250, rewardType: 'points' }
-    ]
+    // CRITICAL FIX: Don't return fallback data for authenticated users
+    // Instead, return a proper error so the frontend can handle it appropriately
     
-    return NextResponse.json({
-      allCards: fallbackCards,
-      ownedCardIds: [],
-      fallback: true
-    }, { 
-      status: 200,
-      headers: { 'X-Fallback-Data': 'true' }
-    })
+    // Check if it's a database connection issue
+    if (error?.code === 'P1001' || error?.message?.includes('connection') || error?.message?.includes('timeout')) {
+      console.error('🔌 Database connection issue in cards API')
+      return NextResponse.json(
+        { error: 'Database temporarily unavailable', code: 'DB_CONNECTION_ERROR' },
+        { status: 503 }
+      )
+    }
+    
+    // For other errors, return 500 instead of fallback data
+    return NextResponse.json(
+      { error: 'Failed to fetch cards', details: error?.message || 'Unknown error' },
+      { status: 500 }
+    )
   }
 }
 
@@ -151,6 +169,15 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('❌ Cards Update Error:', error)
+    
+    // Check if it's a database connection issue
+    if (error?.code === 'P1001' || error?.message?.includes('connection') || error?.message?.includes('timeout')) {
+      console.error('🔌 Database connection issue in cards update')
+      return NextResponse.json(
+        { error: 'Database temporarily unavailable', code: 'DB_CONNECTION_ERROR' },
+        { status: 503 }
+      )
+    }
     
     return NextResponse.json(
       { error: 'Failed to update cards', details: error?.message || 'Unknown error' },

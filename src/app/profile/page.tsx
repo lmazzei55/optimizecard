@@ -112,15 +112,37 @@ export default function Profile() {
           setCards(data.allCards || [])
           setOwnedCardIds(data.ownedCardIds || [])
         } else if (response.status === 503) {
-          console.warn('⚠️ Database temporarily unavailable - cards will load when available')
-          // Keep trying to load cards, but don't show error to user
+          console.warn('⚠️ Database temporarily unavailable - keeping current cards, will retry')
+          // Don't change cards state when database is temporarily unavailable
+          // The loading state will remain true, indicating to user that data is still loading
+          
+          // Retry after a delay
+          setTimeout(() => {
+            if (session?.user?.email) {
+              console.log('🔄 Retrying card fetch after database issue...')
+              fetchCards()
+            }
+          }, 5000) // Retry after 5 seconds
+          return // Don't set loading to false yet
         } else {
           console.error('❌ Profile: Failed to fetch cards, status:', response.status)
-          const errorText = await response.text()
-          console.error('❌ Profile: Error response:', errorText)
+          const errorData = await response.json().catch(() => ({}))
+          console.error('❌ Profile: Error response:', errorData)
+          
+          // For other errors, show empty state but don't break the app
+          setCards([])
+          setOwnedCardIds([])
         }
       } catch (error) {
         console.error('❌ Profile: Error fetching cards:', error)
+        // Network error - keep current state and retry
+        setTimeout(() => {
+          if (session?.user?.email) {
+            console.log('🔄 Retrying card fetch after network error...')
+            fetchCards()
+          }
+        }, 5000)
+        return // Don't set loading to false yet
       } finally {
         console.log('🔍 Profile: Setting isLoadingCards to false')
         setIsLoadingCards(false)
