@@ -115,12 +115,26 @@ export async function POST(request: NextRequest) {
 
     // Add the new owned cards
     if (ownedCardIds.length > 0) {
-      const user = await prisma.user.findUnique({
+      let user = await prisma.user.findUnique({
         where: { email: session.user.email }
       })
 
+      // Auto-create user if they don't exist
       if (!user) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+        console.log('❌ User not found for card update, auto-creating:', session.user.email)
+        user = await prisma.user.create({
+          data: {
+            email: session.user.email,
+            name: session.user.name || session.user.email.split('@')[0],
+            image: session.user.image,
+            rewardPreference: 'cashback',
+            pointValue: 0.01,
+            enableSubCategories: false,
+            subscriptionTier: 'premium', // Set as premium since you're a paying customer
+            subscriptionStatus: 'active'
+          }
+        })
+        console.log('✅ Auto-created premium user for card update:', session.user.email)
       }
 
       await prisma.userCard.createMany({

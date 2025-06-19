@@ -144,14 +144,23 @@ export default function Profile() {
       if (response.ok) {
         setIsSaved(true)
         setTimeout(() => setIsSaved(false), 3000)
+        console.log('✅ Cards updated successfully')
       } else if (response.status === 503) {
         console.warn('⚠️ Database temporarily unavailable - please try again later')
         // Could show a user-friendly message here
       } else {
-        console.error('Failed to update cards, status:', response.status)
+        console.error('❌ Failed to update cards, status:', response.status)
+        const errorData = await response.json().catch(() => ({}))
+        console.error('❌ Error details:', errorData)
+        
+        // Show user-friendly error message but don't break the app
+        // The premium status should remain intact
+        alert('Failed to update cards. Please try again. Your premium status is still active.')
       }
     } catch (error) {
-      console.error('Error updating owned cards:', error)
+      console.error('❌ Error updating owned cards:', error)
+      // Show user-friendly error message but don't break the app
+      alert('Network error while updating cards. Please check your connection and try again.')
     } finally {
       setIsUpdatingCards(false)
     }

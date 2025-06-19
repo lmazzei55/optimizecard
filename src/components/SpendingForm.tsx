@@ -187,6 +187,30 @@ export function SpendingForm() {
     setIsMounted(true)
   }, [])
 
+  // Force refresh data when navigating to dashboard
+  useEffect(() => {
+    const handleRouteChange = () => {
+      if (window.location.pathname === '/dashboard') {
+        console.log('📊 Dashboard navigation detected, refreshing data...')
+        // Force refresh subscription tier and session
+        if (session?.user?.email) {
+          refreshSubscriptionTier()
+          updateSession()
+        }
+      }
+    }
+
+    // Listen for navigation events
+    window.addEventListener('popstate', handleRouteChange)
+    
+    // Also check on mount if we're on dashboard
+    if (typeof window !== 'undefined' && window.location.pathname === '/dashboard') {
+      handleRouteChange()
+    }
+
+    return () => window.removeEventListener('popstate', handleRouteChange)
+  }, [session?.user?.email, updateSession])
+
   // Load user preferences from session with localStorage backup and subscription validation
   useEffect(() => {
     if (!isMounted) return // Wait for hydration
@@ -282,8 +306,10 @@ export function SpendingForm() {
       const savedPointValue = parseFloat(localStorage.getItem('pointValue') || '0.01')
       const savedSubcategories = JSON.parse(localStorage.getItem('enableSubcategories') || 'false')
       
-      // For unauthenticated users, always default to cashback for premium features
-      if (savedRewardPref === 'points' || savedRewardPref === 'best_overall') {
+      // FIXED: Don't override premium preferences for authenticated users who temporarily lose session
+      // Only force cashback for truly anonymous users (no localStorage preferences)
+      const hasStoredPreferences = localStorage.getItem('rewardPreference') !== null
+      if (!hasStoredPreferences && (savedRewardPref === 'points' || savedRewardPref === 'best_overall')) {
         savedRewardPref = 'cashback'
         localStorage.setItem('rewardPreference', 'cashback')
       }
