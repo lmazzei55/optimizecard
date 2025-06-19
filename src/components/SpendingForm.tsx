@@ -187,29 +187,9 @@ export function SpendingForm() {
     setIsMounted(true)
   }, [])
 
-  // Force refresh data when navigating to dashboard
-  useEffect(() => {
-    const handleRouteChange = () => {
-      if (window.location.pathname === '/dashboard') {
-        console.log('📊 Dashboard navigation detected, refreshing data...')
-        // Force refresh subscription tier and session
-        if (session?.user?.email) {
-          refreshSubscriptionTier()
-          updateSession()
-        }
-      }
-    }
-
-    // Listen for navigation events
-    window.addEventListener('popstate', handleRouteChange)
-    
-    // Also check on mount if we're on dashboard
-    if (typeof window !== 'undefined' && window.location.pathname === '/dashboard') {
-      handleRouteChange()
-    }
-
-    return () => window.removeEventListener('popstate', handleRouteChange)
-  }, [session?.user?.email, updateSession])
+  // REMOVED: Dashboard navigation refresh causing infinite loop
+  // The navigation refresh was creating an infinite loop of API calls
+  // Instead, rely on the existing subscription check intervals
 
   // Load user preferences from session with localStorage backup and subscription validation
   useEffect(() => {
@@ -441,7 +421,16 @@ export function SpendingForm() {
   const refreshSubscriptionTier = async () => {
     // FIXED: Only refresh if authenticated
     if (status === 'authenticated' && session?.user?.email) {
+      // Rate limiting: Don't refresh more than once every 5 seconds
+      const lastRefresh = localStorage.getItem('last-subscription-refresh')
+      const now = Date.now()
+      if (lastRefresh && (now - parseInt(lastRefresh)) < 5000) {
+        console.log('⏱️ Rate limited: Subscription refresh too recent')
+        return
+      }
+      
       try {
+        localStorage.setItem('last-subscription-refresh', now.toString())
         const response = await fetch('/api/user/subscription', {
           headers: {
             'Cache-Control': 'no-cache',
@@ -969,7 +958,7 @@ export function SpendingForm() {
     })
   }, [totalMonthlySpend, calculating, spending.length])
 
-  const handleRewardPreferenceChange = (newPreference: 'cashback' | 'points' | 'best_overall') => {
+  const handleRewardPreferenceChange = async (newPreference: 'cashback' | 'points' | 'best_overall') => {
     // Check if user is trying to access premium features without subscription
     // Only check if subscription tier has been loaded (not null)
     if (userSubscriptionTier === 'free' && (newPreference === 'points' || newPreference === 'best_overall')) {
@@ -988,9 +977,32 @@ export function SpendingForm() {
       console.log('ℹ️ Subscription tier still loading, allowing preference change without validation')
     }
     
+    console.log('🎯 Profile: Allowing preference change to:', newPreference)
     setRewardPreference(newPreference)
     // Save to localStorage for persistence across tab switches
     localStorage.setItem('rewardPreference', newPreference)
+    
+    // CRITICAL FIX: Also save to database if user is logged in
+    if (session?.user?.email) {
+      try {
+        const response = await fetch('/api/user/preferences', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rewardPreference: newPreference }),
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          console.log('🎯 Profile: Preferences saved successfully:', data)
+          // Mark preferences as updated for session refresh
+          localStorage.setItem('preferences-updated', Date.now().toString())
+        } else {
+          console.error('🎯 Profile: Failed to save preference, status:', response.status)
+        }
+      } catch (error) {
+        console.error('🎯 Profile: Error saving preference:', error)
+      }
+    }
   }
 
   // hydrate spending from localStorage immediately on mount (before interactions)
