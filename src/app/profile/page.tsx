@@ -1,25 +1,24 @@
 'use client'
 
-import { useSession } from "next-auth/react"
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Header } from "@/components/Header"
-import Link from "next/link"
+import { useState, useEffect } from 'react'
+import { useSession } from 'next-auth/react'
+import { Header } from '@/components/Header'
+import { Button } from '@/components/ui/button'
 import { UpgradePrompt } from '@/components/UpgradePrompt'
+import { CheckoutButton } from '@/components/CheckoutButton'
+import { useUserState } from '@/hooks/useUserState'
 
 interface CreditCard {
   id: string
   name: string
   issuer: string
-  annualFee: number
-  rewardType: string
+  rewardType: 'cashback' | 'points'
 }
 
 export default function Profile() {
-  const { data: session, status, update } = useSession()
-  const [rewardPreference, setRewardPreference] = useState<'cashback' | 'points' | 'best_overall'>('cashback')
-  const [pointValue, setPointValue] = useState(0.01)
-  const [enableSubCategories, setEnableSubCategories] = useState(false)
+  const { data: session, status } = useSession()
+  const userState = useUserState()
+  
   const [isLoading, setIsLoading] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
   
@@ -29,58 +28,25 @@ export default function Profile() {
   const [isLoadingCards, setIsLoadingCards] = useState(true)
   const [isUpdatingCards, setIsUpdatingCards] = useState(false)
 
-  // Add subscription tier and upgrade prompt state
-  const [userSubscriptionTier, setUserSubscriptionTier] = useState<'free' | 'premium' | null>(null)
+  // Upgrade prompt state
   const [upgradePromptOpen, setUpgradePromptOpen] = useState(false)
   const [upgradePromptFeature, setUpgradePromptFeature] = useState('')
   const [upgradePromptDescription, setUpgradePromptDescription] = useState('')
 
+  // Extract preferences from centralized state
+  const { rewardPreference, pointValue, enableSubCategories } = userState.preferences
+  const { subscriptionTier: userSubscriptionTier } = userState
+
   useEffect(() => {
     if (session?.user) {
-      setRewardPreference(session.user.rewardPreference as any || 'cashback')
-      setPointValue(session.user.pointValue || 0.01)
-      setEnableSubCategories(session.user.enableSubCategories || false)
-      setUserSubscriptionTier((session.user.subscriptionTier as any) || 'free')
+      userState.updatePreferences({
+        rewardPreference: session.user.rewardPreference as any || 'cashback',
+        pointValue: session.user.pointValue || 0.01,
+        enableSubCategories: session.user.enableSubCategories || false,
+        subscriptionTier: (session.user.subscriptionTier as any) || 'free'
+      })
     }
   }, [session])
-
-  // Fetch subscription tier from API to ensure we have the latest information
-  useEffect(() => {
-    const fetchSubscriptionTier = async () => {
-      if (!session?.user?.email) {
-        setUserSubscriptionTier('free')
-        return
-      }
-
-      try {
-        const response = await fetch('/api/user/subscription', {
-          headers: {
-            'Cache-Control': 'no-cache',
-          }
-        })
-        
-        if (response.ok) {
-          const data = await response.json()
-          const tier = data.tier || 'free'
-          console.log('🔍 Profile: Subscription tier fetched:', tier)
-          setUserSubscriptionTier(tier)
-        } else if (response.status === 503) {
-          console.warn('⚠️ Profile: Database temporarily unavailable - keeping current tier')
-          // Don't change tier when database is temporarily unavailable
-        } else {
-          console.warn('⚠️ Profile: Subscription check failed with status:', response.status)
-          setUserSubscriptionTier('free') // Default to free on error
-        }
-      } catch (error) {
-        console.error('Profile: Error fetching subscription tier:', error)
-        setUserSubscriptionTier('free') // Default to free on error
-      }
-    }
-
-    if (session?.user?.email) {
-      fetchSubscriptionTier()
-    }
-  }, [session?.user?.email])
 
   // Fetch all cards and owned cards
   useEffect(() => {
@@ -219,7 +185,7 @@ export default function Profile() {
     }
     
     console.log('✅ Profile: Allowing preference change to:', newPreference)
-    setRewardPreference(newPreference)
+    userState.updatePreferences({ rewardPreference: newPreference })
   }
 
   const handleSave = async () => {
@@ -284,7 +250,7 @@ export default function Profile() {
           )
           setUpgradePromptOpen(true)
           // Reset to cashback
-          setRewardPreference('cashback')
+          userState.updatePreferences({ rewardPreference: 'cashback' })
         }
       } else if (response.status === 503) {
         console.warn('⚠️ Database temporarily unavailable - preferences not saved')
@@ -454,7 +420,7 @@ export default function Profile() {
                       max="0.05"
                       step="0.001"
                       value={pointValue}
-                      onChange={(e) => setPointValue(parseFloat(e.target.value) || 0.01)}
+                      onChange={(e) => userState.updatePreferences({ pointValue: parseFloat(e.target.value) || 0.01 })}
                       className="flex-1 px-4 py-3 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                     <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -473,7 +439,7 @@ export default function Profile() {
                   <input
                     type="checkbox"
                     checked={enableSubCategories}
-                    onChange={(e) => setEnableSubCategories(e.target.checked)}
+                    onChange={(e) => userState.updatePreferences({ enableSubCategories: e.target.checked })}
                     className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
                   />
                   <div>

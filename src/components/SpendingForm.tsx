@@ -83,7 +83,6 @@ interface CardCustomization {
 
 export function SpendingForm() {
   const { data: session, status } = useSession()
-  const userState = useUserState()
   const router = useRouter()
   
   const [categories, setCategories] = useState<SpendingCategory[]>([])
@@ -114,7 +113,8 @@ export function SpendingForm() {
   const [initialDataLoaded, setInitialDataLoaded] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
 
-  // Extract preferences from centralized state (eliminates all conflicts)
+  // Use centralized state management - eliminates ALL conflicts
+  const userState = useUserState()
   const { rewardPreference, pointValue, enableSubCategories: enableSubcategories } = userState.preferences
   const { subscriptionTier: userSubscriptionTier } = userState
 
@@ -187,180 +187,7 @@ export function SpendingForm() {
     setIsMounted(true)
   }, [])
 
-  // REMOVED: Dashboard navigation refresh causing infinite loop
-  // The navigation refresh was creating an infinite loop of API calls
-  // Instead, rely on the existing subscription check intervals
-
-  // Preferences are now managed by useUserState hook - no manual loading needed
-
-  // Check for preference updates from localStorage
-  useEffect(() => {
-    const checkForUpdates = async () => {
-      const lastUpdate = localStorage.getItem('preferences-updated')
-      if (lastUpdate) {
-        const updateTime = parseInt(lastUpdate)
-        const now = Date.now()
-        // If preferences were updated in the last 5 seconds, refresh the session data
-        if (now - updateTime < 5000) {
-          console.log('🔄 Preferences updated, refreshing session data...')
-          
-          // Use NextAuth's update function to refresh session
-          try {
-            await updateSession()
-            console.log('✅ Session updated successfully')
-            // Remove the flag after successful update
-            localStorage.removeItem('preferences-updated')
-          } catch (error) {
-            console.error('❌ Error updating session:', error)
-            // Still remove the flag to prevent endless retry
-            localStorage.removeItem('preferences-updated')
-          }
-        } else if (now - updateTime > 10000) {
-          // Clean up old flags after 10 seconds
-          localStorage.removeItem('preferences-updated')
-          console.log('🧹 Cleaned up old preferences-updated flag')
-        }
-      }
-    }
-
-    // Check immediately and set up an interval
-    checkForUpdates()
-    const interval = setInterval(checkForUpdates, 1000)
-    
-    return () => clearInterval(interval)
-  }, [updateSession])
-
-  // Listen for session refresh events (for cross-tab communication)
-  useEffect(() => {
-    const handleSessionRefresh = async () => {
-      console.log('🔄 Session refresh event received')
-      try {
-        await updateSession()
-        console.log('✅ Session refreshed from event')
-      } catch (error) {
-        console.error('❌ Error refreshing session from event:', error)
-      }
-    }
-
-    window.addEventListener('session-refresh', handleSessionRefresh)
-    return () => window.removeEventListener('session-refresh', handleSessionRefresh)
-  }, [updateSession])
-
-  // Check user subscription tier
-  useEffect(() => {
-    const checkSubscriptionTier = async () => {
-      // FIXED: Only check if we have a valid, authenticated session
-      if (status === 'loading') {
-        console.log('ℹ️ Session still loading, skipping subscription check')
-        return
-      }
-      
-      if (status === 'unauthenticated' || !session?.user?.email) {
-        console.log('ℹ️ No authenticated session, using free tier')
-        setUserSubscriptionTier('free') // Default to free for anonymous users
-        return
-      }
-      
-      try {
-        const response = await fetch('/api/user/subscription', {
-          headers: {
-            'Cache-Control': 'no-cache',
-          }
-        })
-        if (response.ok) {
-          const data = await response.json()
-          const newTier = data.tier || 'free'
-          console.log('🔍 Subscription tier check:', newTier)
-          setUserSubscriptionTier(newTier)
-        } else if (response.status === 401) {
-          console.warn('⚠️ Authentication error in subscription check - skipping')
-          setUserSubscriptionTier('free')
-          return
-        } else if (response.status === 503) {
-          console.warn('⚠️ Database temporarily unavailable - keeping current tier')
-          // Don't change tier when database is temporarily unavailable
-          return
-        } else {
-          console.warn('⚠️ Subscription check failed with status:', response.status)
-          setUserSubscriptionTier('free')
-        }
-      } catch (error) {
-        console.error('Error checking subscription tier:', error)
-        setUserSubscriptionTier('free') // Safe default for network errors
-      }
-    }
-    
-    // FIXED: Only run if we have an authenticated session
-    if (status === 'authenticated' && session?.user?.email) {
-      checkSubscriptionTier()
-      
-      // Only set up interval if we have a valid session
-      const interval = setInterval(checkSubscriptionTier, 30000)
-      return () => clearInterval(interval)
-    } else if (status === 'unauthenticated') {
-      // For anonymous users, always set to free
-      setUserSubscriptionTier('free')
-    }
-    // Do nothing if still loading - let it finish loading first
-  }, [session, status])
-
-  // Add a manual refresh function for subscription tier
-  const refreshSubscriptionTier = async () => {
-    // FIXED: Only refresh if authenticated
-    if (status === 'authenticated' && session?.user?.email) {
-      // Rate limiting: Don't refresh more than once every 5 seconds
-      const lastRefresh = localStorage.getItem('last-subscription-refresh')
-      const now = Date.now()
-      if (lastRefresh && (now - parseInt(lastRefresh)) < 5000) {
-        console.log('⏱️ Rate limited: Subscription refresh too recent')
-        return
-      }
-      
-      try {
-        localStorage.setItem('last-subscription-refresh', now.toString())
-        const response = await fetch('/api/user/subscription', {
-          headers: {
-            'Cache-Control': 'no-cache',
-          }
-        })
-        if (response.ok) {
-          const data = await response.json()
-          const newTier = data.tier || 'free'
-          console.log('🔄 Manual subscription tier refresh:', newTier)
-          setUserSubscriptionTier(newTier)
-        } else if (response.status === 401) {
-          console.warn('⚠️ Authentication error in manual subscription refresh')
-          setUserSubscriptionTier('free')
-        } else if (response.status === 503) {
-          console.warn('⚠️ Database temporarily unavailable during manual refresh')
-          // Don't update tier when database is temporarily unavailable
-        } else {
-          console.warn('⚠️ Manual subscription refresh failed with status:', response.status)
-        }
-      } catch (error) {
-        console.error('Error refreshing subscription tier:', error)
-      }
-    }
-  }
-
-  // Listen for subscription updates (you can call this after sync)
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'subscription-updated') {
-        console.log('🔄 Storage event detected - refreshing subscription')
-        refreshSubscriptionTier()
-      }
-    }
-    
-    window.addEventListener('storage', handleStorageChange)
-    return () => window.removeEventListener('storage', handleStorageChange)
-  }, [session])
-
-  // Save subcategory preference to localStorage when it changes (for persistence across page loads)
-  useEffect(() => {
-    localStorage.setItem('enableSubcategories', JSON.stringify(enableSubcategories))
-    console.log('💾 Saved subcategory preference:', enableSubcategories)
-  }, [enableSubcategories])
+  // All preference and subscription management is now handled by useUserState hook
 
   // Fetch spending categories
   useEffect(() => {
@@ -753,7 +580,7 @@ export function SpendingForm() {
   }
 
   const updatePointValue = async (newValue: number) => {
-    setPointValue(newValue)
+    await userState.updatePointValue(newValue)
     
     // Only recalculate if we have results and points/best_overall is selected
     if (recommendations.length > 0 && (rewardPreference === 'points' || rewardPreference === 'best_overall')) {
@@ -848,31 +675,13 @@ export function SpendingForm() {
       console.log('ℹ️ Subscription tier still loading, allowing preference change without validation')
     }
     
-    console.log('🎯 Profile: Allowing preference change to:', newPreference)
-    setRewardPreference(newPreference)
-    // Save to localStorage for persistence across tab switches
-    localStorage.setItem('rewardPreference', newPreference)
+    console.log('🎯 SpendingForm: Allowing preference change to:', newPreference)
+    const result = await userState.updateRewardPreference(newPreference)
     
-    // CRITICAL FIX: Also save to database if user is logged in
-    if (session?.user?.email) {
-      try {
-        const response = await fetch('/api/user/preferences', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rewardPreference: newPreference }),
-        })
-        
-        if (response.ok) {
-          const data = await response.json()
-          console.log('🎯 Profile: Preferences saved successfully:', data)
-          // Mark preferences as updated for session refresh
-          localStorage.setItem('preferences-updated', Date.now().toString())
-        } else {
-          console.error('🎯 Profile: Failed to save preference, status:', response.status)
-        }
-      } catch (error) {
-        console.error('🎯 Profile: Error saving preference:', error)
-      }
+    if (!result.success) {
+      console.error('🎯 SpendingForm: Failed to save preference')
+    } else {
+      console.log('🎯 SpendingForm: Preference saved successfully')
     }
   }
 
@@ -931,7 +740,7 @@ export function SpendingForm() {
               )}
             </div>
             <button
-              onClick={() => setEnableSubcategories(!enableSubcategories)}
+              onClick={() => userState.updateSubcategoryPreference(!enableSubcategories)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
                 enableSubcategories 
                   ? 'bg-blue-600' 
