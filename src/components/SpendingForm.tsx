@@ -194,144 +194,86 @@ export function SpendingForm() {
   // Load user preferences from session with localStorage backup and subscription validation
   useEffect(() => {
     const loadUserPreferences = async () => {
-      if (!isMounted) return // Wait for hydration
-      
-      // Prevent running during session updates to avoid overwriting preferences
-      if (status === 'loading') {
-        console.log('ℹ️ Session loading, skipping preference validation to prevent overwrites')
+      if (!session?.user?.email) {
+        console.log('⚠️ No session available for preference loading')
         return
       }
-      
-      if (session?.user) {
-        // CRITICAL FIX: Load preferences from database, not session (which can be stale)
+
+      try {
+        console.log('🔄 Loading user preferences from API first...')
+        
         const loadPreferencesFromAPI = async () => {
-          try {
-            const response = await fetch('/api/user/preferences', {
-              headers: { 'Cache-Control': 'no-cache' }
-            })
-            
-            if (response.ok) {
-              const data = await response.json()
-              console.log('✅ Loaded fresh preferences from API:', data)
-              return {
-                rewardPreference: data.rewardPreference || 'cashback',
-                pointValue: data.pointValue || 0.01,
-                enableSubCategories: data.enableSubCategories || false
-              }
-            } else {
-              console.warn('⚠️ Failed to load preferences from API, using session data')
-              return null
-            }
-          } catch (error) {
-            console.error('❌ Error loading preferences from API:', error)
+          const response = await fetch('/api/user/preferences', {
+            headers: { 'Cache-Control': 'no-cache' }
+          })
+          
+          if (response.ok) {
+            const data = await response.json()
+            console.log('✅ Loaded fresh preferences from API:', data)
+            return data
+          } else {
+            console.warn('⚠️ Failed to load preferences from API, status:', response.status)
             return null
           }
         }
-        
-        // Try to load from API first, fallback to session
+
+        // ALWAYS load from API first (database is source of truth)
         const freshPrefs = await loadPreferencesFromAPI()
         
-        let newRewardPreference = freshPrefs?.rewardPreference || session.user.rewardPreference as any || 'cashback'
-        const newPointValue = freshPrefs?.pointValue || session.user.pointValue || 0.01
-        let newEnableSubcategories = freshPrefs?.enableSubCategories || session.user.enableSubCategories || false
-        
-        // SAFEGUARD: Check localStorage for user's explicit subcategory preference
-        // If user has manually set subcategories to false, respect that over database value
-        const localSubcategoriesPref = localStorage.getItem('enableSubcategories')
-        if (localSubcategoriesPref !== null) {
-          const localPref = JSON.parse(localSubcategoriesPref)
-          if (localPref === false && newEnableSubcategories === true) {
-            console.log('🛡️ User has explicitly disabled subcategories locally, respecting user preference over database')
-            newEnableSubcategories = false
-            // Update database to match user preference
-            fetch('/api/user/preferences', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ enableSubCategories: false }),
-            }).catch(error => console.error('Failed to sync subcategory preference:', error))
-          }
-        }
-        
-        console.log('🔍 Preference validation check:', {
-          userSubscriptionTier,
-          newRewardPreference,
-          sessionEmail: session?.user?.email,
-          shouldValidate: userSubscriptionTier !== null,
-          currentRewardPreference: rewardPreference,
-          sessionUpdating: localStorage.getItem('preferences-updated') !== null,
-          enableSubcategories: { current: enableSubcategories, new: newEnableSubcategories }
-        })
-        
-        // Don't validate if preferences are currently being updated
-        if (localStorage.getItem('preferences-updated')) {
-          console.log('ℹ️ Preferences are being updated, skipping validation to prevent conflicts')
-          return
-        }
-        
-        if (userSubscriptionTier !== null && userSubscriptionTier === 'free' && (newRewardPreference === 'points' || newRewardPreference === 'best_overall')) {
-          console.warn(`⚠️ User has ${newRewardPreference} preference but free tier - resetting to cashback`)
-          newRewardPreference = 'cashback'
-          // Update the database to fix the invalid state
-          fetch('/api/user/preferences', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ rewardPreference: 'cashback' }),
-          }).catch(error => console.error('Failed to reset invalid preference:', error))
-        } else if (userSubscriptionTier === null) {
-          // If subscription tier is still loading, don't validate yet - just load the preference
-          console.log('ℹ️ Subscription tier still loading, deferring preference validation for:', newRewardPreference)
-        } else if (userSubscriptionTier === 'premium') {
-          console.log('✅ Premium user - allowing all preferences:', newRewardPreference)
-        }
-        
-        // Only update if values have actually changed to avoid unnecessary re-renders
-        // Also check if we're not reverting to a less privileged preference
-        if (rewardPreference !== newRewardPreference) {
-          // Extra protection: don't downgrade from premium preference to cashback if user is premium
-          if (userSubscriptionTier === 'premium' && rewardPreference === 'points' && newRewardPreference === 'cashback') {
-            console.warn('🚫 Prevented downgrade from points to cashback for premium user - possible stale session data')
-            return
-          }
+        if (freshPrefs) {
+                  // Use fresh database preferences
+        const newRewardPreference = (freshPrefs.rewardPreference as 'cashback' | 'points' | 'best_overall') || 'cashback'
+        const newPointValue = freshPrefs.pointValue || 0.01
+        const newEnableSubcategories = freshPrefs.enableSubCategories || false
           
-          console.log(`🔄 Updating reward preference from "${rewardPreference}" to "${newRewardPreference}"`)
-          setRewardPreference(newRewardPreference)
-          // Backup to localStorage for tab switching persistence
-          localStorage.setItem('rewardPreference', newRewardPreference)
+          console.log('📊 Fresh preferences loaded:', {
+            rewardPreference: newRewardPreference,
+            pointValue: newPointValue,
+            enableSubCategories: newEnableSubcategories
+          })
+
+          // Update all states with fresh data
+          if (rewardPreference !== newRewardPreference) {
+            console.log(`🔄 Updating reward preference from "${rewardPreference}" to "${newRewardPreference}"`)
+            setRewardPreference(newRewardPreference)
+          }
+
+          if (pointValue !== newPointValue) {
+            console.log(`🔄 Updating point value from ${pointValue} to ${newPointValue}`)
+            setPointValue(newPointValue)
+          }
+
+          if (enableSubcategories !== newEnableSubcategories) {
+            console.log(`🔄 Updating subcategories preference from "${enableSubcategories}" to "${newEnableSubcategories}"`)
+            setEnableSubcategories(newEnableSubcategories)
+            localStorage.setItem('enableSubcategories', JSON.stringify(newEnableSubcategories))
+          }
+
+          // Clear any conflicting localStorage data
+          localStorage.removeItem('rewardPreference')
+          localStorage.removeItem('pointValue')
         } else {
-          console.log(`ℹ️ Reward preference unchanged: "${rewardPreference}"`)
+          // Fallback to session/localStorage only if API fails completely
+          console.log('⚠️ API failed, using session/localStorage fallback')
+          
+          // Use session data as fallback
+          const sessionRewardPref = (session.user.rewardPreference as 'cashback' | 'points' | 'best_overall') || 'cashback'
+          const sessionPointValue = session.user.pointValue || 0.01
+          const sessionSubcategories = session.user.enableSubCategories || false
+          
+          if (rewardPreference !== sessionRewardPref) {
+            setRewardPreference(sessionRewardPref)
+          }
+          if (pointValue !== sessionPointValue) {
+            setPointValue(sessionPointValue)
+          }
+          if (enableSubcategories !== sessionSubcategories) {
+            setEnableSubcategories(sessionSubcategories)
+            localStorage.setItem('enableSubcategories', JSON.stringify(sessionSubcategories))
+          }
         }
-        if (pointValue !== newPointValue) {
-          setPointValue(newPointValue)
-          localStorage.setItem('pointValue', newPointValue.toString())
-        }
-        if (enableSubcategories !== newEnableSubcategories) {
-          console.log(`🔄 Updating subcategories preference from "${enableSubcategories}" to "${newEnableSubcategories}"`)
-          setEnableSubcategories(newEnableSubcategories)
-          localStorage.setItem('enableSubcategories', JSON.stringify(newEnableSubcategories))
-        }
-      } else if (status === 'unauthenticated') {
-        // For users without a session, load from localStorage or use defaults
-        let savedRewardPref = localStorage.getItem('rewardPreference') as any || 'cashback'
-        const savedPointValue = parseFloat(localStorage.getItem('pointValue') || '0.01')
-        const savedSubcategories = JSON.parse(localStorage.getItem('enableSubcategories') || 'false')
-        
-        // FIXED: Don't override premium preferences for authenticated users who temporarily lose session
-        // Only force cashback for truly anonymous users (no localStorage preferences)
-        const hasStoredPreferences = localStorage.getItem('rewardPreference') !== null
-        if (!hasStoredPreferences && (savedRewardPref === 'points' || savedRewardPref === 'best_overall')) {
-          savedRewardPref = 'cashback'
-          localStorage.setItem('rewardPreference', 'cashback')
-        }
-        
-        if (rewardPreference !== savedRewardPref) {
-          setRewardPreference(savedRewardPref)
-        }
-        if (pointValue !== savedPointValue) {
-          setPointValue(savedPointValue)
-        }
-        if (enableSubcategories !== savedSubcategories) {
-          setEnableSubcategories(savedSubcategories)
-        }
+      } catch (error) {
+        console.error('❌ Error loading user preferences:', error)
       }
     }
     
@@ -502,23 +444,7 @@ export function SpendingForm() {
     return () => window.removeEventListener('storage', handleStorageChange)
   }, [session])
 
-  // Load subcategory preference from localStorage and session
-  useEffect(() => {
-    if (!isMounted) return // Wait for hydration
-    
-    // First check localStorage for immediate persistence
-    const savedSubcategoryPref = localStorage.getItem('enableSubcategories')
-    if (savedSubcategoryPref !== null) {
-      setEnableSubcategories(JSON.parse(savedSubcategoryPref))
-    }
-    
-    // Then override with user session preference if available
-    if (session?.user?.enableSubCategories !== undefined) {
-      setEnableSubcategories(session.user.enableSubCategories)
-    }
-  }, [session, isMounted])
-
-  // Save subcategory preference to localStorage when it changes
+  // Save subcategory preference to localStorage when it changes (for persistence across page loads)
   useEffect(() => {
     localStorage.setItem('enableSubcategories', JSON.stringify(enableSubcategories))
     console.log('💾 Saved subcategory preference:', enableSubcategories)
