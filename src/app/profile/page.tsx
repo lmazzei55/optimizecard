@@ -39,15 +39,8 @@ export default function Profile() {
   const { rewardPreference, pointValue, enableSubCategories } = userState.preferences
   const { subscriptionTier: userSubscriptionTier } = userState
 
-  useEffect(() => {
-    if (session?.user) {
-      userState.updatePreferences({
-        rewardPreference: session.user.rewardPreference as any || 'cashback',
-        pointValue: session.user.pointValue || 0.01,
-        enableSubCategories: session.user.enableSubCategories || false
-      })
-    }
-  }, [session])
+  // Removed useEffect that was overwriting userState with stale session data
+  // userState now manages its own initialization from API/localStorage
 
   // Fetch all cards and owned cards
   useEffect(() => {

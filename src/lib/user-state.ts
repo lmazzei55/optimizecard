@@ -94,6 +94,8 @@ class UserStateManager {
     this.saveToLocalStorage()
     this.notifyListeners()
     
+    console.log('💾 UserState: Preferences updated locally:', preferences)
+    
     // If offline, just save locally and return
     if (!this.state.isOnline) {
       console.log('📴 UserState: Offline, preferences saved locally only')
@@ -201,6 +203,8 @@ class UserStateManager {
       localStorage.setItem('rewardPreference', this.state.rewardPreference)
       localStorage.setItem('pointValue', this.state.pointValue.toString())
       localStorage.setItem('enableSubCategories', JSON.stringify(this.state.enableSubCategories))
+      
+      console.log('💾 UserState: Saved to localStorage:', dataToSave)
     } catch (error) {
       console.warn('⚠️ UserState: Failed to save to localStorage:', error)
     }
