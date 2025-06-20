@@ -44,21 +44,23 @@ export async function GET() {
   } catch (error: any) {
     console.error('❌ Preferences API Error:', error)
     
+    // CRITICAL: Don't return fallback data that conflicts with saved preferences
+    // Instead, return proper error codes so frontend can handle appropriately
+    
     // Enhanced error handling for database connection issues
     if (error?.code === 'P2010' || 
+        error?.code === 'P1001' ||
         error?.code === '42P05' || 
         error?.message?.includes('prepared statement') || 
-        error?.message?.includes('connection')) {
-      console.error('Database connection pool issue detected')
+        error?.message?.includes('connection') ||
+        error?.message?.includes('timeout')) {
+      console.error('🔌 Database connection issue in preferences API')
       return NextResponse.json(
         { 
           error: 'Database temporarily unavailable',
-          rewardPreference: 'cashback',  // Default fallback - lowercase to match schema
-          pointValue: 0.01,
-          enableSubCategories: false,
-          fallback: true
+          code: 'DB_CONNECTION_ERROR'
         },
-        { status: 200 }
+        { status: 503 }  // Service Unavailable instead of 200
       )
     }
     
@@ -185,12 +187,18 @@ export async function POST(request: NextRequest) {
     
     // Enhanced error handling for database connection issues
     if (error?.code === 'P2010' || 
+        error?.code === 'P1001' ||
         error?.code === '42P05' || 
         error?.message?.includes('prepared statement') || 
-        error?.message?.includes('connection')) {
+        error?.message?.includes('connection') ||
+        error?.message?.includes('timeout')) {
+      console.error('🔌 Database connection issue in preferences update')
       return NextResponse.json(
-        { error: 'Database temporarily unavailable', fallback: true },
-        { status: 200 }
+        { 
+          error: 'Database temporarily unavailable', 
+          code: 'DB_CONNECTION_ERROR'
+        },
+        { status: 503 }  // Service Unavailable instead of 200
       )
     }
     

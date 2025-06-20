@@ -1,298 +1,308 @@
-// Centralized User State Management
-// This eliminates all conflicts between localStorage, session, and database
-
-export interface UserPreferences {
+interface UserPreferences {
   rewardPreference: 'cashback' | 'points' | 'best_overall'
   pointValue: number
   enableSubCategories: boolean
 }
 
-export interface UserState {
-  preferences: UserPreferences
+interface UserStateData extends UserPreferences {
   subscriptionTier: 'free' | 'premium' | null
-  ownedCardIds: string[]
+  lastUpdated: number
+  isOnline: boolean
   isLoading: boolean
-  lastSyncTime: number
 }
 
-// Global state - single source of truth
-let userState: UserState = {
-  preferences: {
+class UserStateManager {
+  private state: UserStateData = {
     rewardPreference: 'cashback',
     pointValue: 0.01,
-    enableSubCategories: false
-  },
-  subscriptionTier: null,
-  ownedCardIds: [],
-  isLoading: false,
-  lastSyncTime: 0
-}
-
-// Event system for state changes
-type StateListener = (state: UserState) => void
-const listeners: StateListener[] = []
-
-export function subscribeToUserState(listener: StateListener): () => void {
-  listeners.push(listener)
-  return () => {
-    const index = listeners.indexOf(listener)
-    if (index > -1) {
-      listeners.splice(index, 1)
+    enableSubCategories: false,
+    subscriptionTier: null,
+    lastUpdated: 0,
+    isOnline: typeof window !== 'undefined' ? navigator.onLine : true,
+    isLoading: false
+  }
+  
+  private listeners: Set<(state: UserStateData) => void> = new Set()
+  private retryCount = 0
+  private maxRetries = 3
+  private retryDelay = 2000
+  
+  constructor() {
+    // Only add event listeners in browser environment
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', () => {
+        this.state.isOnline = true
+        this.retryCount = 0
+        this.notifyListeners()
+        this.syncWithServer()
+      })
+      
+      window.addEventListener('offline', () => {
+        this.state.isOnline = false
+        this.notifyListeners()
+      })
     }
   }
-}
 
-function notifyListeners() {
-  listeners.forEach(listener => listener({ ...userState }))
-}
-
-// Core state management functions
-export function getUserState(): UserState {
-  return { ...userState }
-}
-
-export function getPreferences(): UserPreferences {
-  return { ...userState.preferences }
-}
-
-export function getSubscriptionTier(): 'free' | 'premium' | null {
-  return userState.subscriptionTier
-}
-
-export function canAccessPremiumFeatures(): boolean {
-  return userState.subscriptionTier === 'premium'
-}
-
-// CRITICAL: Single function to load state from all sources with proper priority
-export async function loadUserState(session?: any): Promise<UserState> {
-  console.log('🔄 Loading user state with session:', !!session?.user?.email)
-  
-  userState.isLoading = true
-  notifyListeners()
-
-  try {
-    if (session?.user?.email) {
-      // AUTHENTICATED USER: Database is source of truth
-      console.log('👤 Authenticated user - loading from database')
-      
-      // Load preferences from database
-      const prefsResponse = await fetch('/api/user/preferences', {
-        headers: { 'Cache-Control': 'no-cache' }
-      })
-      
-      if (prefsResponse.ok) {
-        const prefs = await prefsResponse.json()
-        userState.preferences = {
-          rewardPreference: prefs.rewardPreference || 'cashback',
-          pointValue: prefs.pointValue || 0.01,
-          enableSubCategories: prefs.enableSubCategories || false
-        }
-        console.log('✅ Loaded preferences from database:', userState.preferences)
-      } else {
-        console.warn('⚠️ Failed to load preferences from database, using defaults')
-      }
-
-      // Load subscription tier
-      const subResponse = await fetch('/api/user/subscription', {
-        headers: { 'Cache-Control': 'no-cache' }
-      })
-      
-      if (subResponse.ok) {
-        const sub = await subResponse.json()
-        userState.subscriptionTier = sub.tier || 'free'
-        console.log('✅ Loaded subscription tier:', userState.subscriptionTier)
-      } else {
-        userState.subscriptionTier = 'free'
-        console.warn('⚠️ Failed to load subscription tier, defaulting to free')
-      }
-
-      // Load owned cards
-      const cardsResponse = await fetch('/api/user/cards')
-      if (cardsResponse.ok) {
-        const cards = await cardsResponse.json()
-        userState.ownedCardIds = cards.ownedCardIds || []
-        console.log('✅ Loaded owned cards:', userState.ownedCardIds.length)
-      }
-
-      // Clear any conflicting localStorage data
-      localStorage.removeItem('rewardPreference')
-      localStorage.removeItem('pointValue')
-      localStorage.removeItem('enableSubcategories') // lowercase version
-      localStorage.removeItem('enableSubCategories') // camelCase version
-      
-      // Store clean state in localStorage for offline persistence
-      localStorage.setItem('userState', JSON.stringify({
-        preferences: userState.preferences,
-        subscriptionTier: userState.subscriptionTier,
-        timestamp: Date.now()
-      }))
-      
-    } else {
-      // ANONYMOUS USER: Use localStorage or defaults
-      console.log('👤 Anonymous user - loading from localStorage')
-      
-      const savedState = localStorage.getItem('userState')
-      if (savedState) {
-        try {
-          const parsed = JSON.parse(savedState)
-          // Only use saved state if it's recent (within 1 hour)
-          if (Date.now() - parsed.timestamp < 3600000) {
-            userState.preferences = parsed.preferences || userState.preferences
-            userState.subscriptionTier = 'free' // Anonymous users are always free
-            console.log('✅ Loaded state from localStorage:', userState.preferences)
-          } else {
-            console.log('⏰ Saved state expired, using defaults')
-          }
-        } catch (error) {
-          console.error('❌ Error parsing saved state:', error)
-        }
-      }
-      
-      userState.subscriptionTier = 'free'
-    }
-
-    userState.lastSyncTime = Date.now()
-    userState.isLoading = false
-    notifyListeners()
+  // CRITICAL: Enhanced preference loading with fallback strategy
+  async loadPreferences(email?: string): Promise<UserPreferences> {
+    this.state.isLoading = true
+    this.notifyListeners()
     
-    console.log('✅ User state loaded successfully:', {
-      preferences: userState.preferences,
-      subscriptionTier: userState.subscriptionTier,
-      isAuthenticated: !!session?.user?.email
-    })
-    
-    return { ...userState }
-    
-  } catch (error) {
-    console.error('❌ Error loading user state:', error)
-    userState.isLoading = false
-    notifyListeners()
-    return { ...userState }
-  }
-}
-
-// Update preferences with proper validation and persistence
-export async function updatePreferences(
-  newPreferences: Partial<UserPreferences>, 
-  session?: any
-): Promise<boolean> {
-  console.log('🔄 Updating preferences:', newPreferences)
-  
-  // Validate premium features
-  if (newPreferences.rewardPreference && 
-      ['points', 'best_overall'].includes(newPreferences.rewardPreference) &&
-      userState.subscriptionTier !== 'premium') {
-    console.error('❌ Premium features require subscription')
-    return false
-  }
-
-  // Update local state immediately for UI responsiveness
-  userState.preferences = { ...userState.preferences, ...newPreferences }
-  notifyListeners()
-
-  try {
-    if (session?.user?.email) {
-      // Save to database for authenticated users
-      const response = await fetch('/api/user/preferences', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newPreferences)
-      })
-
+    try {
+      const response = await fetch('/api/user/preferences')
+      
       if (response.ok) {
-        console.log('✅ Preferences saved to database')
+        const data = await response.json()
         
-        // Update localStorage cache
-        localStorage.setItem('userState', JSON.stringify({
-          preferences: userState.preferences,
-          subscriptionTier: userState.subscriptionTier,
-          timestamp: Date.now()
-        }))
-        
-        return true
+        // CRITICAL: Only update state if we got real data (not fallback)
+        if (!data.fallback) {
+          this.state.rewardPreference = data.rewardPreference
+          this.state.pointValue = data.pointValue
+          this.state.enableSubCategories = data.enableSubCategories
+          this.state.lastUpdated = Date.now()
+          this.retryCount = 0
+          
+          this.saveToLocalStorage()
+          this.notifyListeners()
+          
+          console.log('✅ UserState: Loaded fresh preferences from API:', data)
+          return data
+        } else {
+          console.warn('⚠️ UserState: API returned fallback data, using cached/localStorage')
+        }
+      } else if (response.status === 503) {
+        console.warn('⚠️ UserState: Database temporarily unavailable, using cached data')
       } else {
-        console.error('❌ Failed to save preferences to database')
-        return false
+        console.error('❌ UserState: API error:', response.status)
       }
-    } else {
-      // Save to localStorage for anonymous users
-      localStorage.setItem('userState', JSON.stringify({
-        preferences: userState.preferences,
-        subscriptionTier: 'free',
-        timestamp: Date.now()
-      }))
-      console.log('✅ Preferences saved to localStorage')
+    } catch (error) {
+      console.error('❌ UserState: Network error loading preferences:', error)
+    } finally {
+      this.state.isLoading = false
+      this.notifyListeners()
+    }
+
+    return this.loadFromLocalStorage()
+  }
+
+  // CRITICAL: Enhanced preference saving with retry logic
+  async savePreferences(preferences: Partial<UserPreferences>): Promise<boolean> {
+    // Update local state immediately for responsive UI
+    Object.assign(this.state, preferences)
+    this.state.lastUpdated = Date.now()
+    this.saveToLocalStorage()
+    this.notifyListeners()
+    
+    // If offline, just save locally and return
+    if (!this.state.isOnline) {
+      console.log('📴 UserState: Offline, preferences saved locally only')
       return true
     }
-  } catch (error) {
-    console.error('❌ Error updating preferences:', error)
+
+    // Try to save to server with retry logic
+    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+      try {
+        const response = await fetch('/api/user/preferences', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(preferences),
+        })
+
+        if (response.ok) {
+          console.log('✅ UserState: Preferences saved to server successfully')
+          this.retryCount = 0
+          return true
+        } else if (response.status === 503) {
+          console.warn(`⚠️ UserState: Database unavailable (attempt ${attempt}/${this.maxRetries})`)
+          if (attempt < this.maxRetries) {
+            await this.delay(this.retryDelay * attempt)
+            continue
+          }
+        } else if (response.status === 403) {
+          console.error('❌ UserState: Premium subscription required')
+          return false
+        } else {
+          console.error('❌ UserState: Server error:', response.status)
+          return false
+        }
+      } catch (error) {
+        console.error(`❌ UserState: Network error (attempt ${attempt}/${this.maxRetries}):`, error)
+        if (attempt < this.maxRetries) {
+          await this.delay(this.retryDelay * attempt)
+          continue
+        }
+      }
+    }
+
+    console.warn('⚠️ UserState: Failed to save to server after retries, kept local changes')
     return false
   }
-}
 
-// Update subscription tier
-export function updateSubscriptionTier(tier: 'free' | 'premium'): void {
-  userState.subscriptionTier = tier
-  notifyListeners()
-  
-  // Update localStorage cache
-  const savedState = localStorage.getItem('userState')
-  if (savedState) {
+  // CRITICAL: Enhanced subscription loading with premium status protection
+  async loadSubscriptionTier(): Promise<'free' | 'premium'> {
     try {
-      const parsed = JSON.parse(savedState)
-      parsed.subscriptionTier = tier
-      parsed.timestamp = Date.now()
-      localStorage.setItem('userState', JSON.stringify(parsed))
+      const response = await fetch('/api/user/subscription')
+      
+      if (response.ok) {
+        const data = await response.json()
+        
+        // CRITICAL: Protect premium status - don't downgrade due to temporary issues
+        if (data.tier === 'premium' || (!data.fallback && data.tier)) {
+          this.state.subscriptionTier = data.tier
+          this.notifyListeners()
+          console.log('✅ UserState: Subscription tier loaded:', data.tier)
+          return data.tier
+        } else if (data.fallback) {
+          // If it's a fallback response, keep current tier if it's premium
+          if (this.state.subscriptionTier === 'premium') {
+            console.log('🛡️ UserState: Protecting premium status during database issues')
+            return 'premium'
+          }
+        }
+      } else if (response.status === 503) {
+        // Database unavailable - protect premium status
+        if (this.state.subscriptionTier === 'premium') {
+          console.log('🛡️ UserState: Database unavailable, protecting premium status')
+          return 'premium'
+        }
+      }
     } catch (error) {
-      console.error('❌ Error updating subscription tier in localStorage:', error)
+      console.error('❌ UserState: Error loading subscription:', error)
+      // Protect premium status during network issues
+      if (this.state.subscriptionTier === 'premium') {
+        console.log('🛡️ UserState: Network error, protecting premium status')
+        return 'premium'
+      }
+    }
+
+    // Default to free only if we've never detected premium
+    const defaultTier = this.state.subscriptionTier || 'free'
+    this.state.subscriptionTier = defaultTier
+    this.notifyListeners()
+    return defaultTier
+  }
+
+  // Enhanced local storage operations
+  private saveToLocalStorage(): void {
+    if (typeof window === 'undefined') return
+    
+    try {
+      const dataToSave = {
+        rewardPreference: this.state.rewardPreference,
+        pointValue: this.state.pointValue,
+        enableSubCategories: this.state.enableSubCategories,
+        subscriptionTier: this.state.subscriptionTier,
+        lastUpdated: this.state.lastUpdated
+      }
+      localStorage.setItem('userState', JSON.stringify(dataToSave))
+      
+      // Also save individual items for backward compatibility
+      localStorage.setItem('rewardPreference', this.state.rewardPreference)
+      localStorage.setItem('pointValue', this.state.pointValue.toString())
+      localStorage.setItem('enableSubCategories', JSON.stringify(this.state.enableSubCategories))
+    } catch (error) {
+      console.warn('⚠️ UserState: Failed to save to localStorage:', error)
     }
   }
-}
 
-// Validate preference change
-export function validatePreferenceChange(newPreference: 'cashback' | 'points' | 'best_overall'): {
-  allowed: boolean
-  requiresUpgrade: boolean
-} {
-  if (newPreference === 'cashback') {
-    return { allowed: true, requiresUpgrade: false }
-  }
+  private loadFromLocalStorage(): UserPreferences {
+    if (typeof window === 'undefined') {
+      return {
+        rewardPreference: 'cashback',
+        pointValue: 0.01,
+        enableSubCategories: false
+      }
+    }
+    
+    try {
+      const saved = localStorage.getItem('userState')
+      if (saved) {
+        const data = JSON.parse(saved)
+        
+        // Update state with saved data
+        this.state.rewardPreference = data.rewardPreference || 'cashback'
+        this.state.pointValue = data.pointValue || 0.01
+        this.state.enableSubCategories = data.enableSubCategories || false
+        this.state.subscriptionTier = data.subscriptionTier || this.state.subscriptionTier
+        this.state.lastUpdated = data.lastUpdated || 0
+        
+        console.log('📂 UserState: Loaded from localStorage:', data)
+        this.notifyListeners()
+        
+        return {
+          rewardPreference: this.state.rewardPreference,
+          pointValue: this.state.pointValue,
+          enableSubCategories: this.state.enableSubCategories
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ UserState: Failed to load from localStorage:', error)
+    }
 
-  const isPremium = canAccessPremiumFeatures()
-  return {
-    allowed: isPremium,
-    requiresUpgrade: !isPremium
-  }
-}
-
-// Clear all state (for logout)
-export function clearUserState(): void {
-  userState = {
-    preferences: {
+    // Return defaults if localStorage failed
+    return {
       rewardPreference: 'cashback',
       pointValue: 0.01,
       enableSubCategories: false
-    },
-    subscriptionTier: null,
-    ownedCardIds: [],
-    isLoading: false,
-    lastSyncTime: 0
+    }
   }
-  
-  // Clear all localStorage
-  localStorage.removeItem('userState')
-  localStorage.removeItem('rewardPreference')
-  localStorage.removeItem('pointValue')
-  localStorage.removeItem('enableSubcategories')
-  localStorage.removeItem('enableSubCategories')
-  localStorage.removeItem('preferences-updated')
-  
-  notifyListeners()
-  console.log('🧹 User state cleared')
+
+  // Sync with server when connection is restored
+  private async syncWithServer(): Promise<void> {
+    if (!this.state.isOnline) return
+
+    try {
+      await this.loadPreferences()
+      await this.loadSubscriptionTier()
+      console.log('🔄 UserState: Synced with server after reconnection')
+    } catch (error) {
+      console.warn('⚠️ UserState: Failed to sync with server:', error)
+    }
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms))
+  }
+
+  private notifyListeners(): void {
+    this.listeners.forEach(listener => {
+      try {
+        listener({ ...this.state })
+      } catch (error) {
+        console.error('❌ UserState: Error in listener:', error)
+      }
+    })
+  }
+
+  // Public API methods
+  updatePreferences(preferences: Partial<UserPreferences>): void {
+    this.savePreferences(preferences)
+  }
+
+  getState(): UserStateData {
+    return { ...this.state }
+  }
+
+  subscribe(listener: (state: UserStateData) => void): () => void {
+    this.listeners.add(listener)
+    return () => this.listeners.delete(listener)
+  }
+
+  // Initialize the state manager
+  async initialize(email?: string): Promise<void> {
+    console.log('🚀 UserState: Initializing...')
+    
+    // Load preferences and subscription tier in parallel
+    await Promise.all([
+      this.loadPreferences(email),
+      this.loadSubscriptionTier()
+    ])
+    
+    console.log('✅ UserState: Initialized with state:', this.getState())
+  }
 }
 
-// Force refresh from database (for manual sync)
-export async function refreshUserState(session?: any): Promise<void> {
-  console.log('🔄 Force refreshing user state')
-  await loadUserState(session)
-} 
+// Export singleton instance and types
+export const userState = new UserStateManager()
+export type { UserPreferences, UserStateData } 

@@ -19,20 +19,35 @@ if (process.env.NODE_ENV === 'production') {
   process.on('beforeExit', async () => {
     await prisma.$disconnect()
   })
+  
+  // CRITICAL: Enhanced Prisma client for better stability
+  prisma = new PrismaClient({
+    log: ['query'],
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL,
+      },
+    },
+  })
 }
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
 
-// Retry wrapper for database operations with exponential backoff
+// Enhanced retry wrapper with better error categorization
 export async function withRetry<T>(
   operation: () => Promise<T>,
-  maxRetries: number = 3,
-  baseDelay: number = 100
+  maxRetries: number = 5, // Increased from 3
+  baseDelay: number = 200  // Increased from 100
 ): Promise<T> {
   let lastError: Error | undefined
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
+      // Force connection refresh on first retry
+      if (attempt === 2) {
+        await prisma.$connect()
+      }
+      
       return await operation()
     } catch (error) {
       lastError = error as Error
@@ -41,19 +56,50 @@ export async function withRetry<T>(
       if (
         lastError.message.includes('unique constraint') ||
         lastError.message.includes('foreign key constraint') ||
-        lastError.message.includes('not found')
+        lastError.message.includes('not found') ||
+        lastError.message.includes('Invalid')
       ) {
         throw lastError
       }
 
+      // Enhanced detection of connection issues
+      const isConnectionIssue = 
+        lastError.message.includes('connection') ||
+        lastError.message.includes('timeout') ||
+        lastError.message.includes('ECONNREFUSED') ||
+        lastError.message.includes('ENOTFOUND') ||
+        lastError.message.includes('prepared statement') ||
+        (lastError as any).code === 'P1001' ||
+        (lastError as any).code === 'P2010' ||
+        (lastError as any).code === '42P05'
+
       if (attempt === maxRetries) {
-        console.error(`Database operation failed after ${maxRetries} attempts:`, lastError.message)
+        console.error(`❌ Database operation failed after ${maxRetries} attempts:`, {
+          message: lastError.message,
+          code: (lastError as any).code,
+          isConnectionIssue
+        })
         throw lastError
       }
 
-      // Exponential backoff with jitter
-      const delay = baseDelay * Math.pow(2, attempt - 1) + Math.random() * 100
-      console.warn(`Database operation failed (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms...`)
+      // Enhanced exponential backoff with jitter
+      const delay = Math.min(baseDelay * Math.pow(2, attempt - 1) + Math.random() * 200, 5000)
+      console.warn(`⚠️ Database operation failed (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms...`, {
+        error: lastError.message,
+        code: (lastError as any).code
+      })
+      
+      // Force reconnection for connection issues
+      if (isConnectionIssue && attempt > 1) {
+        try {
+          await prisma.$disconnect()
+          await new Promise(resolve => setTimeout(resolve, 100))
+          await prisma.$connect()
+        } catch (reconnectError) {
+          console.warn('⚠️ Reconnection attempt failed:', reconnectError)
+        }
+      }
+      
       await new Promise(resolve => setTimeout(resolve, delay))
     }
   }

@@ -141,9 +141,12 @@ export default function Profile() {
         const errorData = await response.json().catch(() => ({}))
         console.error('❌ Error details:', errorData)
         
-        // Show user-friendly error message but don't break the app
-        // The premium status should remain intact
-        alert('Failed to update cards. Please try again. Your premium status is still active.')
+        // CRITICAL: Show better error message based on error type
+        if (response.status === 500 && errorData?.details?.includes('connection')) {
+          alert('Database connection issue. Your card selection has been saved locally and will sync when the connection is restored. Your premium status remains active.')
+        } else {
+          alert('Failed to update cards. Please try again. Your premium status is still active.')
+        }
       }
     } catch (error) {
       console.error('❌ Error updating owned cards:', error)
