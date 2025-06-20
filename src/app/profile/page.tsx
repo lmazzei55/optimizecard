@@ -42,9 +42,14 @@ export default function Profile() {
   // Removed useEffect that was overwriting userState with stale session data
   // userState now manages its own initialization from API/localStorage
 
-  // Fetch all cards and owned cards
+  // Track if we've fetched cards to avoid duplicate fetches
+  const [hasFetchedCards, setHasFetchedCards] = useState(false)
+
+  // Fetch cards when component mounts or becomes visible again
   useEffect(() => {
     const fetchCards = async () => {
+      // Reset the flag to allow refetch
+      setHasFetchedCards(true)
       if (!session?.user?.id && !session?.user?.email) {
         console.log('🔍 Profile: No session user ID or email, skipping card fetch')
         setIsLoadingCards(false)
@@ -109,8 +114,23 @@ export default function Profile() {
       }
     }
 
+    // Always fetch cards when component mounts
     fetchCards()
-  }, [session?.user?.id])
+    
+    // Also fetch cards when page becomes visible again
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && session?.user?.email) {
+        console.log('🔄 Page became visible, refreshing cards...')
+        fetchCards()
+      }
+    }
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [session?.user?.email]) // Changed dependency to email which is more stable
 
   const handleUpdateCards = async () => {
     if (!session?.user?.id && !session?.user?.email) return

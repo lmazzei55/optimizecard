@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { prisma, withRetry, resetPrismaClient } from '@/lib/prisma'
 
 // GET: Fetch all available cards and user's owned cards
 export async function GET() {
@@ -10,65 +10,31 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get all available cards with retry logic
-    let allCards: any[] = []
-    let retryCount = 0
-    const maxRetries = 3
-    
-    while (retryCount < maxRetries) {
-      try {
-        allCards = await prisma.creditCard.findMany({
-          // Remove isActive filter if it doesn't exist in the database
-          select: {
-            id: true,
-            name: true,
-            issuer: true,
-            annualFee: true,
-            rewardType: true,
-            applicationUrl: true,
-          },
-          orderBy: [
-            { issuer: 'asc' },
-            { name: 'asc' }
-          ]
-        })
-        break // Success, exit retry loop
-      } catch (dbError) {
-        retryCount++
-        console.warn(`⚠️ Database retry ${retryCount}/${maxRetries} for cards:`, dbError)
-        if (retryCount === maxRetries) {
-          throw dbError // Re-throw after max retries
-        }
-        await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second before retry
-      }
-    }
-
-    // Get user's owned cards, auto-create if needed
-    let user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      include: {
-        ownedCards: {
-          include: {
-            card: true
-          }
-        }
-      }
+    // Get all available cards with enhanced retry logic
+    const allCards = await withRetry(async () => {
+      return await prisma.creditCard.findMany({
+        where: {
+          isActive: true
+        },
+        select: {
+          id: true,
+          name: true,
+          issuer: true,
+          annualFee: true,
+          rewardType: true,
+          applicationUrl: true,
+        },
+        orderBy: [
+          { issuer: 'asc' },
+          { name: 'asc' }
+        ]
+      })
     })
 
-    // Auto-create user if they don't exist
-    if (!user) {
-      console.log('❌ User not found for cards, auto-creating:', session.user.email)
-      user = await prisma.user.create({
-        data: {
-          email: session.user.email,
-          name: session.user.name || session.user.email.split('@')[0],
-          image: session.user.image,
-          rewardPreference: 'cashback',
-          pointValue: 0.01,
-          enableSubCategories: false,
-          subscriptionTier: 'premium', // Set as premium since you're a paying customer
-          subscriptionStatus: 'active'
-        },
+    // Get user's owned cards, auto-create if needed
+    let user = await withRetry(async () => {
+      return await prisma.user.findUnique({
+        where: { email: session.user.email! },
         include: {
           ownedCards: {
             include: {
@@ -77,10 +43,36 @@ export async function GET() {
           }
         }
       })
+    })
+
+    // Auto-create user if they don't exist
+    if (!user) {
+      console.log('❌ User not found for cards, auto-creating:', session.user.email)
+      user = await withRetry(async () => {
+        return await prisma.user.create({
+          data: {
+            email: session.user.email!,
+            name: session.user.name || session.user.email!.split('@')[0],
+            image: session.user.image || null,
+            rewardPreference: 'cashback',
+            pointValue: 0.01,
+            enableSubCategories: false,
+            subscriptionTier: 'premium', // Set as premium since you're a paying customer
+            subscriptionStatus: 'active'
+          },
+          include: {
+            ownedCards: {
+              include: {
+                card: true
+              }
+            }
+          }
+        })
+      })
       console.log('✅ Auto-created premium user for cards:', session.user.email)
     }
 
-    const ownedCardIds = user?.ownedCards?.map(uc => uc.cardId) || []
+    const ownedCardIds = user?.ownedCards?.map((uc: any) => uc.cardId) || []
 
     console.log(`✅ Cards API: Found ${allCards.length} total cards, ${ownedCardIds.length} owned by user`)
     
@@ -94,6 +86,16 @@ export async function GET() {
     
     // CRITICAL FIX: Don't return fallback data for authenticated users
     // Instead, return a proper error so the frontend can handle it appropriately
+    
+    // Check if it's a prepared statement conflict (common in serverless)
+    if (error?.code === '42P05' || error?.message?.includes('prepared statement')) {
+      console.error('🔄 Prepared statement conflict in cards API, resetting client...')
+      await resetPrismaClient()
+      return NextResponse.json(
+        { error: 'Database connection reset, please try again', code: 'PREPARED_STATEMENT_CONFLICT' },
+        { status: 503 }
+      )
+    }
     
     // Check if it's a database connection issue
     if (error?.code === 'P1001' || error?.message?.includes('connection') || error?.message?.includes('timeout')) {
@@ -123,43 +125,51 @@ export async function POST(request: NextRequest) {
     const { ownedCardIds }: { ownedCardIds: string[] } = await request.json()
 
     // Remove all existing owned cards for this user
-    await prisma.userCard.deleteMany({
-      where: {
-        user: {
-          email: session.user.email
+    await withRetry(async () => {
+      return await prisma.userCard.deleteMany({
+        where: {
+          user: {
+            email: session.user.email!
+          }
         }
-      }
+      })
     })
 
     // Add the new owned cards
     if (ownedCardIds.length > 0) {
-      let user = await prisma.user.findUnique({
-        where: { email: session.user.email }
+      let user = await withRetry(async () => {
+        return await prisma.user.findUnique({
+          where: { email: session.user.email! }
+        })
       })
 
       // Auto-create user if they don't exist
       if (!user) {
         console.log('❌ User not found for card update, auto-creating:', session.user.email)
-        user = await prisma.user.create({
-          data: {
-            email: session.user.email,
-            name: session.user.name || session.user.email.split('@')[0],
-            image: session.user.image,
-            rewardPreference: 'cashback',
-            pointValue: 0.01,
-            enableSubCategories: false,
-            subscriptionTier: 'premium', // Set as premium since you're a paying customer
-            subscriptionStatus: 'active'
-          }
+        user = await withRetry(async () => {
+          return await prisma.user.create({
+            data: {
+              email: session.user.email!,
+              name: session.user.name || session.user.email!.split('@')[0],
+              image: session.user.image || null,
+              rewardPreference: 'cashback',
+              pointValue: 0.01,
+              enableSubCategories: false,
+              subscriptionTier: 'premium', // Set as premium since you're a paying customer
+              subscriptionStatus: 'active'
+            }
+          })
         })
         console.log('✅ Auto-created premium user for card update:', session.user.email)
       }
 
-      await prisma.userCard.createMany({
-        data: ownedCardIds.map(cardId => ({
-          userId: user.id,
-          cardId
-        }))
+      await withRetry(async () => {
+        return await prisma.userCard.createMany({
+          data: ownedCardIds.map(cardId => ({
+            userId: user!.id,
+            cardId
+          }))
+        })
       })
     }
 
@@ -169,6 +179,16 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('❌ Cards Update Error:', error)
+    
+    // Check if it's a prepared statement conflict (common in serverless)
+    if (error?.code === '42P05' || error?.message?.includes('prepared statement')) {
+      console.error('🔄 Prepared statement conflict in cards update, resetting client...')
+      await resetPrismaClient()
+      return NextResponse.json(
+        { error: 'Database connection reset, please try again', code: 'PREPARED_STATEMENT_CONFLICT' },
+        { status: 503 }
+      )
+    }
     
     // Check if it's a database connection issue
     if (error?.code === 'P1001' || error?.message?.includes('connection') || error?.message?.includes('timeout')) {
