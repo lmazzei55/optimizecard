@@ -2,94 +2,94 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { 
-  loadUserState, 
-  getUserState, 
+import {
+  getUserState,
+  loadUserState,
+  updatePreferences,
+  updateSubscriptionTier,
   subscribeToUserState,
-  saveUserPreferences,
-  saveOwnedCards,
   validatePreferenceChange,
-  canAccessPremiumFeatures
+  canAccessPremiumFeatures,
+  type UserState,
+  type UserPreferences
 } from '@/lib/user-state'
-
-interface UserState {
-  preferences: {
-    rewardPreference: 'cashback' | 'points' | 'best_overall'
-    pointValue: number
-    enableSubCategories: boolean
-  }
-  subscriptionTier: 'free' | 'premium' | null
-  ownedCardIds: string[]
-  isLoading: boolean
-}
 
 export function useUserState() {
   const { data: session, status } = useSession()
   const [state, setState] = useState<UserState>(getUserState())
-
-  // Load user state when session is available
-  useEffect(() => {
-    if (status === 'authenticated' && session?.user?.email) {
-      console.log('🔄 useUserState: Loading state for user:', session.user.email)
-      loadUserState(session.user.email)
-    } else if (status === 'unauthenticated') {
-      console.log('🔄 useUserState: User unauthenticated, using defaults')
-      // Reset to defaults for unauthenticated users
-      setState({
-        preferences: {
-          rewardPreference: 'cashback',
-          pointValue: 0.01,
-          enableSubCategories: false
-        },
-        subscriptionTier: 'free',
-        ownedCardIds: [],
-        isLoading: false
-      })
-    }
-  }, [session?.user?.email, status])
+  const [isInitialized, setIsInitialized] = useState(false)
 
   // Subscribe to state changes
   useEffect(() => {
-    const unsubscribe = subscribeToUserState((newState) => {
-      setState(newState)
-    })
-
+    const unsubscribe = subscribeToUserState(setState)
     return unsubscribe
   }, [])
 
-  // Helper functions
-  const updatePreference = async (key: keyof UserState['preferences'], value: any): Promise<boolean> => {
-    if (key === 'rewardPreference') {
-      const validation = validatePreferenceChange(value)
-      if (!validation.allowed) {
-        console.warn('🚫 useUserState: Premium feature requires upgrade:', value)
-        return false
-      }
+  // Initialize state when session is ready
+  useEffect(() => {
+    if (status === 'loading') return // Wait for session to load
+
+    const initializeState = async () => {
+      console.log('🚀 Initializing user state, authenticated:', !!session?.user?.email)
+      await loadUserState(session)
+      setIsInitialized(true)
     }
 
-    const success = await saveUserPreferences({ [key]: value })
-    return success
+    if (!isInitialized) {
+      initializeState()
+    }
+  }, [session, status, isInitialized])
+
+  // Helper functions for components
+  const updateRewardPreference = async (newPreference: 'cashback' | 'points' | 'best_overall') => {
+    const validation = validatePreferenceChange(newPreference)
+    
+    if (!validation.allowed) {
+      console.warn('❌ Preference change not allowed:', newPreference)
+      return { success: false, requiresUpgrade: validation.requiresUpgrade }
+    }
+
+    const success = await updatePreferences({ rewardPreference: newPreference }, session)
+    return { success, requiresUpgrade: false }
   }
 
-  const updateOwnedCards = async (cardIds: string[]): Promise<boolean> => {
-    const success = await saveOwnedCards(cardIds)
-    return success
+  const updatePointValue = async (newValue: number) => {
+    if (newValue < 0.005 || newValue > 0.05) {
+      console.error('❌ Invalid point value:', newValue)
+      return false
+    }
+
+    return await updatePreferences({ pointValue: newValue }, session)
   }
 
-  const canUsePremiumFeatures = (): boolean => {
-    return canAccessPremiumFeatures()
+  const updateSubcategoryPreference = async (enabled: boolean) => {
+    return await updatePreferences({ enableSubCategories: enabled }, session)
+  }
+
+  const refreshState = async () => {
+    console.log('🔄 Manually refreshing user state')
+    await loadUserState(session)
   }
 
   return {
     // State
-    ...state,
-    isAuthenticated: status === 'authenticated',
-    
+    preferences: state.preferences,
+    subscriptionTier: state.subscriptionTier,
+    ownedCardIds: state.ownedCardIds,
+    isLoading: state.isLoading || !isInitialized,
+    lastSyncTime: state.lastSyncTime,
+
+    // Computed values
+    isAuthenticated: !!session?.user?.email,
+    canAccessPremium: canAccessPremiumFeatures(),
+
     // Actions
-    updatePreference,
-    updateOwnedCards,
-    canUsePremiumFeatures,
-    
+    updateRewardPreference,
+    updatePointValue,
+    updateSubcategoryPreference,
+    updateSubscriptionTier,
+    refreshState,
+
     // Validation
     validatePreferenceChange
   }

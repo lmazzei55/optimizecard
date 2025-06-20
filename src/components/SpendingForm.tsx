@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
@@ -11,6 +11,7 @@ import { UpgradePrompt } from './UpgradePrompt'
 import { warmupManager } from '@/lib/warmup-manager'
 import { RecommendationItem } from './RecommendationItem'
 import { useRouter } from 'next/navigation'
+import { useUserState } from '@/hooks/useUserState'
 
 interface SpendingCategory {
   id: string
@@ -81,11 +82,12 @@ interface CardCustomization {
 }
 
 export function SpendingForm() {
-  const { data: session, status, update: updateSession } = useSession()
+  const { data: session, status } = useSession()
+  const userState = useUserState()
+  const router = useRouter()
+  
   const [categories, setCategories] = useState<SpendingCategory[]>([])
   const [spending, setSpending] = useState<UserSpending[]>([])
-  const [rewardPreference, setRewardPreference] = useState<'cashback' | 'points' | 'best_overall'>('cashback')
-  const [pointValue, setPointValue] = useState(0.01)
   const [loading, setLoading] = useState(true)
   const [calculating, setCalculating] = useState(false)
   const [recalculating, setRecalculating] = useState(false)
@@ -95,9 +97,6 @@ export function SpendingForm() {
   const [error, setError] = useState<string | null>(null)
   const [isWarming, setIsWarming] = useState(false)
   const [systemReady, setSystemReady] = useState(false)
-  
-  // Subcategory support
-  const [enableSubcategories, setEnableSubcategories] = useState(false)
   
   // Card customization modal state
   const [customizationOpen, setCustomizationOpen] = useState(false)
@@ -110,13 +109,14 @@ export function SpendingForm() {
   const [upgradePromptOpen, setUpgradePromptOpen] = useState(false)
   const [upgradePromptFeature, setUpgradePromptFeature] = useState('')
   const [upgradePromptDescription, setUpgradePromptDescription] = useState('')
-  const [userSubscriptionTier, setUserSubscriptionTier] = useState<'free' | 'premium' | null>(null)
 
   // Track if we've loaded initial data to prevent conflicts
   const [initialDataLoaded, setInitialDataLoaded] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
 
-  const router = useRouter()
+  // Extract preferences from centralized state (eliminates all conflicts)
+  const { rewardPreference, pointValue, enableSubCategories: enableSubcategories } = userState.preferences
+  const { subscriptionTier: userSubscriptionTier } = userState
 
   // Enhanced warmup system with global state management
   const warmupAPIs = async () => {
@@ -191,95 +191,7 @@ export function SpendingForm() {
   // The navigation refresh was creating an infinite loop of API calls
   // Instead, rely on the existing subscription check intervals
 
-  // Load user preferences from session with localStorage backup and subscription validation
-  useEffect(() => {
-    const loadUserPreferences = async () => {
-      if (!session?.user?.email) {
-        console.log('⚠️ No session available for preference loading')
-        return
-      }
-
-      try {
-        console.log('🔄 Loading user preferences from API first...')
-        
-        const loadPreferencesFromAPI = async () => {
-          const response = await fetch('/api/user/preferences', {
-            headers: { 'Cache-Control': 'no-cache' }
-          })
-          
-          if (response.ok) {
-            const data = await response.json()
-            console.log('✅ Loaded fresh preferences from API:', data)
-            return data
-          } else {
-            console.warn('⚠️ Failed to load preferences from API, status:', response.status)
-            return null
-          }
-        }
-
-        // ALWAYS load from API first (database is source of truth)
-        const freshPrefs = await loadPreferencesFromAPI()
-        
-        if (freshPrefs) {
-                  // Use fresh database preferences
-        const newRewardPreference = (freshPrefs.rewardPreference as 'cashback' | 'points' | 'best_overall') || 'cashback'
-        const newPointValue = freshPrefs.pointValue || 0.01
-        const newEnableSubcategories = freshPrefs.enableSubCategories || false
-          
-          console.log('📊 Fresh preferences loaded:', {
-            rewardPreference: newRewardPreference,
-            pointValue: newPointValue,
-            enableSubCategories: newEnableSubcategories
-          })
-
-          // Update all states with fresh data
-          if (rewardPreference !== newRewardPreference) {
-            console.log(`🔄 Updating reward preference from "${rewardPreference}" to "${newRewardPreference}"`)
-            setRewardPreference(newRewardPreference)
-          }
-
-          if (pointValue !== newPointValue) {
-            console.log(`🔄 Updating point value from ${pointValue} to ${newPointValue}`)
-            setPointValue(newPointValue)
-          }
-
-          if (enableSubcategories !== newEnableSubcategories) {
-            console.log(`🔄 Updating subcategories preference from "${enableSubcategories}" to "${newEnableSubcategories}"`)
-            setEnableSubcategories(newEnableSubcategories)
-            localStorage.setItem('enableSubcategories', JSON.stringify(newEnableSubcategories))
-          }
-
-          // Clear any conflicting localStorage data
-          localStorage.removeItem('rewardPreference')
-          localStorage.removeItem('pointValue')
-        } else {
-          // Fallback to session/localStorage only if API fails completely
-          console.log('⚠️ API failed, using session/localStorage fallback')
-          
-          // Use session data as fallback
-          const sessionRewardPref = (session.user.rewardPreference as 'cashback' | 'points' | 'best_overall') || 'cashback'
-          const sessionPointValue = session.user.pointValue || 0.01
-          const sessionSubcategories = session.user.enableSubCategories || false
-          
-          if (rewardPreference !== sessionRewardPref) {
-            setRewardPreference(sessionRewardPref)
-          }
-          if (pointValue !== sessionPointValue) {
-            setPointValue(sessionPointValue)
-          }
-          if (enableSubcategories !== sessionSubcategories) {
-            setEnableSubcategories(sessionSubcategories)
-            localStorage.setItem('enableSubcategories', JSON.stringify(sessionSubcategories))
-          }
-        }
-      } catch (error) {
-        console.error('❌ Error loading user preferences:', error)
-      }
-    }
-    
-    // Call the async function
-    loadUserPreferences()
-  }, [session, status, isMounted, userSubscriptionTier])
+  // Preferences are now managed by useUserState hook - no manual loading needed
 
   // Check for preference updates from localStorage
   useEffect(() => {
