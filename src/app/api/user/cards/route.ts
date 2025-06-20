@@ -18,7 +18,7 @@ export async function GET() {
     while (retryCount < maxRetries) {
       try {
         allCards = await prisma.creditCard.findMany({
-          where: { isActive: true },
+          // Remove isActive filter if it doesn't exist in the database
           select: {
             id: true,
             name: true,
