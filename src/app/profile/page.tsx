@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
+import Link from 'next/link'
 import { Header } from '@/components/Header'
 import { Button } from '@/components/ui/button'
 import { UpgradePrompt } from '@/components/UpgradePrompt'
@@ -13,6 +14,7 @@ interface CreditCard {
   name: string
   issuer: string
   rewardType: 'cashback' | 'points'
+  annualFee?: number
 }
 
 export default function Profile() {
@@ -42,8 +44,7 @@ export default function Profile() {
       userState.updatePreferences({
         rewardPreference: session.user.rewardPreference as any || 'cashback',
         pointValue: session.user.pointValue || 0.01,
-        enableSubCategories: session.user.enableSubCategories || false,
-        subscriptionTier: (session.user.subscriptionTier as any) || 'free'
+        enableSubCategories: session.user.enableSubCategories || false
       })
     }
   }, [session])

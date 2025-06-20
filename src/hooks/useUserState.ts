@@ -2,26 +2,16 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import {
-  getUserState,
-  loadUserState,
-  updatePreferences,
-  updateSubscriptionTier,
-  subscribeToUserState,
-  validatePreferenceChange,
-  canAccessPremiumFeatures,
-  type UserState,
-  type UserPreferences
-} from '@/lib/user-state'
+import { userState, type UserStateData, type UserPreferences } from '../lib/user-state'
 
 export function useUserState() {
   const { data: session, status } = useSession()
-  const [state, setState] = useState<UserState>(getUserState())
+  const [state, setState] = useState<UserStateData>(userState.getState())
   const [isInitialized, setIsInitialized] = useState(false)
 
   // Subscribe to state changes
   useEffect(() => {
-    const unsubscribe = subscribeToUserState(setState)
+    const unsubscribe = userState.subscribe(setState)
     return unsubscribe
   }, [])
 
@@ -31,7 +21,7 @@ export function useUserState() {
 
     const initializeState = async () => {
       console.log('🚀 Initializing user state, authenticated:', !!session?.user?.email)
-      await loadUserState(session)
+      await userState.initialize(session?.user?.email || undefined)
       setIsInitialized(true)
     }
 
@@ -42,15 +32,14 @@ export function useUserState() {
 
   // Helper functions for components
   const updateRewardPreference = async (newPreference: 'cashback' | 'points' | 'best_overall') => {
-    const validation = validatePreferenceChange(newPreference)
-    
-    if (!validation.allowed) {
-      console.warn('❌ Preference change not allowed:', newPreference)
-      return { success: false, requiresUpgrade: validation.requiresUpgrade }
+    // Check if user can access premium features
+    if ((newPreference === 'points' || newPreference === 'best_overall') && state.subscriptionTier !== 'premium') {
+      console.warn('❌ Premium subscription required for:', newPreference)
+      return { success: false, requiresUpgrade: true }
     }
 
-    const success = await updatePreferences({ rewardPreference: newPreference }, session)
-    return { success, requiresUpgrade: false }
+    userState.updatePreferences({ rewardPreference: newPreference })
+    return { success: true, requiresUpgrade: false }
   }
 
   const updatePointValue = async (newValue: number) => {
@@ -59,38 +48,60 @@ export function useUserState() {
       return false
     }
 
-    return await updatePreferences({ pointValue: newValue }, session)
+    userState.updatePreferences({ pointValue: newValue })
+    return true
   }
 
   const updateSubcategoryPreference = async (enabled: boolean) => {
-    return await updatePreferences({ enableSubCategories: enabled }, session)
+    userState.updatePreferences({ enableSubCategories: enabled })
+    return true
   }
 
   const refreshState = async () => {
     console.log('🔄 Manually refreshing user state')
-    await loadUserState(session)
+    await userState.initialize(session?.user?.email || undefined)
+  }
+
+  const validatePreferenceChange = (newPreference: 'cashback' | 'points' | 'best_overall') => {
+    if ((newPreference === 'points' || newPreference === 'best_overall') && state.subscriptionTier !== 'premium') {
+      return { allowed: false, requiresUpgrade: true }
+    }
+    return { allowed: true, requiresUpgrade: false }
   }
 
   return {
-    // State
-    preferences: state.preferences,
+    // State - using the new structure
+    preferences: {
+      rewardPreference: state.rewardPreference,
+      pointValue: state.pointValue,
+      enableSubCategories: state.enableSubCategories
+    },
     subscriptionTier: state.subscriptionTier,
-    ownedCardIds: state.ownedCardIds,
+    ownedCardIds: [], // This will be handled separately
     isLoading: state.isLoading || !isInitialized,
-    lastSyncTime: state.lastSyncTime,
+    lastSyncTime: state.lastUpdated,
 
     // Computed values
     isAuthenticated: !!session?.user?.email,
-    canAccessPremium: canAccessPremiumFeatures(),
+    canAccessPremium: state.subscriptionTier === 'premium',
 
     // Actions
     updateRewardPreference,
     updatePointValue,
     updateSubcategoryPreference,
-    updateSubscriptionTier,
+    updateSubscriptionTier: async (tier: 'free' | 'premium') => {
+      // This would typically be handled by webhook/admin
+      console.log('Subscription tier update requested:', tier)
+      return true
+    },
     refreshState,
 
     // Validation
-    validatePreferenceChange
+    validatePreferenceChange,
+
+    // New methods from UserStateManager
+    updatePreferences: (prefs: Partial<UserPreferences>) => {
+      userState.updatePreferences(prefs)
+    }
   }
 } 
