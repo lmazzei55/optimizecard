@@ -14,22 +14,40 @@ const SPENDING_CATEGORIES = [
   { name: 'Other', description: 'All other purchases' },
 ] as const
 
-// Subcategories Data
+// Subcategories Data - Updated June 2025
 const SUBCATEGORIES = [
   // Online Shopping
   { name: 'Amazon', description: 'Amazon.com purchases', parent: 'Online Shopping' },
   { name: 'Whole Foods', description: 'Whole Foods Market', parent: 'Groceries' },
   { name: 'Walmart.com', description: 'Walmart.com purchases', parent: 'Online Shopping' },
-  // Travel
-  { name: 'Airfare', description: 'Airline tickets and airfare', parent: 'Travel' },
-  { name: 'Hotels', description: 'Hotel bookings', parent: 'Travel' },
-  { name: 'Car Rental', description: 'Car rental agencies', parent: 'Travel' },
-  { name: 'Rideshare', description: 'Uber, Lyft, and other rideshare', parent: 'Travel' },
-  // Entertainment
+  
+  // Travel - Enhanced with portal vs direct booking distinctions
+  { name: 'Flights (Direct)', description: 'Flights booked directly with airlines', parent: 'Travel' },
+  { name: 'Flights (Portal)', description: 'Flights booked through credit card travel portals', parent: 'Travel' },
+  { name: 'Hotels (Direct)', description: 'Hotels booked directly with hotel chains', parent: 'Travel' },
+  { name: 'Hotels (Portal)', description: 'Hotels booked through credit card travel portals', parent: 'Travel' },
+  { name: 'Car Rental (Direct)', description: 'Car rentals booked directly with rental companies', parent: 'Travel' },
+  { name: 'Car Rental (Portal)', description: 'Car rentals booked through credit card travel portals', parent: 'Travel' },
+  { name: 'Cruises', description: 'Cruise bookings and cruise lines', parent: 'Travel' },
+  { name: 'Transit', description: 'Public transportation, trains, buses', parent: 'Travel' },
+  { name: 'Vacation Rentals', description: 'Airbnb, VRBO, and vacation rental platforms', parent: 'Travel' },
+  { name: 'Rideshare', description: 'Uber, Lyft, and other rideshare services', parent: 'Travel' },
+  
+  // Entertainment - Expanded
   { name: 'Streaming', description: 'Video and music streaming services', parent: 'Entertainment' },
-  // Dining
-  { name: 'Fast Food', description: 'Fast food restaurants', parent: 'Dining' },
-  { name: 'Coffee Shops', description: 'Coffee shops and cafes', parent: 'Dining' },
+  { name: 'Prime Video', description: 'Amazon Prime Video rentals and purchases', parent: 'Entertainment' },
+  { name: 'Concerts & Events', description: 'Concert tickets, sporting events, theater', parent: 'Entertainment' },
+  
+  // Dining - Enhanced categories
+  { name: 'Fine Dining', description: 'Upscale restaurants and fine dining establishments', parent: 'Dining' },
+  { name: 'Fast Food', description: 'Quick service and fast food restaurants', parent: 'Dining' },
+  { name: 'Coffee Shops', description: 'Coffee shops, cafes, and specialty coffee', parent: 'Dining' },
+  { name: 'Food Delivery', description: 'Food delivery services like DoorDash, Uber Eats', parent: 'Dining' },
+  { name: 'Bars & Nightlife', description: 'Bars, pubs, and nightlife establishments', parent: 'Dining' },
+  
+  // Groceries - More specific
+  { name: 'Supermarkets', description: 'Traditional grocery stores and supermarkets', parent: 'Groceries' },
+  { name: 'Warehouse Clubs', description: 'Costco, Sam\'s Club, BJ\'s Wholesale', parent: 'Groceries' },
 ] as const
 
 // Card Benefits Data
@@ -45,21 +63,63 @@ const CARD_BENEFITS = {
     {
       name: 'Priority Pass Lounge Access',
       description: 'Unlimited airport lounge access worldwide (Priority Pass Select)',
-      annualValue: 429, // Value of Priority Pass Select membership
+      annualValue: 429,
       category: 'travel',
       isRecurring: true,
     },
     {
       name: 'TSA PreCheck/Global Entry Credit',
-      description: '$100 credit every 4 years for application fee',
-      annualValue: 25, // $100 every 4 years
+      description: '$120 credit every 4 years for application fee',
+      annualValue: 30, // $120 every 4 years (updated June 2025)
+      category: 'travel',
+      isRecurring: true,
+    },
+    {
+      name: '$500 The Edit Hotel Credit',
+      description: 'Up to $500 annually for prepaid bookings with The Edit (Chase\'s luxury hotel collection)',
+      annualValue: 500, // NEW June 2025
+      category: 'travel',
+      isRecurring: true,
+    },
+    {
+      name: '$300 Dining Credit',
+      description: 'Up to $300 annually at Sapphire Reserve Exclusive Tables restaurants',
+      annualValue: 300, // NEW June 2025
+      category: 'dining',
+      isRecurring: true,
+    },
+    {
+      name: '$300 StubHub Credit',
+      description: 'Up to $300 annually for concert and event tickets on StubHub',
+      annualValue: 300, // NEW June 2025
+      category: 'entertainment',
+      isRecurring: true,
+    },
+    {
+      name: '$250 Apple Services Credit',
+      description: 'Annual credit for Apple TV+ and Apple Music subscriptions',
+      annualValue: 250, // NEW June 2025
+      category: 'entertainment',
+      isRecurring: true,
+    },
+    {
+      name: '$120 Peloton Credit',
+      description: 'Up to $120 annually toward Peloton memberships',
+      annualValue: 120, // NEW June 2025
+      category: 'fitness',
+      isRecurring: true,
+    },
+    {
+      name: 'IHG Platinum Elite Status',
+      description: 'Complimentary IHG One Rewards Platinum Elite status',
+      annualValue: 200, // NEW June 2025
       category: 'travel',
       isRecurring: true,
     },
     {
       name: 'Primary Rental Car Insurance',
       description: 'Primary auto rental collision damage waiver worldwide',
-      annualValue: 150, // Estimated value for frequent travelers
+      annualValue: 150,
       category: 'insurance',
       isRecurring: true,
     },
@@ -113,27 +173,34 @@ const CARD_BENEFITS = {
       name: '$120 Uber Cash',
       description: '$10 monthly Uber Cash for Uber rides and Uber Eats',
       annualValue: 120,
+      category: 'transportation',
+      isRecurring: true,
+    },
+    {
+      name: '$120 Dining Credit',
+      description: 'Up to $10 monthly at Grubhub, The Cheesecake Factory, Goldbelly, Wine.com, and Five Guys',
+      annualValue: 120, // Updated June 2025
       category: 'dining',
       isRecurring: true,
     },
     {
-      name: '$120 Entertainment Credit',
-      description: '$10 monthly credit for eligible entertainment subscriptions',
-      annualValue: 120,
-      category: 'entertainment',
-      isRecurring: true,
-    },
-    {
-      name: 'Dining Credits with Grubhub+',
-      description: 'Complimentary Grubhub+ membership and monthly credits',
-      annualValue: 60,
+      name: '$100 Resy Credit',
+      description: 'Up to $100 annually for dining at U.S. Resy restaurants',
+      annualValue: 100, // NEW June 2025
       category: 'dining',
       isRecurring: true,
     },
     {
-      name: 'Hotel Elite Status',
-      description: 'Hilton Honors Gold Status and Marriott Bonvoy Gold Elite Status',
-      annualValue: 150, // Conservative estimate
+      name: '$84 Dunkin\' Credit',
+      description: 'Up to $7 monthly statement credits at U.S. Dunkin\' locations',
+      annualValue: 84, // NEW June 2025
+      category: 'dining',
+      isRecurring: true,
+    },
+    {
+      name: 'Hotel Collection Benefits',
+      description: '$100 complimentary credit and room upgrades at The Hotel Collection properties',
+      annualValue: 150,
       category: 'travel',
       isRecurring: true,
     },
@@ -260,20 +327,26 @@ const CREDIT_CARDS = [
     id: 'chase-sapphire-reserve',
     name: 'Chase Sapphire Reserve',
     issuer: 'Chase',
-    annualFee: 550,
+    annualFee: 795, // Updated June 2025 - increased from $550
     baseReward: 1,
     rewardType: 'points' as const,
-    pointValue: 0.015,
+    pointValue: 0.015, // With Points Boost, up to 2¢ on select bookings
     signupBonus: 60000,
     signupSpend: 4000,
     signupTimeframe: 3,
     applicationUrl: 'https://creditcards.chase.com/rewards-credit-cards/sapphire-reserve',
     categoryRewards: [
       { category: 'Dining', rewardRate: 3.0 },
-      { category: 'Travel', rewardRate: 3.0 },
-      { subCategory: 'Hotels', rewardRate: 10.0 }, // Example: 10x on hotels booked through portal
-      { subCategory: 'Car Rental', rewardRate: 10.0 },
-      { subCategory: 'Airfare', rewardRate: 5.0 },
+      // Updated June 2025: Travel earning structure changed
+      { category: 'Travel', rewardRate: 1.0 }, // General travel now earns 1x (reduced from 3x)
+      { subCategory: 'Flights (Direct)', rewardRate: 4.0 }, // NEW: 4x on flights booked directly
+      { subCategory: 'Hotels (Direct)', rewardRate: 4.0 }, // NEW: 4x on hotels booked directly
+      { subCategory: 'Flights (Portal)', rewardRate: 8.0 }, // NEW: 8x on flights through Chase Travel
+      { subCategory: 'Hotels (Portal)', rewardRate: 8.0 }, // NEW: 8x on hotels through Chase Travel
+      { subCategory: 'Car Rental (Portal)', rewardRate: 8.0 }, // NEW: 8x on car rentals through Chase Travel
+      { subCategory: 'Cruises', rewardRate: 1.0 }, // Cruises now earn base rate
+      { subCategory: 'Vacation Rentals', rewardRate: 1.0 }, // Vacation rentals now earn base rate
+      { subCategory: 'Transit', rewardRate: 1.0 }, // Transit now earns base rate
     ] as CategoryRewardSeed[],
   },
   {
@@ -295,7 +368,7 @@ const CREDIT_CARDS = [
     name: 'Capital One Venture X',
     issuer: 'Capital One',
     annualFee: 395,
-    baseReward: 2,
+    baseReward: 2, // 2x miles on all purchases
     rewardType: 'points' as const,
     pointValue: 0.01,
     signupBonus: 75000,
@@ -303,20 +376,24 @@ const CREDIT_CARDS = [
     signupTimeframe: 3,
     applicationUrl: 'https://www.capitalone.com/credit-cards/venture-x/',
     categoryRewards: [
-      // General travel booked outside portal earns 5x
-      { category: 'Travel', rewardRate: 5.0 },
-      // Portal bookings on hotels & rental cars earn 10x
-      { subCategory: 'Hotels', rewardRate: 10.0 },
-      { subCategory: 'Car Rental', rewardRate: 10.0 },
-      // Dining earns 2x
-      { category: 'Dining', rewardRate: 2.0 },
+      // Updated June 2025: Corrected actual earning structure
+      { category: 'Travel', rewardRate: 2.0 }, // General travel earns base 2x (not 5x)
+      { subCategory: 'Flights (Direct)', rewardRate: 2.0 }, // Flights booked directly earn 2x
+      { subCategory: 'Hotels (Direct)', rewardRate: 5.0 }, // Hotels booked directly earn 5x
+      { subCategory: 'Car Rental (Direct)', rewardRate: 5.0 }, // Car rentals booked directly earn 5x
+      { subCategory: 'Hotels (Portal)', rewardRate: 10.0 }, // Hotels through portal earn 10x
+      { subCategory: 'Car Rental (Portal)', rewardRate: 10.0 }, // Car rentals through portal earn 10x
+      { subCategory: 'Flights (Portal)', rewardRate: 5.0 }, // Flights through portal earn 5x
+      { subCategory: 'Cruises', rewardRate: 2.0 }, // Cruises earn base rate
+      { subCategory: 'Vacation Rentals', rewardRate: 2.0 }, // Vacation rentals earn base rate
+      { category: 'Dining', rewardRate: 2.0 }, // Dining earns base 2x
     ] as CategoryRewardSeed[],
   },
   {
     id: 'amex-gold',
     name: 'American Express Gold',
     issuer: 'American Express',
-    annualFee: 250,
+    annualFee: 325, // Updated June 2025 - increased from $250
     baseReward: 1,
     rewardType: 'points' as const,
     pointValue: 0.01,
@@ -325,8 +402,12 @@ const CREDIT_CARDS = [
     signupTimeframe: 6,
     applicationUrl: 'https://www.americanexpress.com/us/credit-cards/card/gold-card/',
     categoryRewards: [
-      { category: 'Dining', rewardRate: 4.0 },
-      { category: 'Groceries', rewardRate: 4.0, maxReward: 25000, period: 'yearly' },
+      { category: 'Dining', rewardRate: 4.0, maxReward: 200000, period: 'yearly' }, // 4x up to $50k/year
+      { category: 'Groceries', rewardRate: 4.0, maxReward: 100000, period: 'yearly' }, // 4x up to $25k/year
+      { subCategory: 'Flights (Direct)', rewardRate: 3.0 }, // 3x on flights booked directly
+      { subCategory: 'Hotels (Portal)', rewardRate: 2.0 }, // 2x on hotels through Amex Travel
+      { subCategory: 'Car Rental (Portal)', rewardRate: 2.0 }, // 2x on car rentals through Amex Travel
+      { subCategory: 'Cruises', rewardRate: 2.0 }, // 2x on cruises through Amex Travel
     ],
   },
   {
@@ -390,6 +471,7 @@ const CREDIT_CARDS = [
       { subCategory: 'Whole Foods', rewardRate: 0.05 }, // 5% at Whole Foods - no cap
       { category: 'Dining', rewardRate: 0.02 }, // 2% at restaurants
       { category: 'Gas', rewardRate: 0.02 }, // 2% at gas stations
+      { subCategory: 'Prime Video', rewardRate: 0.05 }, // 5% on Prime Video rentals/purchases
     ] as CategoryRewardSeed[],
   },
   {
@@ -423,7 +505,9 @@ const CREDIT_CARDS = [
     signupTimeframe: 6,
     applicationUrl: 'https://www.americanexpress.com/us/credit-cards/card/platinum-card/',
     categoryRewards: [
-      { subCategory: 'Airfare', rewardRate: 5.0 }, // 5x on flights booked directly with airlines
+      { subCategory: 'Flights (Direct)', rewardRate: 5.0 }, // 5x on flights booked directly with airlines
+      { subCategory: 'Hotels (Portal)', rewardRate: 5.0 }, // 5x on hotels through Fine Hotels + Resorts or The Hotel Collection
+      { subCategory: 'Car Rental (Portal)', rewardRate: 5.0 }, // 5x on car rentals through Amex Travel
     ] as CategoryRewardSeed[],
   },
 ] as const
