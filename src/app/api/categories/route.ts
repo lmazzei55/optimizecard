@@ -1,12 +1,23 @@
 import { NextResponse } from 'next/server'
-import { withRetry } from '@/lib/prisma'
-import { prisma } from '@/lib/prisma'
+import { Pool } from 'pg'
 
 export async function GET() {
+  let client
   try {
-    const categories = await withRetry(async () => {
-      return await prisma.spendingCategory.findMany()
+    // Use PostgreSQL client directly to avoid Prisma prepared statement conflicts
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL
     })
+    
+    client = await pool.connect()
+    
+    const result = await client.query(`
+      SELECT id, name, description, "createdAt"
+      FROM "SpendingCategory"
+      ORDER BY name ASC
+    `)
+    
+    const categories = result.rows
     
     // Order by importance (most common spending categories first)
     const categoryOrder = [
@@ -47,30 +58,13 @@ export async function GET() {
   } catch (error: any) {
     console.error('❌ Categories API Error:', error)
     
-    // Check if it's a prepared statement conflict
-    if (error?.code === '42P05' || error?.message?.includes('prepared statement')) {
-      console.log('🔄 Prepared statement conflict in categories, attempting client reset...')
-      try {
-        // Try to reset the client and retry once
-        const { resetPrismaClient } = await import('@/lib/prisma')
-        await resetPrismaClient()
-        
-        // Retry the operation once
-        const categories = await prisma.spendingCategory.findMany({
-          orderBy: { name: 'asc' }
-        })
-        
-        console.log(`✅ Categories API: Found ${categories.length} categories after reset`)
-        return NextResponse.json(categories)
-      } catch (retryError) {
-        console.error('❌ Retry after reset failed:', retryError)
-      }
-    }
-    
-    // For other errors, return proper error response
     return NextResponse.json(
       { error: 'Failed to fetch categories', details: error?.message || 'Unknown error' },
       { status: 503 }
     )
+  } finally {
+    if (client) {
+      client.release()
+    }
   }
 } 
