@@ -26,6 +26,7 @@ class UserStateManager {
   private retryCount = 0
   private maxRetries = 3
   private retryDelay = 2000
+  private currentEmail?: string // Store current email for sync operations
   
   constructor() {
     // Only add event listeners in browser environment
@@ -34,7 +35,7 @@ class UserStateManager {
         this.state.isOnline = true
         this.retryCount = 0
         this.notifyListeners()
-        this.syncWithServer()
+        this.syncWithServer(this.currentEmail)
       })
       
       window.addEventListener('offline', () => {
@@ -106,6 +107,12 @@ class UserStateManager {
     
     console.log('💾 UserState: Preferences updated locally:', preferences)
     
+    // Skip API call if user is not authenticated
+    if (!this.currentEmail) {
+      console.log('🔓 UserState: Not authenticated, preferences saved locally only')
+      return true
+    }
+    
     // If offline, just save locally and return
     if (!this.state.isOnline) {
       console.log('📴 UserState: Offline, preferences saved locally only')
@@ -126,7 +133,7 @@ class UserStateManager {
           this.retryCount = 0
           return true
         } else if (response.status === 401) {
-          console.log('🔓 UserState: Not authenticated, preferences saved locally only')
+          console.log('🔓 UserState: Authentication lost, preferences saved locally only')
           return true // Return true since local save succeeded
         } else if (response.status === 503) {
           console.warn(`⚠️ UserState: Database unavailable (attempt ${attempt}/${this.maxRetries})`)
@@ -155,7 +162,15 @@ class UserStateManager {
   }
 
   // CRITICAL: Enhanced subscription loading with authentication check
-  async loadSubscriptionTier(): Promise<'free' | 'premium'> {
+  async loadSubscriptionTier(email?: string): Promise<'free' | 'premium'> {
+    // Skip API call if user is not authenticated
+    if (!email) {
+      console.log('🔓 UserState: No email provided, defaulting to free tier')
+      this.state.subscriptionTier = 'free'
+      this.notifyListeners()
+      return 'free'
+    }
+    
     try {
       const response = await fetch('/api/user/subscription')
       
@@ -272,12 +287,12 @@ class UserStateManager {
   }
 
   // Sync with server when connection is restored
-  private async syncWithServer(): Promise<void> {
+  private async syncWithServer(email?: string): Promise<void> {
     if (!this.state.isOnline) return
 
     try {
-      await this.loadPreferences()
-      await this.loadSubscriptionTier()
+      await this.loadPreferences(email)
+      await this.loadSubscriptionTier(email)
       console.log('🔄 UserState: Synced with server after reconnection')
     } catch (error) {
       console.warn('⚠️ UserState: Failed to sync with server:', error)
@@ -316,12 +331,15 @@ class UserStateManager {
   async initialize(email?: string): Promise<void> {
     console.log('🚀 UserState: Initializing...')
     
+    // Store email for future sync operations
+    this.currentEmail = email
+    
     // Load preferences first
     await this.loadPreferences(email)
     
     // Only load subscription tier if user is authenticated
     if (email) {
-      await this.loadSubscriptionTier()
+      await this.loadSubscriptionTier(email)
     } else {
       console.log('🔓 UserState: No email provided, skipping subscription check')
       this.state.subscriptionTier = 'free'

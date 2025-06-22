@@ -30,6 +30,16 @@ export function useUserState() {
     }
   }, [session, status, isInitialized])
 
+  // One-time fix: Reset subcategories default to false
+  useEffect(() => {
+    const hasResetSubcategories = localStorage.getItem('subcategoriesDefaultReset')
+    if (!hasResetSubcategories && isInitialized) {
+      userState.updatePreferences({ enableSubCategories: false })
+      localStorage.setItem('subcategoriesDefaultReset', 'true')
+      console.log('🔧 Reset subcategories default to false')
+    }
+  }, [isInitialized])
+
   // Helper functions for components
   const updateRewardPreference = async (newPreference: 'cashback' | 'points' | 'best_overall') => {
     // Check if user can access premium features

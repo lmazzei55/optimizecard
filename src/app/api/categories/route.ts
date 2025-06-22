@@ -5,11 +5,40 @@ import { prisma } from '@/lib/prisma'
 export async function GET() {
   try {
     const categories = await withRetry(async () => {
-      return await prisma.spendingCategory.findMany({
-        orderBy: {
-          name: 'asc'
-        }
-      })
+      return await prisma.spendingCategory.findMany()
+    })
+    
+    // Order by importance (most common spending categories first)
+    const categoryOrder = [
+      'Dining',
+      'Groceries', 
+      'Gas',
+      'Travel',
+      'Entertainment',
+      'Shopping',
+      'Transportation',
+      'Financial',
+      'Utilities',
+      'Other',
+      'Bonus',
+      'Insurance'
+    ]
+    
+    categories.sort((a, b) => {
+      const aIndex = categoryOrder.indexOf(a.name)
+      const bIndex = categoryOrder.indexOf(b.name)
+      
+      // If both categories are in the order list, sort by their position
+      if (aIndex !== -1 && bIndex !== -1) {
+        return aIndex - bIndex
+      }
+      
+      // If only one is in the list, prioritize it
+      if (aIndex !== -1) return -1
+      if (bIndex !== -1) return 1
+      
+      // If neither is in the list, sort alphabetically
+      return a.name.localeCompare(b.name)
     })
     
     console.log(`✅ Categories API: Found ${categories.length} categories`)
@@ -18,30 +47,30 @@ export async function GET() {
   } catch (error: any) {
     console.error('❌ Categories API Error:', error)
     
-    // If it's a connection error, return a more specific error with fallback data
-    if (error?.code === 'P2010' || error?.message?.includes('prepared statement') || error?.message?.includes('connection')) {
-      console.error('Database connection pool issue detected')
-      
-      // Return fallback categories to keep the app functional
-      const fallbackCategories = [
-        { id: '1', name: 'Dining', icon: '🍽️' },
-        { id: '2', name: 'Travel', icon: '✈️' },
-        { id: '3', name: 'Gas', icon: '⛽' },
-        { id: '4', name: 'Groceries', icon: '🛒' },
-        { id: '5', name: 'Online Shopping', icon: '🛍️' },
-        { id: '6', name: 'Entertainment', icon: '🎬' },
-        { id: '7', name: 'Other', icon: '💳' }
-      ]
-      
-      return NextResponse.json(fallbackCategories, { 
-        status: 200,
-        headers: { 'X-Fallback-Data': 'true' }
-      })
+    // Check if it's a prepared statement conflict
+    if (error?.code === '42P05' || error?.message?.includes('prepared statement')) {
+      console.log('🔄 Prepared statement conflict in categories, attempting client reset...')
+      try {
+        // Try to reset the client and retry once
+        const { resetPrismaClient } = await import('@/lib/prisma')
+        await resetPrismaClient()
+        
+        // Retry the operation once
+        const categories = await prisma.spendingCategory.findMany({
+          orderBy: { name: 'asc' }
+        })
+        
+        console.log(`✅ Categories API: Found ${categories.length} categories after reset`)
+        return NextResponse.json(categories)
+      } catch (retryError) {
+        console.error('❌ Retry after reset failed:', retryError)
+      }
     }
     
+    // For other errors, return proper error response
     return NextResponse.json(
       { error: 'Failed to fetch categories', details: error?.message || 'Unknown error' },
-      { status: 500 }
+      { status: 503 }
     )
   }
 } 

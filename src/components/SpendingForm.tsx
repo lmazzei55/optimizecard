@@ -108,6 +108,23 @@ export function SpendingForm() {
   const [upgradePromptOpen, setUpgradePromptOpen] = useState(false)
   const [upgradePromptFeature, setUpgradePromptFeature] = useState('')
   const [upgradePromptDescription, setUpgradePromptDescription] = useState('')
+  
+  // Category modal state
+  const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null)
+  
+  // Prevent background scrolling when modal is open
+  useEffect(() => {
+    if (expandedCategoryId) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [expandedCategoryId])
 
   // Track if we've loaded initial data to prevent conflicts
   const [initialDataLoaded, setInitialDataLoaded] = useState(false)
@@ -337,6 +354,23 @@ export function SpendingForm() {
         if (response.status === 401) {
           console.error('Authentication error in fetchCategories')
           // Don't set categories if authentication fails, but don't prevent loading either
+          return
+        }
+        if (response.status === 503) {
+          console.warn('⚠️ Database temporarily unavailable, using fallback categories')
+          // Use minimal fallback categories when database is unavailable
+          const fallbackCategories = [
+            { id: '1', name: 'Dining', description: 'Restaurants and food' },
+            { id: '2', name: 'Travel', description: 'Travel and transportation' },
+            { id: '3', name: 'Gas', description: 'Gas stations' },
+            { id: '4', name: 'Groceries', description: 'Grocery stores' },
+            { id: '5', name: 'Entertainment', description: 'Entertainment and recreation' },
+            { id: '6', name: 'Shopping', description: 'Online and retail shopping' },
+            { id: '7', name: 'Other', description: 'Other purchases' }
+          ]
+          setCategories(fallbackCategories)
+          setError('⚠️ Using basic categories - database temporarily unavailable')
+          setLoading(false)
           return
         }
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -625,22 +659,80 @@ export function SpendingForm() {
   }
 
   const calculateRecommendations = async () => {
-    // Save payload to localStorage then redirect to results page
-    const activeSpending = spending.filter(s => s.monthlySpend > 0)
-    const payload = {
-      userSpending: activeSpending,
-      rewardPreference,
-      pointValue,
-      cardCustomizations,
-    }
-    localStorage.setItem('cc-recommendation-input', JSON.stringify(payload))
-    // also save just the spending array so the wizard is pre-populated when user returns
-    localStorage.setItem('spending-data', JSON.stringify(spending))
-    // small delay to show loading state
     setCalculating(true)
-    setTimeout(() => {
+    setError(null)
+    
+    try {
+      const activeSpending = spending.filter(s => s.monthlySpend > 0)
+      
+      if (activeSpending.length === 0) {
+        setError('Please enter your spending amounts to get recommendations.')
+        return
+      }
+
+      // Save spending data for persistence
+      localStorage.setItem('spending-data', JSON.stringify(spending))
+      
+      // Transform spending data to the format expected by the API
+      const apiSpending = activeSpending.map(spending => ({
+        categoryName: spending.categoryName,
+        monthlySpend: spending.monthlySpend
+      }))
+
+      console.log('🚀 Sending to API:', {
+        userSpending: apiSpending,
+        rewardPreference,
+        pointValue,
+        cardCustomizations
+      })
+
+      // Call the recommendations API
+      const response = await fetch('/api/recommendations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userSpending: apiSpending,
+          rewardPreference,
+          pointValue,
+          cardCustomizations,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.text()
+        throw new Error(`API Error: ${response.status} - ${errorData}`)
+      }
+
+      const data = await response.json()
+      
+      if (!data || !Array.isArray(data) || data.length === 0) {
+        throw new Error('No recommendations found for your spending pattern.')
+      }
+
+      // Store recommendations and navigate to results
+      setRecommendations(data)
+      localStorage.setItem('cc-recommendations', JSON.stringify(data))
+      
+      // Store complete input payload for results page to use
+      const inputPayload = {
+        userSpending: activeSpending, // Store the full spending data with categories
+        rewardPreference,
+        pointValue,
+        cardCustomizations
+      }
+      localStorage.setItem('cc-recommendation-input', JSON.stringify(inputPayload))
+      
+      // Navigate to results page
       router.push('/results')
-    }, 4500)
+      
+    } catch (error) {
+      console.error('Error calculating recommendations:', error)
+      setError(error instanceof Error ? error.message : 'Failed to calculate recommendations. Please try again.')
+    } finally {
+      setCalculating(false)
+    }
   }
 
   const totalMonthlySpend = spending.reduce((sum, s) => sum + s.monthlySpend, 0)
@@ -687,20 +779,45 @@ export function SpendingForm() {
 
   // hydrate spending from localStorage immediately on mount (before interactions)
   useEffect(() => {
+    // First try to load from recommendation input (most recent)
+    const recommendationInput = localStorage.getItem('cc-recommendation-input')
+    if (recommendationInput) {
+      try {
+        const payload = JSON.parse(recommendationInput)
+        if (payload.userSpending && Array.isArray(payload.userSpending) && payload.userSpending.length > 0) {
+          console.log('📂 Loading spending data from recommendation input:', payload.userSpending.length, 'items')
+          setSpending(prev => {
+            // merge by categoryName to preserve categories order
+            return prev.map(item => {
+              const found = payload.userSpending.find((p:any) => p.categoryName === item.categoryName)
+              return found ? { ...item, monthlySpend: found.monthlySpend } : item
+            })
+          })
+          return // Exit early if we found data
+        }
+      } catch (error) {
+        console.warn('⚠️ Failed to parse recommendation input:', error)
+      }
+    }
+    
+    // Fallback to spending-data
     const saved = localStorage.getItem('spending-data')
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
         if (Array.isArray(parsed) && parsed.length > 0) {
+          console.log('📂 Loading spending data from spending-data:', parsed.length, 'items')
           setSpending(prev => {
-            // merge by id to preserve categories order
+            // merge by categoryName to preserve categories order
             return prev.map(item => {
-              const found = parsed.find((p:any)=> p.categoryName===item.categoryName)
+              const found = parsed.find((p:any) => p.categoryName === item.categoryName)
               return found ? { ...item, monthlySpend: found.monthlySpend } : item
             })
           })
         }
-      } catch {}
+      } catch (error) {
+        console.warn('⚠️ Failed to parse spending-data:', error)
+      }
     }
   }, [])
 
@@ -756,17 +873,46 @@ export function SpendingForm() {
           </div>
         </div>
         
-        <div className="grid md:grid-cols-2 gap-8">
+                <div className="grid md:grid-cols-2 gap-8">
           {enableSubcategories ? (
-            // Subcategory mode: group by parent category
+            // Subcategory mode: uniform height cards with scrollable subcategories
             categories.map((category) => (
-              <div key={category.id} className="space-y-4">
-                {/* Parent Category Header */}
-                <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-600 rounded-xl border border-blue-200 dark:border-gray-600">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <div 
+                key={category.id} 
+                className={`h-[32rem] p-6 bg-gray-50/50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600 flex flex-col transition-all duration-200 ${
+                  category.subCategories && category.subCategories.length > 0 
+                    ? 'cursor-pointer hover:bg-gray-100/50 dark:hover:bg-gray-600/50 hover:border-blue-300 dark:hover:border-blue-500 hover:shadow-lg' 
+                    : ''
+                }`}
+                onClick={() => {
+                  if (category.subCategories && category.subCategories.length > 0) {
+                    setExpandedCategoryId(category.id)
+                  }
+                }}
+              >
+                {/* Category Header */}
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
                     {category.name}
+                    {category.subCategories && category.subCategories.length > 0 && (
+                      <span className="ml-2 px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full">
+                        {category.subCategories.length} subcategories
+                      </span>
+                    )}
+                    {category.subCategories && category.subCategories.length > 0 && (
+                      <span className="ml-2 text-blue-500 dark:text-blue-400 opacity-70 group-hover:opacity-100 transition-opacity">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                        </svg>
+                      </span>
+                    )}
                   </h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">{category.description}</p>
+                  {category.subCategories && category.subCategories.length > 0 && (
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 opacity-70 hover:opacity-100 transition-opacity">
+                      💡 Click to expand all subcategories
+                    </p>
+                  )}
                 </div>
                 
                 {/* Main Category Spending */}
@@ -775,21 +921,19 @@ export function SpendingForm() {
                   const amount = currentSpending?.monthlySpend || 0
                   
                   return (
-                    <div className="p-4 bg-gray-50/50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <label className="block text-md font-medium text-gray-900 dark:text-white">
-                            General {category.name}
-                          </label>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Other {category.name.toLowerCase()} not listed below</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                            {formatCurrency(amount)}
-                          </p>
-                        </div>
+                    <div className="mb-4 p-3 bg-white dark:bg-gray-600 rounded-lg border border-gray-200 dark:border-gray-500">
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-sm font-medium text-gray-900 dark:text-white">
+                          General {category.name}
+                        </label>
+                        <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                          {formatCurrency(amount)}
+                        </span>
                       </div>
-
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                        Other {category.name.toLowerCase()} not listed below
+                      </p>
+                      
                       <div className="space-y-2">
                         <Slider
                           value={amount}
@@ -805,7 +949,7 @@ export function SpendingForm() {
                           step="25"
                           value={amount || ''}
                           onChange={(e) => updateSpending(category.id, parseFloat(e.target.value) || 0, false)}
-                          className="w-full px-2 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          className="w-full px-2 py-1 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                           placeholder="0"
                         />
                       </div>
@@ -813,49 +957,79 @@ export function SpendingForm() {
                   )
                 })()}
                 
-                {/* Subcategories */}
-                {category.subCategories && category.subCategories.map((subCategory) => {
-                  const currentSpending = spending.find(s => s.subCategoryId === subCategory.id)
-                  const amount = currentSpending?.monthlySpend || 0
-                  
-                  return (
-                    <div key={subCategory.id} className="p-4 bg-gray-50/50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600 ml-4">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <label className="block text-md font-medium text-gray-900 dark:text-white">
-                            📍 {subCategory.name}
-                          </label>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{subCategory.description}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-lg font-bold text-purple-600 dark:text-purple-400">
-                            {formatCurrency(amount)}
-                          </p>
-                        </div>
+                {/* Subcategories - Scrollable Area */}
+                {category.subCategories && category.subCategories.length > 0 && (
+                  <div className="flex-1 flex flex-col min-h-0">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center flex-1">
+                        <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600"></div>
+                        <span className="px-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Subcategories
+                        </span>
+                        <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600"></div>
                       </div>
-
-                      <div className="space-y-2">
-                        <Slider
-                          value={amount}
-                          onValueChange={(value) => updateSpending(subCategory.id, value, true)}
-                          min={0}
-                          max={2000}
-                          step={25}
-                          className="py-1"
-                        />
-                        <input
-                          type="number"
-                          min="0"
-                          step="25"
-                          value={amount || ''}
-                          onChange={(e) => updateSpending(subCategory.id, parseFloat(e.target.value) || 0, true)}
-                          className="w-full px-2 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
-                          placeholder="0"
-                        />
-                      </div>
+                      {category.subCategories.length > 1 && (
+                        <div className="ml-2 text-xs text-gray-400 dark:text-gray-500 flex items-center">
+                          <span>Scroll</span>
+                          <svg className="w-3 h-3 ml-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      )}
                     </div>
-                  )
-                })}
+                    
+                    <div className="flex-1 overflow-y-auto pr-2 -mr-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent relative">
+                      <div className="grid gap-3 grid-cols-1 pb-2">
+                      {category.subCategories.map((subCategory) => {
+                        const currentSpending = spending.find(s => s.subCategoryId === subCategory.id)
+                        const amount = currentSpending?.monthlySpend || 0
+                        
+                        return (
+                          <div key={subCategory.id} className="p-3 bg-white dark:bg-gray-600 rounded-lg border border-gray-200 dark:border-gray-500">
+                            <div className="flex justify-between items-center mb-2">
+                              <div className="flex-1 min-w-0">
+                                <label className="text-sm font-medium text-gray-900 dark:text-white block truncate">
+                                  📍 {subCategory.name}
+                                </label>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                  {subCategory.description}
+                                </p>
+                              </div>
+                              <span className="text-sm font-bold text-purple-600 dark:text-purple-400 ml-2">
+                                {formatCurrency(amount)}
+                              </span>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Slider
+                                value={amount}
+                                onValueChange={(value) => updateSpending(subCategory.id, value, true)}
+                                min={0}
+                                max={2000}
+                                step={25}
+                                className="py-1"
+                              />
+                              <input
+                                type="number"
+                                min="0"
+                                step="25"
+                                value={amount || ''}
+                                onChange={(e) => updateSpending(subCategory.id, parseFloat(e.target.value) || 0, true)}
+                                className="w-full px-2 py-1 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                placeholder="0"
+                              />
+                            </div>
+                          </div>
+                        )
+                                              })}
+                      </div>
+                      {/* Scroll fade indicator */}
+                      {category.subCategories.length > 1 && (
+                        <div className="absolute bottom-0 left-0 right-2 h-8 bg-gradient-to-t from-gray-50/80 to-transparent dark:from-gray-700/80 pointer-events-none"></div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             ))
           ) : (
@@ -1220,6 +1394,168 @@ export function SpendingForm() {
           </div>
         </div>
       )}
+
+      {/* Category Expansion Modal */}
+      {expandedCategoryId && (() => {
+        const expandedCategory = categories.find(c => c.id === expandedCategoryId)
+        if (!expandedCategory) return null
+        
+        return (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+            onClick={(e) => {
+              // Close modal when clicking the backdrop
+              if (e.target === e.currentTarget) {
+                setExpandedCategoryId(null)
+              }
+            }}
+          >
+            <div 
+              className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
+              onClick={(e) => e.stopPropagation()} // Prevent modal from closing when clicking inside
+            >
+              {/* Modal Header */}
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-600">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                      {expandedCategory.name}
+                      <span className="ml-3 px-3 py-1 text-sm bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full">
+                        {expandedCategory.subCategories?.length || 0} subcategories
+                      </span>
+                    </h2>
+                    <p className="text-gray-600 dark:text-gray-300 mt-1">{expandedCategory.description}</p>
+                  </div>
+                  <button
+                    onClick={() => setExpandedCategoryId(null)}
+                    className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+                {/* Main Category Input */}
+                <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="text-lg font-semibold text-gray-900 dark:text-white">
+                      General {expandedCategory.name}
+                    </label>
+                    <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                      {formatCurrency(spending.find(s => s.categoryId === expandedCategory.id)?.monthlySpend || 0)}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                    Other {expandedCategory.name.toLowerCase()} not listed below
+                  </p>
+                  
+                  <div className="space-y-3">
+                    <Slider
+                      value={spending.find(s => s.categoryId === expandedCategory.id)?.monthlySpend || 0}
+                      onValueChange={(value) => updateSpending(expandedCategory.id, value, false)}
+                      min={0}
+                      max={2000}
+                      step={25}
+                      className="py-1"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      step="25"
+                      value={spending.find(s => s.categoryId === expandedCategory.id)?.monthlySpend || ''}
+                      onChange={(e) => updateSpending(expandedCategory.id, parseFloat(e.target.value) || 0, false)}
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+
+                {/* All Subcategories Grid */}
+                <div className="space-y-4">
+                  <div className="flex items-center">
+                    <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600"></div>
+                    <span className="px-4 text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      All Subcategories
+                    </span>
+                    <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600"></div>
+                  </div>
+                  
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {expandedCategory.subCategories?.map((subCategory) => {
+                      const currentSpending = spending.find(s => s.subCategoryId === subCategory.id)
+                      const amount = currentSpending?.monthlySpend || 0
+                      
+                      return (
+                        <div key={subCategory.id} className="p-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 shadow-sm">
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="flex-1 min-w-0">
+                              <label className="text-sm font-semibold text-gray-900 dark:text-white block">
+                                📍 {subCategory.name}
+                              </label>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                {subCategory.description}
+                              </p>
+                            </div>
+                            <span className="text-sm font-bold text-purple-600 dark:text-purple-400 ml-3">
+                              {formatCurrency(amount)}
+                            </span>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            <Slider
+                              value={amount}
+                              onValueChange={(value) => updateSpending(subCategory.id, value, true)}
+                              min={0}
+                              max={2000}
+                              step={25}
+                              className="py-1"
+                            />
+                            <input
+                              type="number"
+                              min="0"
+                              step="25"
+                              value={amount || ''}
+                              onChange={(e) => updateSpending(subCategory.id, parseFloat(e.target.value) || 0, true)}
+                              className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                              placeholder="0"
+                            />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
+                <div className="flex justify-between items-center">
+                  <div className="text-sm text-gray-600 dark:text-gray-300">
+                    Total for {expandedCategory.name}: <span className="font-semibold text-blue-600 dark:text-blue-400">
+                      {formatCurrency(
+                        (spending.find(s => s.categoryId === expandedCategory.id)?.monthlySpend || 0) +
+                        (expandedCategory.subCategories?.reduce((sum, sub) => 
+                          sum + (spending.find(s => s.subCategoryId === sub.id)?.monthlySpend || 0), 0
+                        ) || 0)
+                      )}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setExpandedCategoryId(null)}
+                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 } 

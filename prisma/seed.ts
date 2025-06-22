@@ -515,17 +515,46 @@ const CREDIT_CARDS = [
 async function main() {
   console.log('🌱 Starting database seed...')
 
+  // Handle prepared statement conflicts by resetting client if needed
+  try {
+    // Test connection first
+    await prisma.spendingCategory.count()
+  } catch (error: any) {
+    if (error?.code === '42P05' || error?.message?.includes('prepared statement')) {
+      console.log('🔄 Prepared statement conflict detected, resetting Prisma client...')
+      await prisma.$disconnect()
+      // Force a new connection
+      await prisma.$connect()
+    }
+  }
+
   // Create spending categories
   console.log('📝 Creating spending categories...')
   const categoryMap = new Map<string, string>()
   
   for (const category of SPENDING_CATEGORIES) {
-    const created = await prisma.spendingCategory.upsert({
-      where: { name: category.name },
-      update: {},
-      create: category,
-    })
-    categoryMap.set(category.name, created.id)
+    try {
+      const created = await prisma.spendingCategory.upsert({
+        where: { name: category.name },
+        update: {},
+        create: category,
+      })
+      categoryMap.set(category.name, created.id)
+    } catch (error: any) {
+      if (error?.code === '42P05') {
+        console.log(`🔄 Prepared statement conflict for category ${category.name}, retrying...`)
+        await prisma.$disconnect()
+        await prisma.$connect()
+        const created = await prisma.spendingCategory.upsert({
+          where: { name: category.name },
+          update: {},
+          create: category,
+        })
+        categoryMap.set(category.name, created.id)
+      } else {
+        throw error
+      }
+    }
   }
 
   // Create subcategories
