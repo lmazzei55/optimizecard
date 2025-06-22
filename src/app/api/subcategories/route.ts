@@ -4,47 +4,43 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET() {
   try {
-    // Use the retry logic and safer approach
-    const categoriesWithSubcategories = await withRetry(async () => {
-      try {
-        // Try to fetch categories with subcategories
-        return await prisma.spendingCategory.findMany({
-          include: {
-            subCategories: {
-              orderBy: {
-                name: 'asc'
-              }
-            }
-          },
-          orderBy: {
-            name: 'asc'
-          }
-        })
-      } catch (relationError) {
-        console.warn('Subcategories relation not available, falling back to separate queries')
-        
-        // Fallback: get categories and subcategories separately
-        const [categories, subCategories] = await Promise.all([
-          prisma.spendingCategory.findMany({
-            orderBy: { name: 'asc' }
-          }),
-          prisma.subCategory.findMany({
-            include: {
-              parentCategory: true
-            },
-            orderBy: { name: 'asc' }
-          })
-        ])
-        
-        // Manually group subcategories under their parent categories
-        return categories.map(category => ({
-          ...category,
-          subCategories: subCategories.filter(sub => sub.parentCategoryId === category.id)
-        }))
-      }
+    // First try to get categories - this we know works
+    const categories = await withRetry(async () => {
+      return await prisma.spendingCategory.findMany({
+        orderBy: { name: 'asc' }
+      })
     })
     
-    console.log(`✅ Subcategories API: Found ${categoriesWithSubcategories.length} categories with subcategories`)
+    console.log(`✅ Subcategories API: Found ${categories.length} categories`)
+    
+    // Try to get subcategories, but handle gracefully if table doesn't exist
+    let subcategoriesMap = new Map()
+    try {
+      const subcategories = await withRetry(async () => {
+        return await prisma.subCategory.findMany({
+          orderBy: { name: 'asc' }
+        })
+      })
+      
+      // Group subcategories by parent
+      subcategories.forEach(sub => {
+        if (!subcategoriesMap.has(sub.parentCategoryId)) {
+          subcategoriesMap.set(sub.parentCategoryId, [])
+        }
+        subcategoriesMap.get(sub.parentCategoryId).push(sub)
+      })
+      
+      console.log(`✅ Subcategories API: Found ${subcategories.length} subcategories`)
+    } catch (subError: any) {
+      console.warn('⚠️ Subcategories table not accessible, using categories only:', subError?.message || 'Unknown error')
+      // If subcategories fail, we'll return categories with empty subcategories arrays
+    }
+    
+    // Build the response with categories and their subcategories
+    const categoriesWithSubcategories = categories.map(category => ({
+      ...category,
+      subCategories: subcategoriesMap.get(category.id) || []
+    }))
     
     return NextResponse.json(categoriesWithSubcategories)
   } catch (error: any) {

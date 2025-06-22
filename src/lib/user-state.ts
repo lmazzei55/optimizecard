@@ -316,11 +316,17 @@ class UserStateManager {
   async initialize(email?: string): Promise<void> {
     console.log('🚀 UserState: Initializing...')
     
-    // Load preferences and subscription tier in parallel
-    await Promise.all([
-      this.loadPreferences(email),
-      this.loadSubscriptionTier()
-    ])
+    // Load preferences first
+    await this.loadPreferences(email)
+    
+    // Only load subscription tier if user is authenticated
+    if (email) {
+      await this.loadSubscriptionTier()
+    } else {
+      console.log('🔓 UserState: No email provided, skipping subscription check')
+      this.state.subscriptionTier = 'free'
+      this.notifyListeners()
+    }
     
     console.log('✅ UserState: Initialized with state:', this.getState())
   }
