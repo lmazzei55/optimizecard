@@ -44,10 +44,18 @@ class UserStateManager {
     }
   }
 
-  // CRITICAL: Enhanced preference loading with fallback strategy
+  // CRITICAL: Enhanced preference loading with authentication check
   async loadPreferences(email?: string): Promise<UserPreferences> {
     this.state.isLoading = true
     this.notifyListeners()
+    
+    // If no email provided, skip API call and use localStorage only
+    if (!email) {
+      console.log('📂 UserState: No email provided, using localStorage only')
+      this.state.isLoading = false
+      this.notifyListeners()
+      return this.loadFromLocalStorage()
+    }
     
     try {
       const response = await fetch('/api/user/preferences')
@@ -71,6 +79,8 @@ class UserStateManager {
         } else {
           console.warn('⚠️ UserState: API returned fallback data, using cached/localStorage')
         }
+      } else if (response.status === 401) {
+        console.log('🔓 UserState: Not authenticated, using localStorage only')
       } else if (response.status === 503) {
         console.warn('⚠️ UserState: Database temporarily unavailable, using cached data')
       } else {
@@ -86,7 +96,7 @@ class UserStateManager {
     return this.loadFromLocalStorage()
   }
 
-  // CRITICAL: Enhanced preference saving with retry logic
+  // CRITICAL: Enhanced preference saving with authentication check
   async savePreferences(preferences: Partial<UserPreferences>): Promise<boolean> {
     // Update local state immediately for responsive UI
     Object.assign(this.state, preferences)
@@ -115,6 +125,9 @@ class UserStateManager {
           console.log('✅ UserState: Preferences saved to server successfully')
           this.retryCount = 0
           return true
+        } else if (response.status === 401) {
+          console.log('🔓 UserState: Not authenticated, preferences saved locally only')
+          return true // Return true since local save succeeded
         } else if (response.status === 503) {
           console.warn(`⚠️ UserState: Database unavailable (attempt ${attempt}/${this.maxRetries})`)
           if (attempt < this.maxRetries) {
@@ -138,10 +151,10 @@ class UserStateManager {
     }
 
     console.warn('⚠️ UserState: Failed to save to server after retries, kept local changes')
-    return false
+    return true // Return true since local save succeeded
   }
 
-  // CRITICAL: Enhanced subscription loading with premium status protection
+  // CRITICAL: Enhanced subscription loading with authentication check
   async loadSubscriptionTier(): Promise<'free' | 'premium'> {
     try {
       const response = await fetch('/api/user/subscription')
@@ -162,6 +175,12 @@ class UserStateManager {
             return 'premium'
           }
         }
+      } else if (response.status === 401) {
+        // Not authenticated - default to free tier
+        console.log('🔓 UserState: Not authenticated, defaulting to free tier')
+        this.state.subscriptionTier = 'free'
+        this.notifyListeners()
+        return 'free'
       } else if (response.status === 503) {
         // Database unavailable - protect premium status
         if (this.state.subscriptionTier === 'premium') {

@@ -13,8 +13,8 @@ export let prisma = globalForPrisma.prisma ?? new PrismaClient({
   },
 })
 
-// Add connection pool management for serverless
-if (process.env.NODE_ENV === 'production') {
+// Add connection pool management for serverless - only in Node.js runtime
+if (process.env.NODE_ENV === 'production' && typeof process !== 'undefined' && process.on) {
   // Disconnect after each serverless function execution
   process.on('beforeExit', async () => {
     await prisma.$disconnect()
