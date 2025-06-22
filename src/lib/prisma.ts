@@ -15,12 +15,25 @@ export let prisma = globalForPrisma.prisma ?? new PrismaClient({
 
 // Add connection pool management for serverless - only in Node.js runtime (not Edge Runtime)
 // Skip entirely in browser or Edge Runtime environments
-if (typeof window === 'undefined' && process.env.NODE_ENV === 'production' && typeof process !== 'undefined' && process.on && !process.env.NEXT_RUNTIME && !process.env.EDGE_RUNTIME) {
+if (typeof window === 'undefined' && 
+    process.env.NODE_ENV === 'production' && 
+    typeof process !== 'undefined' && 
+    typeof process.on === 'function' && 
+    !process.env.NEXT_RUNTIME && 
+    !process.env.EDGE_RUNTIME &&
+    process.env.VERCEL_ENV !== 'edge') {
   try {
-    // Disconnect after each serverless function execution
-    process.on('beforeExit', async () => {
-      await prisma.$disconnect()
-    })
+    // Only use process.on if we're definitely in Node.js runtime
+    if (typeof process.on === 'function') {
+      // Disconnect after each serverless function execution
+      process.on('beforeExit', async () => {
+        try {
+          await prisma.$disconnect()
+        } catch (error) {
+          // Ignore disconnect errors in serverless
+        }
+      })
+    }
     
     // CRITICAL: Enhanced Prisma client for better stability
     prisma = new PrismaClient({
