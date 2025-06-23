@@ -129,6 +129,7 @@ export function SpendingForm() {
   // Track if we've loaded initial data to prevent conflicts
   const [initialDataLoaded, setInitialDataLoaded] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+  const fetchCategoriesInProgress = useRef(false)
 
   // Use centralized state management - eliminates ALL conflicts
   const userState = useUserState()
@@ -379,7 +380,13 @@ export function SpendingForm() {
   }, [spending, session, initialDataLoaded]) // Added initialDataLoaded dependency
 
   const fetchCategories = async () => {
-    console.log('🔄 fetchCategories: Starting with initialDataLoaded:', initialDataLoaded)
+    console.log('🔄 fetchCategories: Starting with initialDataLoaded:', initialDataLoaded, 'spending.length:', spending.length, 'nonZero:', spending.filter(s => s.monthlySpend > 0).length)
+    
+    // Prevent concurrent calls
+    if (fetchCategoriesInProgress.current) {
+      console.log('🔒 fetchCategories: Already in progress, skipping to prevent race condition')
+      return
+    }
     
     // If we have data already loaded with non-zero spending, don't overwrite it
     if (initialDataLoaded && spending.some(s => s.monthlySpend > 0)) {
@@ -387,6 +394,14 @@ export function SpendingForm() {
       return
     }
     
+    // If we already have a spending structure and categories, don't recreate it unless necessary
+    if (spending.length > 0 && categories.length > 0 && !loading) {
+      console.log('🔒 fetchCategories: Structure already exists, skipping to avoid data loss')
+      setLoading(false)
+      return
+    }
+    
+    fetchCategoriesInProgress.current = true
     try {
       const endpoint = enableSubcategories ? '/api/subcategories' : '/api/categories'
       const response = await fetch(endpoint, {
@@ -599,6 +614,8 @@ export function SpendingForm() {
     } catch (error) {
       console.error('Error fetching categories:', error)
       setLoading(false)
+    } finally {
+      fetchCategoriesInProgress.current = false
     }
   }
 
