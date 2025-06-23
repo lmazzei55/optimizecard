@@ -16,33 +16,33 @@ export async function GET() {
         where: {
           isActive: true
         },
-        select: {
-          id: true,
-          name: true,
-          issuer: true,
-          annualFee: true,
-          rewardType: true,
-          applicationUrl: true,
-        },
-        orderBy: [
-          { issuer: 'asc' },
-          { name: 'asc' }
-        ]
-      })
+      select: {
+        id: true,
+        name: true,
+        issuer: true,
+        annualFee: true,
+        rewardType: true,
+        applicationUrl: true,
+      },
+      orderBy: [
+        { issuer: 'asc' },
+        { name: 'asc' }
+      ]
+    })
     })
 
     // Get user's owned cards, auto-create if needed
     let user = await withRetry(async () => {
       return await prisma.user.findUnique({
         where: { email: session.user.email! },
-        include: {
-          ownedCards: {
-            include: {
-              card: true
-            }
+      include: {
+        ownedCards: {
+          include: {
+            card: true
           }
         }
-      })
+      }
+    })
     })
 
     // Auto-create user if they don't exist
@@ -127,8 +127,8 @@ export async function POST(request: NextRequest) {
     // Remove all existing owned cards for this user
     await withRetry(async () => {
       return await prisma.userCard.deleteMany({
-        where: {
-          user: {
+      where: {
+        user: {
             email: session.user.email!
           }
         }
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
       let user = await withRetry(async () => {
         return await prisma.user.findUnique({
           where: { email: session.user.email! }
-        })
+      })
       })
 
       // Auto-create user if they don't exist
@@ -165,10 +165,10 @@ export async function POST(request: NextRequest) {
 
       await withRetry(async () => {
         return await prisma.userCard.createMany({
-          data: ownedCardIds.map(cardId => ({
+        data: ownedCardIds.map(cardId => ({
             userId: user!.id,
-            cardId
-          }))
+          cardId
+        }))
         })
       })
     }

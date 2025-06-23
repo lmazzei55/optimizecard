@@ -35,8 +35,8 @@ if (process.env.NODE_ENV === "development") {
       if (credentials?.email) {
         return {
           id: "demo-user",
-          email: credentials.email as string,
-          name: credentials.email?.toString().split('@')[0] || 'Demo User',
+                email: credentials.email as string,
+                name: credentials.email?.toString().split('@')[0] || 'Demo User',
         }
       }
       return null
@@ -109,10 +109,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           } else {
             console.log('✅ User already exists in database:', user.email)
           }
-        } catch (error) {
+      } catch (error) {
           console.error('❌ Error auto-creating user:', error)
           // Don't block sign-in if database creation fails
-        }
+      }
       }
       return true
     }

@@ -6,8 +6,8 @@ const globalForPrisma = globalThis as unknown as {
 
 export let prisma = globalForPrisma.prisma ?? new PrismaClient({
   log: ['query'],
-  datasources: {
-    db: {
+    datasources: {
+      db: {
       url: process.env.DATABASE_URL,
     },
   },
@@ -106,7 +106,7 @@ export async function withRetry<T>(
         error: lastError.message,
         code: (lastError as any).code
       })
-      
+        
       // Force reconnection for connection issues
       if (isConnectionIssue && attempt > 1) {
         try {
@@ -115,8 +115,8 @@ export async function withRetry<T>(
           await prisma.$connect()
         } catch (reconnectError) {
           console.warn('⚠️ Reconnection attempt failed:', reconnectError)
-        }
       }
+    }
       
       await new Promise(resolve => setTimeout(resolve, delay))
     }

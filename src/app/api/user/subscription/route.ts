@@ -73,7 +73,7 @@ export async function GET() {
         
       } catch (createError: any) {
         console.error('❌ Failed to auto-create user:', createError)
-        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
       }
     }
 

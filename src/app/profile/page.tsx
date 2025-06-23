@@ -57,7 +57,7 @@ export default function Profile() {
       }
       
       console.log('🔍 Profile: Fetching cards for user:', session.user.email)
-      
+
       try {
         const response = await fetch('/api/user/cards', {
           headers: {
@@ -83,7 +83,7 @@ export default function Profile() {
           
           // Retry after a delay
           setTimeout(() => {
-            if (session?.user?.email) {
+    if (session?.user?.email) {
               console.log('🔄 Retrying card fetch after database issue...')
               fetchCards()
             }
@@ -235,7 +235,7 @@ export default function Profile() {
       })
 
       console.log('🔍 Profile: Preferences API response status:', response.status)
-      
+
       if (response.ok) {
         const responseData = await response.json()
         console.log('✅ Profile: Preferences saved successfully:', responseData)

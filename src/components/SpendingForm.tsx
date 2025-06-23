@@ -208,8 +208,14 @@ export function SpendingForm() {
 
   // Fetch spending categories
   useEffect(() => {
-    fetchCategories()
-  }, [enableSubcategories])
+    // Only fetch categories if initial data hasn't been loaded yet
+    // This prevents fetchCategories from overwriting merged spending data
+    if (!initialDataLoaded) {
+      fetchCategories()
+    } else {
+      console.log('🔒 useEffect: Skipping fetchCategories because initialDataLoaded is true')
+    }
+  }, [enableSubcategories]) // Removed initialDataLoaded dependency to prevent re-triggering after data loads
 
   // Load saved spending data
   useEffect(() => {
@@ -220,21 +226,45 @@ export function SpendingForm() {
       console.log('🚀 Starting data loading process...')
       let savedSpending = []
       
-      // First, try to load from localStorage (session persistence)
-      const localSpending = localStorage.getItem('spending-data')
-      if (localSpending) {
+      // First, try to load from recommendation input (most recent navigation from results)
+      const recommendationInput = localStorage.getItem('cc-recommendation-input')
+      if (recommendationInput) {
         try {
-          const parsedSpending = JSON.parse(localSpending)
-          if (Array.isArray(parsedSpending)) {
-            savedSpending = parsedSpending
-            console.log('📂 Loaded ALL spending data from localStorage:', savedSpending)
-            console.log('📂 Non-zero spending data:', savedSpending.filter((s: any) => s.monthlySpend > 0))
+          const payload = JSON.parse(recommendationInput)
+          if (payload.userSpending && Array.isArray(payload.userSpending) && payload.userSpending.length > 0) {
+            console.log('📂 Loading spending data from recommendation input:', payload.userSpending.length, 'items')
+            console.log('🔍 Sample payload data:', payload.userSpending.slice(0, 2))
+            
+            // Convert recommendation input format to standard spending format
+            savedSpending = payload.userSpending.map((item: any) => ({
+              categoryId: item.categoryId,
+              subCategoryId: item.subCategoryId,
+              categoryName: item.categoryName,
+              monthlySpend: item.monthlySpend
+            }))
+            console.log('📂 Converted recommendation input to spending format:', savedSpending.filter((s: any) => s.monthlySpend > 0))
           }
         } catch (error) {
-          console.error('Error parsing local spending data:', error)
+          console.error('Error parsing recommendation input:', error)
         }
-      } else {
-        console.log('📂 No spending data found in localStorage')
+      }
+      
+      // Fallback to regular spending-data if no recommendation input found
+      if (savedSpending.length === 0) {
+        const localSpending = localStorage.getItem('spending-data')
+        if (localSpending) {
+          try {
+            const parsedSpending = JSON.parse(localSpending)
+            if (Array.isArray(parsedSpending)) {
+              savedSpending = parsedSpending
+              console.log('📂 Loaded spending data from localStorage:', savedSpending.filter((s: any) => s.monthlySpend > 0))
+            }
+          } catch (error) {
+            console.error('Error parsing local spending data:', error)
+          }
+        } else {
+          console.log('📂 No spending data found in localStorage')
+        }
       }
 
       // If user is logged in, load from their account (only if it has meaningful data)
@@ -293,10 +323,12 @@ export function SpendingForm() {
         const finalSpending = enableSubcategories ? updateParentCategorySums(mergedSpending) : mergedSpending
         console.log('🔀 After parent sums (if applicable):', finalSpending.filter(s => s.monthlySpend > 0))
         setSpending(finalSpending)
+        console.log('✅ loadSpendingData: Successfully set spending with', finalSpending.filter(s => s.monthlySpend > 0).length, 'non-zero items')
       }
       
       // Mark initial data as loaded
       setInitialDataLoaded(true)
+      console.log('🔒 loadSpendingData: Marked initialDataLoaded as true')
     }
 
     // Load data when we have categories and spending array ready AND component is mounted
@@ -308,8 +340,13 @@ export function SpendingForm() {
   // Save spending data (debounced)
   useEffect(() => {
     const saveSpendingData = async () => {
+      console.log('💾 saveSpendingData: Called with initialDataLoaded:', initialDataLoaded, 'spending.length:', spending.length, 'nonZero:', spending.filter(s => s.monthlySpend > 0).length)
+      
       // Only save if we have meaningful data and initial data has been loaded
-      if (!initialDataLoaded || spending.length === 0) return
+      if (!initialDataLoaded || spending.length === 0) {
+        console.log('💾 saveSpendingData: Skipping save - initialDataLoaded:', initialDataLoaded, 'spending.length:', spending.length)
+        return
+      }
       
       // Always save to localStorage for session persistence
       localStorage.setItem('spending-data', JSON.stringify(spending))
@@ -342,6 +379,7 @@ export function SpendingForm() {
   }, [spending, session, initialDataLoaded]) // Added initialDataLoaded dependency
 
   const fetchCategories = async () => {
+    console.log('🔄 fetchCategories: Starting with initialDataLoaded:', initialDataLoaded)
     try {
       const endpoint = enableSubcategories ? '/api/subcategories' : '/api/categories'
       const response = await fetch(endpoint, {
@@ -391,8 +429,8 @@ export function SpendingForm() {
       const hasSavedData = localSpending && JSON.parse(localSpending).length > 0
       console.log('🔍 Checking for saved data in fetchCategories:', hasSavedData)
       
-      // Only initialize spending if we don't already have data AND no saved data exists
-      if (spending.length === 0 && !hasSavedData) {
+      // Only initialize spending if we don't already have data AND no saved data exists AND initial data not loaded
+      if (spending.length === 0 && !hasSavedData && !initialDataLoaded) {
         console.log('🆕 Initializing fresh spending data')
         // Initialize spending based on subcategory mode
         if (enableSubcategories) {
@@ -420,18 +458,22 @@ export function SpendingForm() {
           })
           
           setSpending(spendingEntries)
+          console.log('🆕 fetchCategories: Set fresh subcategory spending structure with', spendingEntries.length, 'items')
         } else {
           // Standard category mode
-          setSpending(data.map((cat: SpendingCategory) => ({
+          const freshSpending = data.map((cat: SpendingCategory) => ({
             categoryId: cat.id,
             categoryName: cat.name,
             monthlySpend: 0
-          })))
+          }))
+          setSpending(freshSpending)
+          console.log('🆕 fetchCategories: Set fresh category spending structure with', freshSpending.length, 'items')
         }
-      } else if (spending.length > 0) {
+      } else if (spending.length > 0 && !initialDataLoaded) {
         console.log('🔄 Adapting existing spending data to new category structure')
         // If we have existing spending data, we need to adapt it to the new category structure
         // This handles switching between standard and subcategory modes
+        // IMPORTANT: Only do this if initial data hasn't been loaded yet
         let newSpendingStructure: UserSpending[] = []
         
         if (enableSubcategories) {
@@ -474,35 +516,46 @@ export function SpendingForm() {
         }
         
         setSpending(newSpendingStructure)
+        console.log('🔄 fetchCategories: Set adapted spending structure with', newSpendingStructure.filter(s => s.monthlySpend > 0).length, 'non-zero items')
+      } else if (spending.length > 0 && initialDataLoaded) {
+        console.log('🔒 fetchCategories: Initial data already loaded, preserving current spending data')
       } else {
         console.log('⏳ Saved data exists, will be loaded by useEffect')
         // If we have saved data but no current spending, just set up empty structure
         // The saved data will be loaded by the useEffect
-        if (enableSubcategories) {
-          const spendingEntries: UserSpending[] = []
-          data.forEach((cat: SpendingCategory) => {
-            spendingEntries.push({
+        // IMPORTANT: Only set spending if initialDataLoaded is false to avoid overwriting merged data
+        if (!initialDataLoaded) {
+          if (enableSubcategories) {
+            const spendingEntries: UserSpending[] = []
+            data.forEach((cat: SpendingCategory) => {
+              spendingEntries.push({
+                categoryId: cat.id,
+                categoryName: cat.name,
+                monthlySpend: 0
+              })
+              if (cat.subCategories && cat.subCategories.length > 0) {
+                cat.subCategories.forEach((sub: SubCategory) => {
+                  spendingEntries.push({
+                    subCategoryId: sub.id,
+                    categoryName: `${cat.name} → ${sub.name}`,
+                    monthlySpend: 0
+                  })
+                })
+              }
+            })
+            setSpending(spendingEntries)
+            console.log('⏳ fetchCategories: Set empty subcategory structure for data loading with', spendingEntries.length, 'items')
+          } else {
+            const emptySpending = data.map((cat: SpendingCategory) => ({
               categoryId: cat.id,
               categoryName: cat.name,
               monthlySpend: 0
-            })
-            if (cat.subCategories && cat.subCategories.length > 0) {
-              cat.subCategories.forEach((sub: SubCategory) => {
-                spendingEntries.push({
-                  subCategoryId: sub.id,
-                  categoryName: `${cat.name} → ${sub.name}`,
-                  monthlySpend: 0
-                })
-              })
-            }
-          })
-          setSpending(spendingEntries)
+            }))
+            setSpending(emptySpending)
+            console.log('⏳ fetchCategories: Set empty category structure for data loading with', emptySpending.length, 'items')
+          }
         } else {
-          setSpending(data.map((cat: SpendingCategory) => ({
-            categoryId: cat.id,
-            categoryName: cat.name,
-            monthlySpend: 0
-          })))
+          console.log('🔒 fetchCategories: Initial data already loaded, skipping spending structure reset')
         }
       }
       
@@ -777,49 +830,7 @@ export function SpendingForm() {
     }
   }
 
-  // hydrate spending from localStorage immediately on mount (before interactions)
-  useEffect(() => {
-    // First try to load from recommendation input (most recent)
-    const recommendationInput = localStorage.getItem('cc-recommendation-input')
-    if (recommendationInput) {
-      try {
-        const payload = JSON.parse(recommendationInput)
-        if (payload.userSpending && Array.isArray(payload.userSpending) && payload.userSpending.length > 0) {
-          console.log('📂 Loading spending data from recommendation input:', payload.userSpending.length, 'items')
-          setSpending(prev => {
-            // merge by categoryName to preserve categories order
-            return prev.map(item => {
-              const found = payload.userSpending.find((p:any) => p.categoryName === item.categoryName)
-              return found ? { ...item, monthlySpend: found.monthlySpend } : item
-            })
-          })
-          return // Exit early if we found data
-        }
-      } catch (error) {
-        console.warn('⚠️ Failed to parse recommendation input:', error)
-      }
-    }
-    
-    // Fallback to spending-data
-    const saved = localStorage.getItem('spending-data')
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          console.log('📂 Loading spending data from spending-data:', parsed.length, 'items')
-          setSpending(prev => {
-            // merge by categoryName to preserve categories order
-            return prev.map(item => {
-              const found = parsed.find((p:any) => p.categoryName === item.categoryName)
-              return found ? { ...item, monthlySpend: found.monthlySpend } : item
-            })
-          })
-        }
-      } catch (error) {
-        console.warn('⚠️ Failed to parse spending-data:', error)
-      }
-    }
-  }, [])
+
 
   if (loading) {
     return (
