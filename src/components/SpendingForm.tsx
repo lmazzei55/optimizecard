@@ -467,9 +467,9 @@ export function SpendingForm() {
         recommendationInputExists: !!recommendationInput
       })
       
-      // Only initialize spending if we don't already have data AND no saved data exists AND initial data not loaded AND no existing non-zero spending
-      if (spending.length === 0 && !hasSavedData && !initialDataLoaded && !spending.some(s => s.monthlySpend > 0)) {
-        console.log('🆕 Initializing fresh spending data')
+      // Always initialize spending structure if we don't have one - merge process will handle saved data
+      if (spending.length === 0 && !initialDataLoaded) {
+        console.log('🆕 Initializing spending structure (saved data will be merged if exists)')
         // Initialize spending based on subcategory mode
         if (enableSubcategories) {
           // Create spending entries for both categories and subcategories
@@ -496,7 +496,7 @@ export function SpendingForm() {
           })
           
           setSpending(spendingEntries)
-          console.log('🆕 fetchCategories: Set fresh subcategory spending structure with', spendingEntries.length, 'items')
+          console.log('🆕 fetchCategories: Set subcategory spending structure with', spendingEntries.length, 'items')
         } else {
           // Standard category mode
           const freshSpending = data.map((cat: SpendingCategory) => ({
@@ -505,7 +505,7 @@ export function SpendingForm() {
             monthlySpend: 0
           }))
           setSpending(freshSpending)
-          console.log('🆕 fetchCategories: Set fresh category spending structure with', freshSpending.length, 'items')
+          console.log('🆕 fetchCategories: Set category spending structure with', freshSpending.length, 'items')
         }
       } else if (spending.length > 0 && !initialDataLoaded) {
         console.log('🔄 Adapting existing spending data to new category structure')
@@ -559,10 +559,8 @@ export function SpendingForm() {
         console.log('🔒 fetchCategories: Initial data already loaded, preserving current spending data')
       } else {
         console.log('⏳ Saved data exists, will be loaded by useEffect')
-        // If we have saved data but no current spending, just set up empty structure
-        // The saved data will be loaded by the useEffect
-        // IMPORTANT: Only set spending if we have NO spending at all AND no saved data exists anywhere
-        if (spending.length === 0 && !initialDataLoaded && !hasSavedData && !hasRecommendationInputData && !hasSavedSpendingData) {
+        // Always create the spending structure if we don't have one - the merge process will handle preserving saved data
+        if (spending.length === 0 && !initialDataLoaded) {
           if (enableSubcategories) {
             const spendingEntries: UserSpending[] = []
             data.forEach((cat: SpendingCategory) => {
@@ -593,7 +591,7 @@ export function SpendingForm() {
             console.log('⏳ fetchCategories: Set empty category structure for data loading with', emptySpending.length, 'items')
           }
         } else {
-          console.log('🔒 fetchCategories: Skipping empty structure creation - spending.length:', spending.length, 'initialDataLoaded:', initialDataLoaded, 'hasSavedData:', hasSavedData)
+          console.log('🔒 fetchCategories: Skipping structure creation - spending.length:', spending.length, 'initialDataLoaded:', initialDataLoaded)
         }
       }
       
