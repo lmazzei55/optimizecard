@@ -380,6 +380,13 @@ export function SpendingForm() {
 
   const fetchCategories = async () => {
     console.log('🔄 fetchCategories: Starting with initialDataLoaded:', initialDataLoaded)
+    
+    // If we have data already loaded with non-zero spending, don't overwrite it
+    if (initialDataLoaded && spending.some(s => s.monthlySpend > 0)) {
+      console.log('🔒 fetchCategories: Data already loaded with spending, skipping to avoid overwrite')
+      return
+    }
+    
     try {
       const endpoint = enableSubcategories ? '/api/subcategories' : '/api/categories'
       const response = await fetch(endpoint, {
@@ -426,11 +433,42 @@ export function SpendingForm() {
       
       // Check if we have saved data that we should preserve
       const localSpending = localStorage.getItem('spending-data')
-      const hasSavedData = localSpending && JSON.parse(localSpending).length > 0
-      console.log('🔍 Checking for saved data in fetchCategories:', hasSavedData)
+      const recommendationInput = localStorage.getItem('cc-recommendation-input')
       
-      // Only initialize spending if we don't already have data AND no saved data exists AND initial data not loaded
-      if (spending.length === 0 && !hasSavedData && !initialDataLoaded) {
+      let hasSavedSpendingData = false
+      let hasRecommendationInputData = false
+      
+      // Check local spending data
+      if (localSpending) {
+        try {
+          const parsed = JSON.parse(localSpending)
+          hasSavedSpendingData = Array.isArray(parsed) && parsed.length > 0
+        } catch (error) {
+          console.warn('Error parsing local spending data:', error)
+        }
+      }
+      
+      // Check recommendation input data
+      if (recommendationInput) {
+        try {
+          const parsed = JSON.parse(recommendationInput)
+          hasRecommendationInputData = parsed.userSpending && Array.isArray(parsed.userSpending) && parsed.userSpending.length > 0
+        } catch (error) {
+          console.warn('Error parsing recommendation input data:', error)
+        }
+      }
+      
+      const hasSavedData = hasSavedSpendingData || hasRecommendationInputData
+      console.log('🔍 Checking for saved data in fetchCategories:', {
+        hasSavedData,
+        hasSavedSpendingData,
+        hasRecommendationInputData,
+        localSpendingExists: !!localSpending,
+        recommendationInputExists: !!recommendationInput
+      })
+      
+      // Only initialize spending if we don't already have data AND no saved data exists AND initial data not loaded AND no existing non-zero spending
+      if (spending.length === 0 && !hasSavedData && !initialDataLoaded && !spending.some(s => s.monthlySpend > 0)) {
         console.log('🆕 Initializing fresh spending data')
         // Initialize spending based on subcategory mode
         if (enableSubcategories) {
@@ -523,8 +561,8 @@ export function SpendingForm() {
         console.log('⏳ Saved data exists, will be loaded by useEffect')
         // If we have saved data but no current spending, just set up empty structure
         // The saved data will be loaded by the useEffect
-        // IMPORTANT: Only set spending if initialDataLoaded is false to avoid overwriting merged data
-        if (!initialDataLoaded) {
+        // IMPORTANT: Only set spending if we have NO spending at all AND no saved data exists anywhere
+        if (spending.length === 0 && !initialDataLoaded && !hasSavedData && !hasRecommendationInputData && !hasSavedSpendingData) {
           if (enableSubcategories) {
             const spendingEntries: UserSpending[] = []
             data.forEach((cat: SpendingCategory) => {
@@ -555,7 +593,7 @@ export function SpendingForm() {
             console.log('⏳ fetchCategories: Set empty category structure for data loading with', emptySpending.length, 'items')
           }
         } else {
-          console.log('🔒 fetchCategories: Initial data already loaded, skipping spending structure reset')
+          console.log('🔒 fetchCategories: Skipping empty structure creation - spending.length:', spending.length, 'initialDataLoaded:', initialDataLoaded, 'hasSavedData:', hasSavedData)
         }
       }
       
