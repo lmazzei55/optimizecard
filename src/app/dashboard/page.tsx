@@ -71,19 +71,6 @@ function DashboardContent() {
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed mb-8">
               Tell us about your spending patterns to get <span className="font-semibold text-purple-600 dark:text-purple-400">personalized credit card recommendations</span> tailored just for you.
             </p>
-            
-            {/* Progress indicators */}
-            <div className="flex justify-center items-center space-x-4 mb-8">
-              <div className="flex items-center space-x-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-full px-4 py-2 border border-blue-200 dark:border-blue-700">
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Step 1: Input Spending</span>
-              </div>
-              <div className="w-8 h-0.5 bg-gradient-to-r from-blue-300 to-purple-300 dark:from-blue-600 dark:to-purple-600"></div>
-              <div className="flex items-center space-x-2 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-full px-4 py-2 border border-gray-200 dark:border-gray-600">
-                <div className="w-2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
-                <span className="text-sm text-gray-500 dark:text-gray-400">Step 2: Get Results</span>
-              </div>
-            </div>
           </div>
 
           {/* Main Content */}
