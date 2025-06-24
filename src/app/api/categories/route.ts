@@ -28,11 +28,8 @@ export async function GET() {
       'Entertainment',
       'Shopping',
       'Transportation',
-      'Financial',
-      'Utilities',
-      'Other',
-      'Bonus',
-      'Insurance'
+      'Health & Medical',
+      'Utilities'
     ]
     
     categories.sort((a, b) => {

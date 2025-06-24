@@ -52,7 +52,13 @@ export async function POST(request: NextRequest) {
       benefitValuations = [],
       cardCustomizations = {},
       ownedCardIds = [],
-      subscriptionTier = 'free'
+      subscriptionTier = 'free',
+      calculationPreferences = {
+        includeAnnualFees: true,
+        includeBenefits: true,
+        includeSignupBonuses: true,
+        calculationMode: 'comprehensive'
+      }
     }: {
       userSpending: UserSpending[]
       rewardPreference: 'cashback' | 'points' | 'best_overall'
@@ -61,6 +67,12 @@ export async function POST(request: NextRequest) {
       cardCustomizations?: any
       ownedCardIds?: string[]
       subscriptionTier?: 'free' | 'premium'
+      calculationPreferences?: {
+        includeAnnualFees: boolean
+        includeBenefits: boolean
+        includeSignupBonuses: boolean
+        calculationMode: 'rewards_only' | 'comprehensive' | 'net_value'
+      }
     } = body
 
     console.log('🎯 Recommendations with:', { 
@@ -70,7 +82,8 @@ export async function POST(request: NextRequest) {
       pointValue,
       cardCustomizations: Object.keys(cardCustomizations).length > 0 ? 'Yes' : 'No',
       cardCustomizationKeys: Object.keys(cardCustomizations),
-      ownedCardIds: ownedCardIds?.length || 0
+      ownedCardIds: ownedCardIds?.length || 0,
+      calculationPreferences
     })
     
     // Log detailed customizations for debugging
@@ -234,9 +247,14 @@ export async function POST(request: NextRequest) {
           })
         }
 
-        // Calculate benefits value with customizations
+        // Calculate benefits value with customizations and global preferences
         let benefitsValue = 0
         const benefitsBreakdown = []
+        
+        // Check if benefits should be included based on global calculation preferences
+        const shouldIncludeBenefits = calculationPreferences.calculationMode === 'comprehensive' 
+          ? calculationPreferences.includeBenefits 
+          : calculationPreferences.calculationMode !== 'rewards_only' && calculationPreferences.calculationMode !== 'net_value'
         
         // Get card-specific customizations
         const cardCustomization = cardCustomizations[card.id]
@@ -244,18 +262,22 @@ export async function POST(request: NextRequest) {
         for (const benefit of benefits) {
           let personalValue = 0
           
-          // Check if we have customizations for this card
-          if (cardCustomization?.benefitValues && cardCustomization?.enabledBenefits) {
-            // Use new format: benefit is enabled and has custom value
-            const isEnabled = cardCustomization.enabledBenefits[benefit.name] !== false // Default to enabled
-            if (isEnabled) {
-              personalValue = cardCustomization.benefitValues[benefit.name] || benefit.annualValue || 0
+          if (shouldIncludeBenefits) {
+            // Check if we have customizations for this card
+            if (cardCustomization?.benefitValues && cardCustomization?.enabledBenefits) {
+              // Use new format: benefit is enabled and has custom value
+              const isEnabled = cardCustomization.enabledBenefits[benefit.name] !== false // Default to enabled
+              if (isEnabled) {
+                personalValue = cardCustomization.benefitValues[benefit.name] || benefit.annualValue || 0
+              }
+              // If not enabled, personalValue stays 0
+              console.log(`  🎁 ${benefit.name}: ${isEnabled ? 'enabled' : 'disabled'}, value: $${personalValue}`)
+            } else {
+              // Default case: use official benefit value when no customizations exist
+              personalValue = benefit.annualValue || 0
             }
-            // If not enabled, personalValue stays 0
-            console.log(`  🎁 ${benefit.name}: ${isEnabled ? 'enabled' : 'disabled'}, value: $${personalValue}`)
           } else {
-            // Default case: use official benefit value when no customizations exist
-            personalValue = benefit.annualValue || 0
+            console.log(`  🎁 ${benefit.name}: disabled by global calculation preferences`)
           }
           
           benefitsValue += personalValue
@@ -268,9 +290,20 @@ export async function POST(request: NextRequest) {
           })
         }
         
-        const netAnnualValue = totalAnnualValue + benefitsValue - card.annualFee
-
-        console.log(`  📈 Total annual value: $${totalAnnualValue.toFixed(2)}, Benefits: $${benefitsValue.toFixed(2)}, Net: $${netAnnualValue.toFixed(2)}`)
+        // Calculate net annual value based on global calculation preferences
+        let netAnnualValue = totalAnnualValue + benefitsValue
+        
+        // Apply annual fees based on calculation preferences
+        const shouldIncludeAnnualFees = calculationPreferences.calculationMode === 'comprehensive' 
+          ? calculationPreferences.includeAnnualFees 
+          : calculationPreferences.calculationMode !== 'rewards_only'
+        
+        if (shouldIncludeAnnualFees) {
+          netAnnualValue -= card.annualFee
+          console.log(`  📈 Total annual value: $${totalAnnualValue.toFixed(2)}, Benefits: $${benefitsValue.toFixed(2)}, Annual Fee: -$${card.annualFee}, Net: $${netAnnualValue.toFixed(2)}`)
+        } else {
+          console.log(`  📈 Total annual value: $${totalAnnualValue.toFixed(2)}, Benefits: $${benefitsValue.toFixed(2)}, Annual Fee: ignored, Net: $${netAnnualValue.toFixed(2)}`)
+        }
 
         // Create recommendation object
         const recommendation: CardRecommendation = {

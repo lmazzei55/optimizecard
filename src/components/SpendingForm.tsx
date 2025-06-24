@@ -883,8 +883,6 @@ export function SpendingForm() {
     }
   }
 
-
-
   if (loading) {
     return (
       <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">
@@ -898,46 +896,26 @@ export function SpendingForm() {
 
   return (
     <div className="space-y-8">
-      {/* Spending Input */}
+      {/* Main Content */}
       <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">
-        <h2 className="text-3xl font-semibold text-gray-900 dark:text-white mb-8 text-center">
-          💳 Monthly Spending by Category
-        </h2>
-        
-        {/* Subcategory Toggle */}
-        <div className="mb-8 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-gray-700 dark:to-gray-600 rounded-xl border border-indigo-200 dark:border-gray-600">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-                🎯 Enable Subcategories
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                Get more precise recommendations with specific subcategories like Amazon, Whole Foods, Hotels, etc.
-              </p>
-              {enableSubcategories && (
-                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium">
-                  💡 Parent categories show the higher of: your input OR sum of subcategories
-                </p>
-              )}
-            </div>
-            <button
-              onClick={() => userState.updateSubcategoryPreference(!enableSubcategories)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                enableSubcategories 
-                  ? 'bg-blue-600' 
-                  : 'bg-gray-300 dark:bg-gray-600'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                  enableSubcategories ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
+        {/* Total Spending Display */}
+        <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-600 rounded-xl border border-blue-200 dark:border-gray-600">
+          <div className="text-center">
+            <p className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              Total Monthly Spending: {formatCurrency(totalMonthlySpend)}
+            </p>
+            <p className="text-lg text-gray-600 dark:text-gray-300">
+              Annual Spending: {formatCurrency(totalMonthlySpend * 12)}
+            </p>
           </div>
         </div>
-        
-                <div className="grid md:grid-cols-2 gap-8">
+
+        <h2 className="text-3xl font-semibold text-gray-900 dark:text-white mb-8 text-center flex items-center justify-center">
+          💳 Monthly Spending by Category
+        </h2>
+
+        {/* Categories Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {enableSubcategories ? (
             // Subcategory mode: uniform height cards with scrollable subcategories
             categories.map((category) => (
@@ -1153,17 +1131,6 @@ export function SpendingForm() {
               )
             })
           )}
-        </div>
-        
-        <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-600 rounded-xl border border-blue-200 dark:border-gray-600">
-          <div className="text-center">
-            <p className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Total Monthly Spending: {formatCurrency(totalMonthlySpend)}
-            </p>
-            <p className="text-lg text-gray-600 dark:text-gray-300">
-              Annual Spending: {formatCurrency(totalMonthlySpend * 12)}
-            </p>
-          </div>
         </div>
       </div>
 

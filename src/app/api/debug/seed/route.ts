@@ -38,9 +38,8 @@ export async function POST(request: NextRequest) {
       { name: 'Entertainment', description: 'Movies, concerts, streaming services' },
       { name: 'Shopping', description: 'General retail and online shopping' },
       { name: 'Transportation', description: 'Public transit, rideshare, parking' },
-      { name: 'Insurance', description: 'Insurance-related benefits and protections' },
-      { name: 'Financial', description: 'Financial services and credit monitoring' },
-      { name: 'Bonus', description: 'Special bonuses and promotional offers' }
+      { name: 'Health & Medical', description: 'Doctor visits, pharmacy, medical expenses' },
+      { name: 'Utilities', description: 'Electricity, water, internet, phone bills' }
     ];
 
     for (const category of categories) {

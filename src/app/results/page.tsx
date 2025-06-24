@@ -8,6 +8,13 @@ import { Button } from '@/components/ui/button'
 import { Header } from '@/components/Header'
 import { CardCustomizationModal } from '@/components/CardCustomizationModal'
 
+interface CalculationPreferences {
+  includeAnnualFees: boolean
+  includeBenefits: boolean
+  includeSignupBonuses: boolean
+  calculationMode: 'rewards_only' | 'comprehensive' | 'net_value'
+}
+
 export default function ResultsPage() {
   const router = useRouter()
 
@@ -20,6 +27,14 @@ export default function ResultsPage() {
   const [editingCardId, setEditingCardId] = useState<string | null>(null)
   const [cardCustomizations, setCardCustomizations] = useState<Record<string, any>>({})
   const [basePayload, setBasePayload] = useState<any | null>(null)
+  
+  // Add calculation preferences state
+  const [calculationPreferences, setCalculationPreferences] = useState<CalculationPreferences>({
+    includeAnnualFees: true,
+    includeBenefits: true,
+    includeSignupBonuses: true,
+    calculationMode: 'comprehensive'
+  })
 
   // Load initial payload & recommendations
   useEffect(() => {
@@ -40,7 +55,8 @@ export default function ResultsPage() {
             userSpending: payload.userSpending || [],
             rewardPreference: payload.rewardPreference || 'cashback',
             pointValue: payload.pointValue ?? 0.01,
-            cardCustomizations: payload.cardCustomizations || {}
+            cardCustomizations: payload.cardCustomizations || {},
+            calculationPreferences // Include calculation preferences
           })
         })
         const data = await res.json()
@@ -53,6 +69,48 @@ export default function ResultsPage() {
       }
     })()
   }, [router])
+
+  // Auto-recalculate when calculation preferences change
+  useEffect(() => {
+    if (basePayload && recommendations.length > 0) {
+      console.log('🔄 Calculation preferences changed, recalculating...')
+      recalculateWithNewPreferences()
+    }
+  }, [calculationPreferences.calculationMode, calculationPreferences.includeAnnualFees, calculationPreferences.includeBenefits, calculationPreferences.includeSignupBonuses])
+
+  // Function to recalculate with new preferences
+  const recalculateWithNewPreferences = async () => {
+    if (!basePayload) return
+    
+    setCustomizationLoading(true)
+    try {
+      const res = await fetch('/api/recommendations', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
+        },
+        body: JSON.stringify({
+          userSpending: basePayload.userSpending || [],
+          rewardPreference: basePayload.rewardPreference || 'cashback',
+          pointValue: basePayload.pointValue ?? 0.01,
+          cardCustomizations: cardCustomizations,
+          calculationPreferences,
+          timestamp: Date.now()
+        })
+      })
+      
+      const data = await res.json()
+      if (Array.isArray(data) && data.length > 0) {
+        setRecommendations(data)
+        console.log('✅ Updated recommendations based on new calculation preferences')
+      }
+    } catch (err) {
+      console.error('Failed to recalculate with new preferences', err)
+    } finally {
+      setCustomizationLoading(false)
+    }
+  }
 
   // Derived, filtered + sorted list
   const processed = recommendations
@@ -107,6 +165,7 @@ export default function ResultsPage() {
         rewardPreference: newPayload.rewardPreference || 'cashback',
         pointValue: newPayload.pointValue ?? 0.01,
         cardCustomizations: updated,
+        calculationPreferences, // Include current calculation preferences
         timestamp: Date.now() // Add timestamp to prevent caching
       })
     })
@@ -160,9 +219,9 @@ export default function ResultsPage() {
   return (
     <>
       <Header />
-      <div className="max-w-5xl mx-auto px-4 py-10 space-y-8">
+      <div className="max-w-7xl mx-auto px-4 py-10">
         {/* Banner */}
-        <div className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-purple-600 p-4 rounded-xl text-white shadow-lg">
+        <div className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-purple-600 p-4 rounded-xl text-white shadow-lg mb-8">
           <div>
             <h1 className="text-2xl font-semibold">Your Recommendations</h1>
             <p className="text-sm text-white/80">{recommendations.length} cards ranked by net annual value</p>
@@ -176,48 +235,214 @@ export default function ResultsPage() {
           </Button>
         </div>
 
-        {/* Controls */}
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="space-x-2 text-sm">
-            <span>Filter:</span>
-            {(['all', 'cashback', 'points'] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setFilterType(t)}
-                className={`px-3 py-1 rounded-full border ${filterType === t ? 'bg-blue-600 text-white' : 'border-gray-300 text-gray-600'}`}
-              >
-                {t === 'all' ? 'All' : t === 'cashback' ? 'Cashback' : 'Points'}
-              </button>
-            ))}
-          </div>
-          <div className="space-x-2 ml-auto text-sm">
-            <span>Sort by:</span>
-            <button
-              onClick={() => {
-                setSortKey('value')
-                setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'))
-              }}
-              className="px-3 py-1 rounded-full border border-gray-300"
-            >
-              Net Value {sortKey === 'value' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
-            </button>
-            <button
-              onClick={() => {
-                setSortKey('name')
-                setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'))
-              }}
-              className="px-3 py-1 rounded-full border border-gray-300"
-            >
-              Name {sortKey === 'name' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
-            </button>
-          </div>
-        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Left Sidebar - Ranking Filters */}
+          <div className="lg:col-span-1">
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 sticky top-4">
+              <div className="flex items-center mb-6">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center">
+                  🎛️ Ranking Filters
+                  {customizationLoading && (
+                    <div className="ml-3 animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  )}
+                </h2>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white uppercase tracking-wider border-b border-gray-200 dark:border-gray-600 pb-2">
+                    Card Types
+                  </h3>
+                  
+                  {/* Card Type Filters */}
+                  <div className="space-y-2">
+                    {(['all', 'cashback', 'points'] as const).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setFilterType(t)}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          filterType === t 
+                            ? 'bg-blue-600 text-white' 
+                            : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        {t === 'all' ? '🏆 All Cards' : t === 'cashback' ? '💵 Cashback Only' : '🎯 Points Only'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-        {/* List */}
-        <div className="space-y-4">
-          {processed.map((rec, idx) => (
-            <RecommendationItem key={rec.cardId} recommendation={rec} rank={idx} onCustomize={() => openCustomization(rec.cardId)} />
-          ))}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white uppercase tracking-wider border-b border-gray-200 dark:border-gray-600 pb-2">
+                    Include in Rankings
+                  </h3>
+                  
+                  {/* Annual Fees Toggle */}
+                  <div className="flex items-center justify-between py-2">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-lg">💳</span>
+                      <div>
+                        <div className="font-medium text-gray-900 dark:text-white text-sm">Annual Fees</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Subtract card costs</div>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={calculationPreferences.includeAnnualFees}
+                        onChange={(e) => setCalculationPreferences(prev => ({ 
+                          ...prev, 
+                          includeAnnualFees: e.target.checked,
+                          calculationMode: 'comprehensive'
+                        }))}
+                        disabled={customizationLoading}
+                        className="sr-only peer"
+                      />
+                      <div className="w-4 h-4 border-2 border-gray-300 dark:border-gray-600 rounded-sm peer-checked:bg-blue-600 peer-checked:border-blue-600 flex items-center justify-center transition-colors">
+                        {calculationPreferences.includeAnnualFees && (
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Card Benefits Toggle */}
+                  <div className="flex items-center justify-between py-2">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-lg">✈️</span>
+                      <div>
+                        <div className="font-medium text-gray-900 dark:text-white text-sm">Card Benefits</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Travel credits, etc.</div>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={calculationPreferences.includeBenefits}
+                        onChange={(e) => setCalculationPreferences(prev => ({ 
+                          ...prev, 
+                          includeBenefits: e.target.checked,
+                          calculationMode: 'comprehensive'
+                        }))}
+                        disabled={customizationLoading}
+                        className="sr-only peer"
+                      />
+                      <div className="w-4 h-4 border-2 border-gray-300 dark:border-gray-600 rounded-sm peer-checked:bg-blue-600 peer-checked:border-blue-600 flex items-center justify-center transition-colors">
+                        {calculationPreferences.includeBenefits && (
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Signup Bonuses Toggle */}
+                  <div className="flex items-center justify-between py-2">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-lg">🎁</span>
+                      <div>
+                        <div className="font-medium text-gray-900 dark:text-white text-sm">Signup Bonuses</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Welcome offers</div>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={calculationPreferences.includeSignupBonuses}
+                        onChange={(e) => setCalculationPreferences(prev => ({ 
+                          ...prev, 
+                          includeSignupBonuses: e.target.checked,
+                          calculationMode: 'comprehensive'
+                        }))}
+                        disabled={customizationLoading}
+                        className="sr-only peer"
+                      />
+                      <div className="w-4 h-4 border-2 border-gray-300 dark:border-gray-600 rounded-sm peer-checked:bg-blue-600 peer-checked:border-blue-600 flex items-center justify-center transition-colors">
+                        {calculationPreferences.includeSignupBonuses && (
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Current Calculation Status */}
+                <div className="mt-6 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-600">
+                  <div className="flex items-start space-x-2">
+                    <span className="text-blue-600 dark:text-blue-400 text-sm">📊</span>
+                    <div>
+                      <h4 className="font-medium text-gray-900 dark:text-white text-sm mb-1">
+                        {!calculationPreferences.includeAnnualFees && !calculationPreferences.includeBenefits && !calculationPreferences.includeSignupBonuses
+                          ? 'Pure Rewards'
+                          : calculationPreferences.includeAnnualFees && calculationPreferences.includeBenefits && calculationPreferences.includeSignupBonuses
+                          ? 'Complete Analysis'
+                          : calculationPreferences.includeAnnualFees && !calculationPreferences.includeBenefits && !calculationPreferences.includeSignupBonuses
+                          ? 'Net Value'
+                          : 'Custom Calculation'
+                        }
+                      </h4>
+                      <p className="text-xs text-blue-700 dark:text-blue-300">
+                        {!calculationPreferences.includeAnnualFees && !calculationPreferences.includeBenefits && !calculationPreferences.includeSignupBonuses && 
+                          'Pure reward earnings only'
+                        }
+                        {calculationPreferences.includeAnnualFees && !calculationPreferences.includeBenefits && !calculationPreferences.includeSignupBonuses && 
+                          'Rewards minus annual fees'
+                        }
+                        {calculationPreferences.includeAnnualFees && calculationPreferences.includeBenefits && calculationPreferences.includeSignupBonuses && 
+                          'All factors included'
+                        }
+                        {(calculationPreferences.includeAnnualFees || calculationPreferences.includeBenefits || calculationPreferences.includeSignupBonuses) && 
+                         !(calculationPreferences.includeAnnualFees && calculationPreferences.includeBenefits && calculationPreferences.includeSignupBonuses) &&
+                         !(calculationPreferences.includeAnnualFees && !calculationPreferences.includeBenefits && !calculationPreferences.includeSignupBonuses) &&
+                          'Based on selected filters'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Side - Results */}
+          <div className="lg:col-span-3 space-y-6">
+            {/* Controls */}
+            <div className="flex items-center justify-end gap-4">
+              <div className="space-x-2 text-sm">
+                <span>Sort by:</span>
+                <button
+                  onClick={() => {
+                    setSortKey('value')
+                    setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+                  }}
+                  className="px-3 py-1 rounded-full border border-gray-300"
+                >
+                  Net Value {sortKey === 'value' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                </button>
+                <button
+                  onClick={() => {
+                    setSortKey('name')
+                    setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+                  }}
+                  className="px-3 py-1 rounded-full border border-gray-300"
+                >
+                  Name {sortKey === 'name' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                </button>
+              </div>
+            </div>
+
+            {/* Cards List */}
+            <div className="space-y-4">
+              {processed.slice(0, 10).map((rec, idx) => (
+                <RecommendationItem key={rec.cardId} recommendation={rec} rank={idx} onCustomize={() => openCustomization(rec.cardId)} />
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 

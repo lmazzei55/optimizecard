@@ -8,18 +8,19 @@ const SPENDING_CATEGORIES = [
   { name: 'Travel', description: 'Airlines, hotels, and travel expenses' },
   { name: 'Gas', description: 'Gas stations and fuel' },
   { name: 'Groceries', description: 'Supermarkets and grocery stores' },
-  { name: 'Online Shopping', description: 'E-commerce and online purchases' },
+  { name: 'Shopping', description: 'General retail and online shopping' },
   { name: 'Entertainment', description: 'Movies, streaming, and entertainment' },
+  { name: 'Transportation', description: 'Public transit, rideshare, parking' },
+  { name: 'Health & Medical', description: 'Doctor visits, pharmacy, medical expenses' },
   { name: 'Utilities', description: 'Phone, internet, and utility bills' },
-  { name: 'Other', description: 'All other purchases' },
 ] as const
 
 // Subcategories Data - Updated June 2025
 const SUBCATEGORIES = [
   // Online Shopping
-  { name: 'Amazon', description: 'Amazon.com purchases', parent: 'Online Shopping' },
+  { name: 'Amazon', description: 'Amazon.com purchases', parent: 'Shopping' },
   { name: 'Whole Foods', description: 'Whole Foods Market', parent: 'Groceries' },
-  { name: 'Walmart.com', description: 'Walmart.com purchases', parent: 'Online Shopping' },
+  { name: 'Walmart.com', description: 'Walmart.com purchases', parent: 'Shopping' },
   
   // Travel - Enhanced with portal vs direct booking distinctions
   { name: 'Flights (Direct)', description: 'Flights booked directly with airlines', parent: 'Travel' },
@@ -678,7 +679,10 @@ async function main() {
   console.log('🎯 Seeding complete! Summary:')
   console.log(`  - ${CREDIT_CARDS.length} credit cards`)
   console.log(`  - ${CREDIT_CARDS.reduce((total, card) => total + card.categoryRewards.length, 0)} category rewards`)
-  console.log(`  - ${CREDIT_CARDS.reduce((total, card) => total + CARD_BENEFITS[card.id as keyof typeof CARD_BENEFITS].length, 0)} card benefits`)
+  console.log(`  - ${CREDIT_CARDS.reduce((total, card) => {
+    const benefits = CARD_BENEFITS[card.id as keyof typeof CARD_BENEFITS]
+    return total + (benefits ? benefits.length : 0)
+  }, 0)} card benefits`)
   
   // Ensure test user is premium
   console.log('👤 Setting up test user...')
