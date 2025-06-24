@@ -136,6 +136,13 @@ export function SpendingForm() {
   const { rewardPreference, pointValue, enableSubCategories: enableSubcategories } = userState.preferences
   const { subscriptionTier: userSubscriptionTier } = userState
 
+  // Debug: Log when enableSubcategories changes
+  useEffect(() => {
+    console.log('🎯 enableSubcategories changed to:', enableSubcategories)
+    console.log('🎯 Current categories count:', categories.length)
+    console.log('🎯 Categories have subCategories:', categories.map(c => ({ name: c.name, hasSubCategories: !!c.subCategories })))
+  }, [enableSubcategories])
+
   // Enhanced warmup system with global state management
   const warmupAPIs = async () => {
     setIsWarming(true)
@@ -404,6 +411,7 @@ export function SpendingForm() {
     fetchCategoriesInProgress.current = true
     try {
       const endpoint = enableSubcategories ? '/api/subcategories' : '/api/categories'
+      console.log('🌐 fetchCategories: Using endpoint:', endpoint, 'enableSubcategories:', enableSubcategories)
       const response = await fetch(endpoint, {
         headers: {
           'Cache-Control': 'no-cache',
@@ -445,6 +453,15 @@ export function SpendingForm() {
       }
       
       setCategories(data)
+      
+      // Debug: Log categories with subcategory info
+      console.log('📋 Categories loaded:', data.length, 'categories')
+      data.forEach((cat: any) => {
+        console.log(`📂 ${cat.name}: ${cat.subCategories?.length || 0} subcategories`)
+        if (cat.subCategories?.length > 0) {
+          console.log(`  ↳ Subcategories: ${cat.subCategories.map((sub: any) => sub.name).join(', ')}`)
+        }
+      })
       
       // Check if we have saved data that we should preserve
       const localSpending = localStorage.getItem('spending-data')
@@ -621,10 +638,22 @@ export function SpendingForm() {
 
   const updateSpending = (id: string, amount: number, isSubcategory: boolean = false) => {
     console.log('🖊️ User input:', { id, amount, isSubcategory })
+    console.log('🖊️ Current spending state before update:', spending.filter(s => s.monthlySpend > 0))
+    
     setSpending(prev => {
       const updated = prev.map(s => {
         const matchId = isSubcategory ? s.subCategoryId : s.categoryId
-        return matchId === id 
+        const matches = matchId === id
+        if (matches) {
+          console.log('🎯 Found matching spending item:', { 
+            categoryName: s.categoryName, 
+            oldAmount: s.monthlySpend, 
+            newAmount: amount,
+            isSubcategory,
+            matchId
+          })
+        }
+        return matches 
           ? { ...s, monthlySpend: amount }
           : s
       })
@@ -897,140 +926,157 @@ export function SpendingForm() {
   return (
     <div className="space-y-8">
       {/* Main Content with Sidebar Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 max-w-8xl mx-auto">
         {/* Left Side - Categories Grid (3/4 width) */}
         <div className="lg:col-span-3">
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-6">
             <h2 className="text-3xl font-semibold text-gray-900 dark:text-white mb-8 text-center">
               💳 Monthly Spending by Category
             </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {enableSubcategories ? (
                   // Subcategory mode: uniform height cards with scrollable subcategories
-                  categories.map((category) => (
-                    <div key={category.id} className="h-[28rem] bg-gray-50/50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600 p-4 flex flex-col">
-                      {/* Category Header */}
-                      <div className="flex-shrink-0 mb-4">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                              {category.name}
-                            </h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">{category.description}</p>
-                          </div>
-                          <div className="text-right ml-4">
-                            <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                              {formatCurrency(
-                                Math.max(
-                                  spending.find(s => s.categoryId === category.id)?.monthlySpend || 0,
-                                  spending.filter(s => s.subCategoryId && category.subCategories?.some(sub => sub.id === s.subCategoryId))
-                                    .reduce((sum, s) => sum + s.monthlySpend, 0)
-                                )
-                              )}
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">per month</p>
-                          </div>
+                  (() => {
+                    console.log('🔍 Rendering SUBCATEGORY mode with', categories.length, 'categories')
+                    console.log('🔍 Categories have subcategories:', categories.map(c => ({ name: c.name, hasSubCategories: !!c.subCategories, count: c.subCategories?.length || 0 })))
+                    return categories.map((category) => (
+                      <div key={category.id} className="h-[24rem] bg-gray-50/50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600 p-4 flex flex-col relative group hover:scale-105 hover:shadow-lg transition-all duration-200 cursor-pointer" onClick={() => setExpandedCategoryId(category.id)}>
+                        {/* Hover Tooltip */}
+                        <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs px-3 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 whitespace-nowrap">
+                          Click to view all {category.subCategories?.length || 0} subcategories
                         </div>
                         
-                        {/* Main Category Spending */}
-                        {(() => {
-                          const currentSpending = spending.find(s => s.categoryId === category.id)
-                          const amount = currentSpending?.monthlySpend || 0
-                          
-                          return (
-                            <div className="mb-4 p-3 bg-white dark:bg-gray-600 rounded-lg border border-gray-200 dark:border-gray-500">
-                              <div className="flex justify-between items-center mb-2">
-                                <label className="text-sm font-medium text-gray-900 dark:text-white">
-                                  General {category.name}
-                                </label>
-                                <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
-                                  {formatCurrency(amount)}
-                                </span>
-                              </div>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                                Other {category.name.toLowerCase()} not listed below
+                        <div className="flex flex-col h-full">
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <label className="block text-lg font-semibold text-gray-900 dark:text-white">
+                                {category.name}
+                              </label>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{category.description}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                                {formatCurrency((() => {
+                                  const currentSpending = spending.find(s => s.categoryId === category.id)
+                                  return currentSpending?.monthlySpend || 0
+                                })())}
                               </p>
-                              
-                              <div className="space-y-2">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="25"
-                                  value={amount || ''}
-                                  onChange={(e) => updateSpending(category.id, parseFloat(e.target.value) || 0, false)}
-                                  className="w-full px-2 py-1 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                  placeholder="Monthly amount ($)"
-                                />
-                              </div>
-                            </div>
-                          )
-                        })()}
-                        
-                        {/* Subcategories - Scrollable Area */}
-                        {category.subCategories && category.subCategories.length > 0 && (
-                          <div className="flex-1 flex flex-col min-h-0">
-                            <div className="flex items-center justify-between mb-3">
-                              <div className="flex items-center flex-1">
-                                <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600"></div>
-                                <span className="px-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                  Subcategories
-                                </span>
-                                <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600"></div>
-                              </div>
-                            </div>
-                            
-                            <div className="flex-1 overflow-y-auto pr-2 -mr-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent relative">
-                              <div className="grid gap-3 grid-cols-1 pb-2">
-                              {category.subCategories.map((subCategory) => {
-                                const currentSpending = spending.find(s => s.subCategoryId === subCategory.id)
-                                const amount = currentSpending?.monthlySpend || 0
-                                
-                                return (
-                                  <div key={subCategory.id} className="p-3 bg-white dark:bg-gray-600 rounded-lg border border-gray-200 dark:border-gray-500">
-                                    <div className="flex justify-between items-center mb-2">
-                                      <div className="flex-1 min-w-0">
-                                        <label className="text-sm font-medium text-gray-900 dark:text-white block truncate">
-                                          📍 {subCategory.name}
-                                        </label>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                          {subCategory.description}
-                                        </p>
-                                      </div>
-                                      <span className="text-sm font-bold text-purple-600 dark:text-purple-400 ml-2">
-                                        {formatCurrency(amount)}
-                                      </span>
-                                    </div>
-                                    
-                                    <div className="space-y-2">
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        step="25"
-                                        value={amount || ''}
-                                        onChange={(e) => updateSpending(subCategory.id, parseFloat(e.target.value) || 0, true)}
-                                        className="w-full px-2 py-1 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
-                                        placeholder="Monthly amount ($)"
-                                      />
-                                    </div>
-                                  </div>
-                                )
-                              })}
-                              </div>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">per month</p>
                             </div>
                           </div>
-                        )}
+
+                          {/* General Category Input */}
+                          {(() => {
+                            const currentSpending = spending.find(s => s.categoryId === category.id)
+                            const amount = currentSpending?.monthlySpend || 0
+                            
+                            return (
+                              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-600">
+                                <div className="flex justify-between items-center mb-2">
+                                  <label className="text-sm font-medium text-gray-900 dark:text-white">
+                                    General {category.name}
+                                  </label>
+                                  <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                                    {formatCurrency(amount)}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-600 dark:text-gray-300 mb-2">
+                                  Other {category.name.toLowerCase()} not listed below
+                                </p>
+                                
+                                <div className="space-y-2">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="25"
+                                    value={amount || ''}
+                                    onChange={(e) => updateSpending(category.id, parseFloat(e.target.value) || 0, false)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-full px-2 py-1 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    placeholder="Monthly amount ($)"
+                                  />
+                                </div>
+                              </div>
+                            )
+                          })()}
+                          
+                          {/* Subcategories - Scrollable Area with Modal Trigger */}
+                          {category.subCategories && category.subCategories.length > 0 && (
+                            <div className="flex-1 flex flex-col min-h-0">
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center flex-1">
+                                  <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600"></div>
+                                  <span className="px-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                    Subcategories
+                                  </span>
+                                  <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600"></div>
+                                </div>
+                              </div>
+                              
+                              <div className="flex-1 overflow-y-auto pr-2 -mr-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent relative max-h-32">
+                                <div className="grid gap-2 grid-cols-1 pb-2">
+                                {category.subCategories.slice(0, 3).map((subCategory) => {
+                                  const currentSpending = spending.find(s => s.subCategoryId === subCategory.id)
+                                  const amount = currentSpending?.monthlySpend || 0
+                                  
+                                  return (
+                                    <div key={subCategory.id} className="p-2 bg-white dark:bg-gray-600 rounded-lg border border-gray-200 dark:border-gray-500">
+                                      <div className="flex justify-between items-center mb-1">
+                                        <div className="flex-1 min-w-0">
+                                          <label className="text-xs font-medium text-gray-900 dark:text-white block truncate">
+                                            📍 {subCategory.name}
+                                          </label>
+                                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                            {subCategory.description}
+                                          </p>
+                                        </div>
+                                        <span className="text-xs font-bold text-purple-600 dark:text-purple-400 ml-2">
+                                          {formatCurrency(amount)}
+                                        </span>
+                                      </div>
+                                      
+                                      <div className="space-y-1">
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          step="25"
+                                          value={amount || ''}
+                                          onChange={(e) => updateSpending(subCategory.id, parseFloat(e.target.value) || 0, true)}
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="w-full px-2 py-1 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                          placeholder="Monthly amount ($)"
+                                        />
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                                </div>
+                                
+                                {/* Show more button if there are more than 3 subcategories */}
+                                {category.subCategories.length > 3 && (
+                                  <div className="mt-2 text-center">
+                                    <div className="text-xs text-blue-600 dark:text-blue-400 font-medium pointer-events-none">
+                                      View all {category.subCategories.length} subcategories →
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    ))
+                  })()
                 ) : (
                   // Standard category mode
                   categories.map((category) => {
+                    console.log('🔍 Rendering STANDARD mode for category:', category.name, 'hasSubCategories:', !!category.subCategories)
                     const currentSpending = spending.find(s => s.categoryId === category.id)
                     const amount = currentSpending?.monthlySpend || 0
                     
                     return (
-                      <div key={category.id} className="space-y-4 p-6 bg-gray-50/50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
+                      <div key={category.id} className="space-y-3 p-5 bg-gray-50/50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
                         <div className="flex justify-between items-start">
                           <div>
                             <label className="block text-lg font-semibold text-gray-900 dark:text-white">
@@ -1047,15 +1093,16 @@ export function SpendingForm() {
                         </div>
 
                         {/* Text Input */}
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm text-gray-500 dark:text-gray-400">Exact:</span>
+                        <div className="space-y-2">
+                          <span className="text-sm text-gray-500 dark:text-gray-400">Exact amount:</span>
                           <input
                             type="number"
                             min="0"
                             step="25"
                             value={amount || ''}
                             onChange={(e) => updateSpending(category.id, parseFloat(e.target.value) || 0, false)}
-                            className="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                             placeholder="Monthly amount ($)"
                           />
                         </div>
@@ -1070,25 +1117,25 @@ export function SpendingForm() {
         {/* Right Sidebar - Controls & Summary (1/4 width) */}
         <div className="lg:col-span-1 space-y-6">
           {/* Total Spending Display */}
-          <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-600 rounded-xl border border-blue-200 dark:border-gray-600 p-6 sticky top-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 text-center">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 sticky top-4">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6 text-center">
               💰 Total Spending
             </h3>
-            <div className="text-center space-y-2">
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+            <div className="text-center space-y-3">
+              <p className="text-3xl font-bold text-gray-900 dark:text-white">
                 {formatCurrency(totalMonthlySpend)}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-300">per month</p>
-              <p className="text-lg text-gray-600 dark:text-gray-300">
+              <p className="text-xl font-semibold text-gray-600 dark:text-gray-300">
                 {formatCurrency(totalMonthlySpend * 12)} annually
               </p>
             </div>
           </div>
 
           {/* Subcategories Toggle */}
-          <div className="bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 p-4">
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">🎯 Subcategories</h3>
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-6">
+            <div className="space-y-4">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Subcategories</h3>
               <p className="text-sm text-gray-600 dark:text-gray-300">
                 Get more precise recommendations with specific subcategories like Amazon, Whole Foods, Hotels, etc.
               </p>
@@ -1096,14 +1143,102 @@ export function SpendingForm() {
                 <input
                   type="checkbox"
                   checked={enableSubcategories}
-                  onChange={(e) => userState.updateSubcategoryPreference(e.target.checked)}
+                  onChange={(e) => {
+                    console.log('🔄 Subcategory toggle changed to:', e.target.checked)
+                    console.log('📊 Current categories data:', categories.map(c => ({ 
+                      name: c.name, 
+                      hasSubCategories: !!c.subCategories, 
+                      subCategoryCount: c.subCategories?.length || 0 
+                    })))
+                    
+                    // Update the preference first
+                    userState.updateSubcategoryPreference(e.target.checked)
+                    
+                    // Clear categories and spending to force a complete refresh
+                    setCategories([])
+                    setSpending([])
+                    setLoading(true)
+                    setInitialDataLoaded(false) // Reset to allow new data structure
+                    
+                    // Small delay to ensure state has updated, then refetch
+                    setTimeout(() => {
+                      fetchCategories()
+                    }, 200)
+                  }}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
                 <span className="ml-3 text-sm font-medium text-gray-900 dark:text-white">
                   {enableSubcategories ? 'Enabled' : 'Disabled'}
                 </span>
               </label>
+            </div>
+          </div>
+
+          {/* Spending Insights */}
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-6">
+            <div className="space-y-4">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">💡 Quick Insights</h3>
+              
+              {totalMonthlySpend > 0 ? (
+                <div className="space-y-3">
+                  {(() => {
+                    // Calculate top spending categories
+                    const categoryTotals = categories.map(cat => {
+                      const categorySpending = spending.find(s => s.categoryId === cat.id)?.monthlySpend || 0
+                      const subcategorySpending = enableSubcategories ? 
+                        spending.filter(s => s.subCategoryId && cat.subCategories?.some(sub => sub.id === s.subCategoryId))
+                          .reduce((sum, s) => sum + s.monthlySpend, 0) : 0
+                      return {
+                        name: cat.name,
+                        total: Math.max(categorySpending, subcategorySpending)
+                      }
+                    }).filter(cat => cat.total > 0).sort((a, b) => b.total - a.total)
+
+                    const topCategory = categoryTotals[0]
+                    const secondCategory = categoryTotals[1]
+                    
+                    return (
+                      <>
+                        {topCategory && (
+                          <div className="text-sm">
+                            <span className="text-gray-600 dark:text-gray-300">Top category:</span>
+                            <div className="font-semibold text-blue-600 dark:text-blue-400">
+                              {topCategory.name} ({formatCurrency(topCategory.total)})
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              {((topCategory.total / totalMonthlySpend) * 100).toFixed(0)}% of total spending
+                            </div>
+                          </div>
+                        )}
+                        
+                        {secondCategory && (
+                          <div className="text-sm">
+                            <span className="text-gray-600 dark:text-gray-300">Second highest:</span>
+                            <div className="font-semibold text-purple-600 dark:text-purple-400">
+                              {secondCategory.name} ({formatCurrency(secondCategory.total)})
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
+                          <div className="text-sm text-gray-600 dark:text-gray-300">
+                            <span className="font-semibold">{categoryTotals.length}</span> categories with spending
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            Average: {formatCurrency(totalMonthlySpend / Math.max(categoryTotals.length, 1))} per category
+                          </div>
+                        </div>
+                      </>
+                    )
+                  })()}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  <p>💭 Enter your spending amounts above to see personalized insights and recommendations.</p>
+                  <p className="mt-2 text-xs">Tip: Start with your largest spending categories first!</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1299,6 +1434,127 @@ export function SpendingForm() {
           </p>
         )}
       </div>
+
+      {/* Category Expansion Modal */}
+      {expandedCategoryId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
+            {(() => {
+              const expandedCategory = categories.find(cat => cat.id === expandedCategoryId)
+              if (!expandedCategory) return null
+              
+              return (
+                <>
+                  {/* Modal Header */}
+                  <div className="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-b border-gray-200 dark:border-gray-600">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                          {expandedCategory.name} Subcategories
+                        </h2>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                          {expandedCategory.description}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setExpandedCategoryId(null)}
+                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl font-bold"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Modal Body */}
+                  <div className="p-6 overflow-y-auto max-h-[60vh]">
+                    {/* Main Category */}
+                    {(() => {
+                      const currentSpending = spending.find(s => s.categoryId === expandedCategory.id)
+                      const amount = currentSpending?.monthlySpend || 0
+                      
+                      return (
+                        <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-600">
+                          <div className="flex justify-between items-center mb-3">
+                            <label className="text-lg font-semibold text-gray-900 dark:text-white">
+                              General {expandedCategory.name}
+                            </label>
+                            <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                              {formatCurrency(amount)}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
+                            Other {expandedCategory.name.toLowerCase()} not listed below
+                          </p>
+                          
+                          <input
+                            type="number"
+                            min="0"
+                            step="25"
+                            value={amount || ''}
+                            onChange={(e) => updateSpending(expandedCategory.id, parseFloat(e.target.value) || 0, false)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Monthly amount ($)"
+                          />
+                        </div>
+                      )
+                    })()}
+
+                    {/* All Subcategories */}
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {expandedCategory.subCategories?.map((subCategory) => {
+                        const currentSpending = spending.find(s => s.subCategoryId === subCategory.id)
+                        const amount = currentSpending?.monthlySpend || 0
+                        
+                        return (
+                          <div key={subCategory.id} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
+                            <div className="flex justify-between items-center mb-3">
+                              <div className="flex-1">
+                                <label className="text-base font-medium text-gray-900 dark:text-white block">
+                                  📍 {subCategory.name}
+                                </label>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                  {subCategory.description}
+                                </p>
+                              </div>
+                              <span className="text-base font-bold text-purple-600 dark:text-purple-400 ml-3">
+                                {formatCurrency(amount)}
+                              </span>
+                            </div>
+                            
+                            <input
+                              type="number"
+                              min="0"
+                              step="25"
+                              value={amount || ''}
+                              onChange={(e) => updateSpending(subCategory.id, parseFloat(e.target.value) || 0, true)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-full px-3 py-2 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                              placeholder="Monthly amount ($)"
+                            />
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div className="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-t border-gray-200 dark:border-gray-600">
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => setExpandedCategoryId(null)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                      >
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

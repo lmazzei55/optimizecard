@@ -32,12 +32,13 @@ export function useUserState() {
 
   // One-time fix: Reset subcategories default to false
   useEffect(() => {
-    const hasResetSubcategories = localStorage.getItem('subcategoriesDefaultReset_v2')
+    const hasResetSubcategories = localStorage.getItem('subcategoriesDefaultReset_v3')
     if (!hasResetSubcategories && isInitialized) {
+      console.log('🔧 Forcing subcategories default to false (v3)')
       // Force reset to false regardless of current value
       userState.updatePreferences({ enableSubCategories: false })
-      localStorage.setItem('subcategoriesDefaultReset_v2', 'true')
-      console.log('🔧 Reset subcategories default to false (v2)')
+      localStorage.setItem('subcategoriesDefaultReset_v3', 'true')
+      console.log('✅ Reset subcategories default to false (v3)')
     }
   }, [isInitialized])
 

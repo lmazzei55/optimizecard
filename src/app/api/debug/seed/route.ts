@@ -42,8 +42,11 @@ export async function POST(request: NextRequest) {
       { name: 'Utilities', description: 'Electricity, water, internet, phone bills' }
     ];
 
+    const categoryMap = new Map();
+    
     for (const category of categories) {
       const categoryId = generateId();
+      categoryMap.set(category.name, categoryId);
       await client.query(
         'INSERT INTO "SpendingCategory" (id, name, description, "createdAt") VALUES ($1, $2, $3, NOW())',
         [categoryId, category.name, category.description]
@@ -51,6 +54,78 @@ export async function POST(request: NextRequest) {
     }
     
     console.log('✅ Created spending categories');
+
+    // Create subcategories
+    const subcategories = [
+      // Travel subcategories
+      { parentCategory: 'Travel', name: 'Airlines', description: 'Commercial airline tickets and fees' },
+      { parentCategory: 'Travel', name: 'Hotels', description: 'Hotel stays and accommodations' },
+      { parentCategory: 'Travel', name: 'Car Rentals', description: 'Rental cars and vehicle services' },
+      { parentCategory: 'Travel', name: 'Booking Sites', description: 'Expedia, Priceline, Booking.com' },
+      
+      // Dining subcategories
+      { parentCategory: 'Dining', name: 'Restaurants', description: 'Sit-down restaurants and fine dining' },
+      { parentCategory: 'Dining', name: 'Fast Food', description: 'Quick service restaurants' },
+      { parentCategory: 'Dining', name: 'Food Delivery', description: 'DoorDash, Uber Eats, Grubhub' },
+      { parentCategory: 'Dining', name: 'Coffee Shops', description: 'Starbucks, local coffee shops' },
+      { parentCategory: 'Dining', name: 'Bars & Nightlife', description: 'Bars, clubs, and nightlife venues' },
+      
+      // Groceries subcategories
+      { parentCategory: 'Groceries', name: 'Whole Foods', description: 'Whole Foods Market stores' },
+      { parentCategory: 'Groceries', name: 'Supermarkets', description: 'Traditional grocery stores' },
+      { parentCategory: 'Groceries', name: 'Warehouse Clubs', description: 'Costco, Sam\'s Club, BJ\'s' },
+      { parentCategory: 'Groceries', name: 'Specialty Stores', description: 'Butcher shops, bakeries, organic stores' },
+      
+      // Shopping subcategories
+      { parentCategory: 'Shopping', name: 'Amazon', description: 'Amazon.com purchases' },
+      { parentCategory: 'Shopping', name: 'Department Stores', description: 'Target, Walmart, Macy\'s' },
+      { parentCategory: 'Shopping', name: 'Online Shopping', description: 'Other online retailers' },
+      { parentCategory: 'Shopping', name: 'Electronics', description: 'Best Buy, Apple Store, electronics retailers' },
+      { parentCategory: 'Shopping', name: 'Clothing', description: 'Clothing and apparel stores' },
+      
+      // Entertainment subcategories
+      { parentCategory: 'Entertainment', name: 'Streaming Services', description: 'Netflix, Spotify, Disney+' },
+      { parentCategory: 'Entertainment', name: 'Movies & Theater', description: 'Movie theaters, live shows' },
+      { parentCategory: 'Entertainment', name: 'Gaming', description: 'Video games, gaming platforms' },
+      { parentCategory: 'Entertainment', name: 'Sports & Recreation', description: 'Gyms, sports events, recreation' },
+      
+      // Gas subcategories
+      { parentCategory: 'Gas', name: 'Shell', description: 'Shell gas stations' },
+      { parentCategory: 'Gas', name: 'Exxon', description: 'Exxon gas stations' },
+      { parentCategory: 'Gas', name: 'BP', description: 'BP gas stations' },
+      { parentCategory: 'Gas', name: 'Other Gas Stations', description: 'Independent and other brand stations' },
+      
+      // Transportation subcategories
+      { parentCategory: 'Transportation', name: 'Uber/Lyft', description: 'Rideshare services' },
+      { parentCategory: 'Transportation', name: 'Public Transit', description: 'Buses, trains, subway' },
+      { parentCategory: 'Transportation', name: 'Parking', description: 'Parking fees and meters' },
+      { parentCategory: 'Transportation', name: 'Tolls', description: 'Highway and bridge tolls' },
+      
+      // Health & Medical subcategories
+      { parentCategory: 'Health & Medical', name: 'Pharmacy', description: 'CVS, Walgreens, prescriptions' },
+      { parentCategory: 'Health & Medical', name: 'Doctor Visits', description: 'Medical appointments and consultations' },
+      { parentCategory: 'Health & Medical', name: 'Dental', description: 'Dental care and orthodontics' },
+      { parentCategory: 'Health & Medical', name: 'Vision', description: 'Eye care and optical services' },
+      
+      // Utilities subcategories
+      { parentCategory: 'Utilities', name: 'Electric', description: 'Electricity bills' },
+      { parentCategory: 'Utilities', name: 'Internet & Phone', description: 'Internet, cable, mobile phone bills' },
+      { parentCategory: 'Utilities', name: 'Water & Sewer', description: 'Water and waste management' },
+      { parentCategory: 'Utilities', name: 'Insurance', description: 'Home, auto, life insurance' }
+    ];
+
+    for (const subcategory of subcategories) {
+      const parentCategoryId = categoryMap.get(subcategory.parentCategory);
+      if (parentCategoryId) {
+        const subcategoryId = generateId();
+        await client.query(
+          'INSERT INTO "SubCategory" (id, name, description, "parentCategoryId", "createdAt") VALUES ($1, $2, $3, $4, NOW())',
+          [subcategoryId, subcategory.name, subcategory.description, parentCategoryId]
+        );
+      }
+    }
+    
+    console.log('✅ Created subcategories');
 
     // Insert credit cards with all benefits
     for (const card of creditCards) {
@@ -116,6 +191,7 @@ export async function POST(request: NextRequest) {
     const rewardCount = await client.query('SELECT COUNT(*) FROM "CategoryReward"');
     const benefitCount = await client.query('SELECT COUNT(*) FROM "CardBenefit"');
     const categoryCount = await client.query('SELECT COUNT(*) FROM "SpendingCategory"');
+    const subcategoryCount = await client.query('SELECT COUNT(*) FROM "SubCategory"');
 
     const result = {
       success: true,
@@ -124,7 +200,8 @@ export async function POST(request: NextRequest) {
         creditCards: parseInt(cardCount.rows[0].count),
         categoryRewards: parseInt(rewardCount.rows[0].count),
         benefits: parseInt(benefitCount.rows[0].count),
-        categories: parseInt(categoryCount.rows[0].count)
+        categories: parseInt(categoryCount.rows[0].count),
+        subcategories: parseInt(subcategoryCount.rows[0].count)
       }
     };
 
