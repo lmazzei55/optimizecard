@@ -896,19 +896,17 @@ export function SpendingForm() {
 
   return (
     <div className="space-y-8">
-      {/* Main Content */}
-      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">
-        <h2 className="text-3xl font-semibold text-gray-900 dark:text-white mb-8 text-center">
-          💳 Monthly Spending by Category
-        </h2>
+      {/* Main Content with Sidebar Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {/* Left Side - Categories Grid (3/4 width) */}
+        <div className="lg:col-span-3">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">
+            <h2 className="text-3xl font-semibold text-gray-900 dark:text-white mb-8 text-center">
+              💳 Monthly Spending by Category
+            </h2>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Categories Grid - Left Side (3/4 width) */}
-          <div className="lg:col-span-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Categories Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                {enableSubcategories ? (
+              {enableSubcategories ? (
                   // Subcategory mode: uniform height cards with scrollable subcategories
                   categories.map((category) => (
                     <div key={category.id} className="h-[28rem] bg-gray-50/50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600 p-4 flex flex-col">
@@ -1065,170 +1063,49 @@ export function SpendingForm() {
                     )
                   })
                 )}
-              </div>
-            </div>
-          </div>
-
-          {/* Right Sidebar - Controls & Summary */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Total Spending Display */}
-            <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-600 rounded-xl border border-blue-200 dark:border-gray-600 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 text-center">
-                💰 Total Spending
-              </h3>
-              <div className="text-center space-y-2">
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {formatCurrency(totalMonthlySpend)}
-                </p>
-                <p className="text-sm text-gray-600 dark:text-gray-300">per month</p>
-                <p className="text-lg text-gray-600 dark:text-gray-300">
-                  {formatCurrency(totalMonthlySpend * 12)} annually
-                </p>
-              </div>
-            </div>
-
-            {/* Subcategories Toggle */}
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 p-4">
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">🎯 Subcategories</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  Get more precise recommendations with specific subcategories like Amazon, Whole Foods, Hotels, etc.
-                </p>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={enableSubcategories}
-                    onChange={(e) => userState.updateSubcategoryPreference(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                  <span className="ml-3 text-sm font-medium text-gray-900 dark:text-white">
-                    {enableSubcategories ? 'Enabled' : 'Disabled'}
-                  </span>
-                </label>
-              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Preferences */}
-      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">
-        <h2 className="text-3xl font-semibold text-gray-900 dark:text-white mb-8 text-center">
-          ⚙️ Reward Preferences
-        </h2>
-        
-        <div className="space-y-8">
-          <div>
-            <label className="block text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              What type of rewards do you prefer?
-            </label>
-            <div className="grid grid-cols-3 gap-4">
-              <button
-                onClick={() => handleRewardPreferenceChange('cashback')}
-                className={`p-4 rounded-xl border-2 transition-all duration-200 ${
-                  rewardPreference === 'cashback'
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-                    : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:border-blue-300 dark:hover:border-blue-500'
-                }`}
-              >
-                <div className="text-center">
-                  <div className="text-2xl mb-2">💵</div>
-                  <div className="font-semibold">Cashback</div>
-                  <div className="text-sm opacity-75">Direct cash rewards</div>
-                </div>
-              </button>
-              
-              <button
-                onClick={() => handleRewardPreferenceChange('points')}
-                className={`p-4 rounded-xl border-2 transition-all duration-200 relative ${
-                  rewardPreference === 'points'
-                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300'
-                    : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:border-purple-300 dark:hover:border-purple-500'
-                }`}
-              >
-                <div className="text-center">
-                  <div className="text-2xl mb-2">🎯</div>
-                  <div className="font-semibold">Points/Miles</div>
-                  <div className="text-sm opacity-75">Travel & transfer partners</div>
-                  {userSubscriptionTier !== 'premium' && (
-                    <div className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                      PRO
-                    </div>
-                  )}
-                </div>
-              </button>
-
-              <button
-                onClick={() => handleRewardPreferenceChange('best_overall')}
-                className={`p-4 rounded-xl border-2 transition-all duration-200 relative ${
-                  rewardPreference === 'best_overall'
-                    ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
-                    : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:border-green-300 dark:hover:border-green-500'
-                }`}
-              >
-                <div className="text-center">
-                  <div className="text-2xl mb-2">🏆</div>
-                  <div className="font-semibold">Best Overall</div>
-                  <div className="text-sm opacity-75">Compare cash & points</div>
-                  {userSubscriptionTier !== 'premium' && (
-                    <div className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                      PRO
-                    </div>
-                  )}
-                </div>
-              </button>
+        {/* Right Sidebar - Controls & Summary (1/4 width) */}
+        <div className="lg:col-span-1 space-y-6">
+          {/* Total Spending Display */}
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-700 dark:to-gray-600 rounded-xl border border-blue-200 dark:border-gray-600 p-6 sticky top-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 text-center">
+              💰 Total Spending
+            </h3>
+            <div className="text-center space-y-2">
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {formatCurrency(totalMonthlySpend)}
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">per month</p>
+              <p className="text-lg text-gray-600 dark:text-gray-300">
+                {formatCurrency(totalMonthlySpend * 12)} annually
+              </p>
             </div>
           </div>
 
-          {(rewardPreference === 'points' || rewardPreference === 'best_overall') && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-600">
-              <p className="text-sm text-blue-700 dark:text-blue-300">
-                📊 <strong>Initial calculation will use 1¢ per point.</strong><br/>
-                You'll be able to adjust point valuations for your top card recommendations after seeing the results.
+          {/* Subcategories Toggle */}
+          <div className="bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 p-4">
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">🎯 Subcategories</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Get more precise recommendations with specific subcategories like Amazon, Whole Foods, Hotels, etc.
               </p>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={enableSubcategories}
+                  onChange={(e) => userState.updateSubcategoryPreference(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                <span className="ml-3 text-sm font-medium text-gray-900 dark:text-white">
+                  {enableSubcategories ? 'Enabled' : 'Disabled'}
+                </span>
+              </label>
             </div>
-          )}
-
-          {/* Testing Tools (only in development) */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-xl p-4 border border-yellow-200 dark:border-yellow-600">
-              <h4 className="font-semibold text-yellow-800 dark:text-yellow-300 mb-2">🧪 Testing Tools</h4>
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={() => {
-                    localStorage.removeItem('spending-data')
-                    setSpending(prev => prev.map(s => ({ ...s, monthlySpend: 0 })))
-                    if (session?.user?.email) {
-                      fetch('/api/user/spending', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ spending: spending.map(s => ({ ...s, monthlySpend: 0 })) })
-                      })
-                    }
-                  }}
-                  className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Clear All Spending Data
-                </button>
-                <button
-                  onClick={() => {
-                    const testSpending = spending.map((s, index) => ({ 
-                      ...s, 
-                      monthlySpend: [500, 300, 200, 150, 100, 75, 50, 25][index] || 0 
-                    }))
-                    setSpending(testSpending)
-                  }}
-                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Load Test Data
-                </button>
-              </div>
-              <p className="text-xs text-yellow-700 dark:text-yellow-400 mt-2">
-                These buttons help test spending persistence when navigating between pages.
-              </p>
-            </div>
-          )}
+          </div>
         </div>
       </div>
 
@@ -1353,32 +1230,74 @@ export function SpendingForm() {
       </div>
 
       {/* System Status & Calculate Button */}
-      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">
-        <div className="flex flex-col md:flex-row items-center justify-between">
-          <div className="flex items-center space-x-4 mb-4 md:mb-0">
+      <div className="text-center space-y-4">
+        {/* System Status Indicator */}
+        {isWarming && (
+          <div className="inline-flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-4 py-2 rounded-full text-sm">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+            <span>🔥 Warming up servers...</span>
+          </div>
+        )}
+        
+        {systemReady && !isWarming && (
+          <div className="inline-flex items-center space-x-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 px-4 py-2 rounded-full text-sm">
+            <span>✅ System ready</span>
+          </div>
+        )}
+
+        <Button
+          onClick={calculateRecommendations}
+          disabled={totalMonthlySpend === 0 || calculating}
+          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-12 py-4 text-xl font-semibold rounded-full shadow-lg transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+        >
+          {calculating ? (
             <div className="flex items-center space-x-2">
-              <span className="text-lg font-semibold text-gray-900 dark:text-white">System Status:</span>
-              <span className={`text-lg font-semibold ${calculating ? 'text-yellow-500' : 'text-green-500'}`}>
-                {calculating ? 'Calculating...' : 'Ready'}
-              </span>
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              <span>Calculating... (may take a moment)</span>
             </div>
-            {error && (
-              <div className="text-red-500 font-semibold">
-                <span className="mr-2">⚠️</span>
-                {error}
+          ) : (
+            '🎯 Get My Recommendations'
+          )}
+        </Button>
+
+        {/* Error Display */}
+        {error && (
+          <div className="max-w-md mx-auto mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+            <div className="flex items-start space-x-3">
+              <span className="text-red-500 text-xl flex-shrink-0">⚠️</span>
+              <div className="flex-1">
+                <h3 className="font-semibold text-red-800 dark:text-red-300 mb-1">
+                  Calculation Failed
+                </h3>
+                <p className="text-red-600 dark:text-red-400 text-sm mb-3">
+                  {error}
+                </p>
+                <div className="flex space-x-2">
+                  <button 
+                    onClick={() => setError(null)}
+                    className="text-sm text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200 underline"
+                  >
+                    Dismiss
+                  </button>
+                  <button 
+                    onClick={calculateRecommendations}
+                    disabled={calculating}
+                    className="text-sm bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded transition-colors disabled:opacity-50"
+                  >
+                    Try Again
+                  </button>
+                </div>
               </div>
-            )}
+            </div>
           </div>
-          <div>
-            <button
-              onClick={calculateRecommendations}
-              disabled={totalMonthlySpend === 0 || calculating}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              {calculating ? 'Calculating...' : 'Get Recommendations'}
-            </button>
-          </div>
-        </div>
+        )}
+        
+        {/* Helpful tip for first-time users */}
+        {totalMonthlySpend === 0 && (
+          <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
+            💡 Enter your monthly spending amounts above to get personalized credit card recommendations
+          </p>
+        )}
       </div>
     </div>
   )
