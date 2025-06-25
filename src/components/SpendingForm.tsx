@@ -931,12 +931,12 @@ export function SpendingForm() {
         <div className="lg:col-span-3">
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-6">
             <h2 className="text-3xl font-semibold text-gray-900 dark:text-white mb-4 text-center">
-              💳 Monthly Spending by Category
-            </h2>
+          💳 Monthly Spending by Category
+        </h2>
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-600 rounded-xl p-4 mb-8">
               <div className="flex items-start space-x-3">
                 <span className="text-xl">💡</span>
-                <div>
+            <div>
                   <h3 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">How to get started:</h3>
                   <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
                     <li>• Enter your <strong>monthly</strong> spending amounts in each category</li>
@@ -944,20 +944,20 @@ export function SpendingForm() {
                     <li>• Focus on your largest spending categories first</li>
                     <li>• We'll calculate your annual totals and find the best cards for you</li>
                   </ul>
-                </div>
-              </div>
             </div>
-
+          </div>
+        </div>
+        
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {enableSubcategories ? (
-                  // Subcategory mode: uniform height cards with scrollable subcategories
+          {enableSubcategories ? (
+            // Subcategory mode: uniform height cards with scrollable subcategories
                   (() => {
                     console.log('🔍 Rendering SUBCATEGORY mode with', categories.length, 'categories')
                     console.log('🔍 Categories have subcategories:', categories.map(c => ({ name: c.name, hasSubCategories: !!c.subCategories, count: c.subCategories?.length || 0 })))
                     return categories.map((category) => (
                       <div key={category.id} className="h-[24rem] bg-gray-50/50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600 p-4 flex flex-col relative group hover:scale-105 hover:shadow-lg transition-all duration-200 cursor-pointer" onClick={() => setExpandedCategoryId(category.id)}>
                         {/* Hover Tooltip */}
-                        <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs px-3 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 whitespace-nowrap">
+                        <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs px-4 py-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 max-w-72 text-center">
                           Click to view all {category.subCategories?.length || 0} subcategories
                         </div>
                         
@@ -965,7 +965,7 @@ export function SpendingForm() {
                           <div className="flex justify-between items-start mb-3">
                             <div>
                               <label className="block text-lg font-semibold text-gray-900 dark:text-white">
-                                {category.name}
+                    {category.name}
                               </label>
                               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{category.description}</p>
                             </div>
@@ -978,94 +978,94 @@ export function SpendingForm() {
                               </p>
                               <p className="text-xs text-gray-500 dark:text-gray-400">per month</p>
                             </div>
-                          </div>
-
+                </div>
+                
                           {/* General Category Input */}
-                          {(() => {
-                            const currentSpending = spending.find(s => s.categoryId === category.id)
-                            const amount = currentSpending?.monthlySpend || 0
-                            
-                            return (
+                {(() => {
+                  const currentSpending = spending.find(s => s.categoryId === category.id)
+                  const amount = currentSpending?.monthlySpend || 0
+                  
+                  return (
                               <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-600">
-                                <div className="flex justify-between items-center mb-2">
-                                  <label className="text-sm font-medium text-gray-900 dark:text-white">
-                                    General {category.name}
-                                  </label>
-                                  <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
-                                    {formatCurrency(amount)}
-                                  </span>
-                                </div>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-sm font-medium text-gray-900 dark:text-white">
+                          General {category.name}
+                        </label>
+                        <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                          {formatCurrency(amount)}
+                        </span>
+                      </div>
                                 <p className="text-xs text-gray-600 dark:text-gray-300 mb-2">
-                                  Other {category.name.toLowerCase()} not listed below
-                                </p>
-                                
-                                <div className="space-y-2">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    step="25"
-                                    value={amount || ''}
-                                    onChange={(e) => updateSpending(category.id, parseFloat(e.target.value) || 0, false)}
+                        Other {category.name.toLowerCase()} not listed below
+                      </p>
+                      
+                      <div className="space-y-2">
+                        <input
+                          type="number"
+                          min="0"
+                          step="25"
+                          value={amount || ''}
+                          onChange={(e) => updateSpending(category.id, parseFloat(e.target.value) || 0, false)}
                                     onClick={(e) => e.stopPropagation()}
-                                    className="w-full px-2 py-1 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          className="w-full px-2 py-1 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                                     placeholder="Monthly amount ($)"
-                                  />
-                                </div>
-                              </div>
-                            )
-                          })()}
-                          
+                        />
+                      </div>
+                    </div>
+                  )
+                })()}
+                
                           {/* Subcategories - Scrollable Area with Modal Trigger */}
-                          {category.subCategories && category.subCategories.length > 0 && (
-                            <div className="flex-1 flex flex-col min-h-0">
-                              <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center flex-1">
-                                  <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600"></div>
-                                  <span className="px-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    Subcategories
-                                  </span>
-                                  <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600"></div>
-                                </div>
-                              </div>
-                              
+                {category.subCategories && category.subCategories.length > 0 && (
+                  <div className="flex-1 flex flex-col min-h-0">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center flex-1">
+                        <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600"></div>
+                        <span className="px-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Subcategories
+                        </span>
+                        <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600"></div>
+                      </div>
+                    </div>
+                    
                               <div className="flex-1 overflow-y-auto pr-2 -mr-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent relative max-h-32">
                                 <div className="grid gap-2 grid-cols-1 pb-2">
                                 {category.subCategories.slice(0, 3).map((subCategory) => {
-                                  const currentSpending = spending.find(s => s.subCategoryId === subCategory.id)
-                                  const amount = currentSpending?.monthlySpend || 0
-                                  
-                                  return (
+                        const currentSpending = spending.find(s => s.subCategoryId === subCategory.id)
+                        const amount = currentSpending?.monthlySpend || 0
+                        
+                        return (
                                     <div key={subCategory.id} className="p-2 bg-white dark:bg-gray-600 rounded-lg border border-gray-200 dark:border-gray-500">
                                       <div className="flex justify-between items-center mb-1">
-                                        <div className="flex-1 min-w-0">
+                              <div className="flex-1 min-w-0">
                                           <label className="text-xs font-medium text-gray-900 dark:text-white block truncate">
-                                            📍 {subCategory.name}
-                                          </label>
-                                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                            {subCategory.description}
-                                          </p>
-                                        </div>
+                                  📍 {subCategory.name}
+                                </label>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                  {subCategory.description}
+                                </p>
+                              </div>
                                         <span className="text-xs font-bold text-purple-600 dark:text-purple-400 ml-2">
-                                          {formatCurrency(amount)}
-                                        </span>
-                                      </div>
-                                      
+                                {formatCurrency(amount)}
+                              </span>
+                            </div>
+                            
                                       <div className="space-y-1">
-                                        <input
-                                          type="number"
-                                          min="0"
-                                          step="25"
-                                          value={amount || ''}
-                                          onChange={(e) => updateSpending(subCategory.id, parseFloat(e.target.value) || 0, true)}
+                              <input
+                                type="number"
+                                min="0"
+                                step="25"
+                                value={amount || ''}
+                                onChange={(e) => updateSpending(subCategory.id, parseFloat(e.target.value) || 0, true)}
                                           onClick={(e) => e.stopPropagation()}
                                           className="w-full px-2 py-1 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
                                           placeholder="Monthly amount ($)"
-                                        />
-                                      </div>
-                                    </div>
-                                  )
-                                })}
-                                </div>
+                              />
+                            </div>
+                          </div>
+                        )
+                                              })}
+                      </div>
                                 
                                 {/* Show more button if there are more than 3 subcategories */}
                                 {category.subCategories.length > 3 && (
@@ -1074,60 +1074,60 @@ export function SpendingForm() {
                                       View all {category.subCategories.length} subcategories →
                                     </div>
                                   </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
+                      )}
+                    </div>
+                  </div>
+                )}
                         </div>
-                      </div>
-                    ))
+              </div>
+            ))
                   })()
-                ) : (
-                  // Standard category mode
-                  categories.map((category) => {
+          ) : (
+            // Standard category mode
+            categories.map((category) => {
                     console.log('🔍 Rendering STANDARD mode for category:', category.name, 'hasSubCategories:', !!category.subCategories)
-                    const currentSpending = spending.find(s => s.categoryId === category.id)
-                    const amount = currentSpending?.monthlySpend || 0
-                    
-                    return (
+              const currentSpending = spending.find(s => s.categoryId === category.id)
+              const amount = currentSpending?.monthlySpend || 0
+              
+              return (
                       <div key={category.id} className="space-y-3 p-5 bg-gray-50/50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <label className="block text-lg font-semibold text-gray-900 dark:text-white">
-                              {category.name}
-                            </label>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{category.description}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                              {formatCurrency(amount)}
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">per month</p>
-                          </div>
-                        </div>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <label className="block text-lg font-semibold text-gray-900 dark:text-white">
+                        {category.name}
+                      </label>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{category.description}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                        {formatCurrency(amount)}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">per month</p>
+                    </div>
+                  </div>
 
-                        {/* Text Input */}
+                  {/* Text Input */}
                         <div className="space-y-2">
                           <span className="text-sm text-gray-500 dark:text-gray-400">Exact amount:</span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="25"
-                            value={amount || ''}
-                            onChange={(e) => updateSpending(category.id, parseFloat(e.target.value) || 0, false)}
+                    <input
+                      type="number"
+                      min="0"
+                      step="25"
+                      value={amount || ''}
+                      onChange={(e) => updateSpending(category.id, parseFloat(e.target.value) || 0, false)}
                             onClick={(e) => e.stopPropagation()}
                             className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                             placeholder="Monthly amount ($)"
-                          />
-                        </div>
-                      </div>
-                    )
-                  })
-                )}
+                    />
+                  </div>
+                </div>
+              )
+            })
+          )}
             </div>
           </div>
         </div>
-
+        
         {/* Right Sidebar - Controls & Summary (1/4 width) */}
         <div className="lg:col-span-1 space-y-6">
           {/* Total Spending Display */}
@@ -1279,7 +1279,7 @@ export function SpendingForm() {
                 }`}
               >
                 {/* Hover Tooltip */}
-                <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 translate-y-full bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 max-w-48 text-center">
+                <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 translate-y-full bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 max-w-96 text-center whitespace-nowrap">
                   Get cash back directly - simple and straightforward
                 </div>
                 
@@ -1299,7 +1299,7 @@ export function SpendingForm() {
                 }`}
               >
                 {/* Hover Tooltip */}
-                <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 translate-y-full bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 max-w-56 text-center">
+                <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 translate-y-full bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 max-w-96 text-center whitespace-nowrap">
                   Earn points/miles for travel, hotels, or transfer to airline partners
                 </div>
                 
@@ -1324,7 +1324,7 @@ export function SpendingForm() {
                 }`}
               >
                 {/* Hover Tooltip */}
-                <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 translate-y-full bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 max-w-52 text-center">
+                <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 translate-y-full bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 max-w-96 text-center whitespace-nowrap">
                   Compare both cash and points value to find the highest total return
                 </div>
                 
@@ -1416,29 +1416,29 @@ export function SpendingForm() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
             {(() => {
               const expandedCategory = categories.find(cat => cat.id === expandedCategoryId)
-              if (!expandedCategory) return null
-              
-              return (
+        if (!expandedCategory) return null
+        
+        return (
                 <>
-                  {/* Modal Header */}
+              {/* Modal Header */}
                   <div className="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-b border-gray-200 dark:border-gray-600">
                     <div className="flex justify-between items-center">
-                      <div>
+                  <div>
                         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
                           {expandedCategory.name} Subcategories
-                        </h2>
+                    </h2>
                         <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                           {expandedCategory.description}
                         </p>
-                      </div>
-                      <button
-                        onClick={() => setExpandedCategoryId(null)}
-                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl font-bold"
-                      >
-                        ×
-                      </button>
-                    </div>
                   </div>
+                  <button
+                    onClick={() => setExpandedCategoryId(null)}
+                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl font-bold"
+                  >
+                        ×
+                  </button>
+                </div>
+              </div>
 
                   {/* Modal Body */}
                   <div className="p-6 overflow-y-auto max-h-[60vh]">
@@ -1449,54 +1449,54 @@ export function SpendingForm() {
                       
                       return (
                         <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-600">
-                          <div className="flex justify-between items-center mb-3">
-                            <label className="text-lg font-semibold text-gray-900 dark:text-white">
-                              General {expandedCategory.name}
-                            </label>
-                            <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="text-lg font-semibold text-gray-900 dark:text-white">
+                      General {expandedCategory.name}
+                    </label>
+                    <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
                               {formatCurrency(amount)}
-                            </span>
-                          </div>
+                    </span>
+                  </div>
                           <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-                            Other {expandedCategory.name.toLowerCase()} not listed below
-                          </p>
-                          
-                          <input
-                            type="number"
-                            min="0"
-                            step="25"
+                    Other {expandedCategory.name.toLowerCase()} not listed below
+                  </p>
+                  
+                    <input
+                      type="number"
+                      min="0"
+                      step="25"
                             value={amount || ''}
-                            onChange={(e) => updateSpending(expandedCategory.id, parseFloat(e.target.value) || 0, false)}
+                      onChange={(e) => updateSpending(expandedCategory.id, parseFloat(e.target.value) || 0, false)}
                             onClick={(e) => e.stopPropagation()}
                             className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="Monthly amount ($)"
-                          />
-                        </div>
+                    />
+                  </div>
                       )
                     })()}
 
                     {/* All Subcategories */}
                     <div className="grid gap-4 md:grid-cols-2">
-                      {expandedCategory.subCategories?.map((subCategory) => {
-                        const currentSpending = spending.find(s => s.subCategoryId === subCategory.id)
-                        const amount = currentSpending?.monthlySpend || 0
-                        
-                        return (
+                    {expandedCategory.subCategories?.map((subCategory) => {
+                      const currentSpending = spending.find(s => s.subCategoryId === subCategory.id)
+                      const amount = currentSpending?.monthlySpend || 0
+                      
+                      return (
                           <div key={subCategory.id} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
                             <div className="flex justify-between items-center mb-3">
                               <div className="flex-1">
                                 <label className="text-base font-medium text-gray-900 dark:text-white block">
-                                  📍 {subCategory.name}
-                                </label>
+                                📍 {subCategory.name}
+                              </label>
                                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                  {subCategory.description}
-                                </p>
-                              </div>
-                              <span className="text-base font-bold text-purple-600 dark:text-purple-400 ml-3">
-                                {formatCurrency(amount)}
-                              </span>
+                                {subCategory.description}
+                              </p>
                             </div>
-                            
+                              <span className="text-base font-bold text-purple-600 dark:text-purple-400 ml-3">
+                              {formatCurrency(amount)}
+                            </span>
+                          </div>
+                          
                             <input
                               type="number"
                               min="0"
@@ -1507,29 +1507,29 @@ export function SpendingForm() {
                               className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                               placeholder="Monthly amount ($)"
                             />
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
+                        </div>
+                      )
+                    })}
+                </div>
+              </div>
 
-                  {/* Modal Footer */}
+              {/* Modal Footer */}
                   <div className="bg-gray-50 dark:bg-gray-700 px-6 py-4 border-t border-gray-200 dark:border-gray-600">
                     <div className="flex justify-end">
-                      <button
-                        onClick={() => setExpandedCategoryId(null)}
+                  <button
+                    onClick={() => setExpandedCategoryId(null)}
                         className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-                      >
-                        Done
-                      </button>
-                    </div>
-                  </div>
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
                 </>
-              )
-            })()}
+        )
+      })()}
           </div>
         </div>
       )}
     </div>
   )
-}
+} 
