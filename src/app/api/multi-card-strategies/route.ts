@@ -1,47 +1,29 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { withRetry } from '@/lib/prisma'
-import { prisma } from '@/lib/prisma'
+import { calculateMultiCardStrategies } from '@/lib/multi-card-engine'
 
 export async function POST(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { userSpending, benefitValuations, rewardPreference } = await request.json()
+
+    console.log('🎯 Multi-card strategies request:', {
+      spendingCategories: userSpending?.length || 0,
+      rewardPreference,
+      benefitValuations: benefitValuations?.length || 0
+    })
+
+    if (!userSpending || userSpending.length === 0) {
+      return NextResponse.json({ error: 'User spending data is required' }, { status: 400 })
     }
 
-    const { spendingData } = await request.json()
-
-    // For now, return a simple multi-card strategy response
-    // This can be enhanced later with actual algorithm
     const strategies = await withRetry(async () => {
-      // Get available cards
-      const cards = await prisma.creditCard.findMany({
-        where: { isActive: true },
-        include: {
-          categoryRewards: {
-            include: {
-              category: true,
-              subCategory: true
-            }
-          }
-        },
-        take: 10 // Limit for performance
+      return await calculateMultiCardStrategies({
+        userSpending,
+        benefitValuations: benefitValuations || [],
+        rewardPreference: rewardPreference || 'cashback',
+        pointValue: 0.01 // Default point value
       })
-
-      // Simple strategy: recommend top 2-3 cards
-      return [
-        {
-          id: '1',
-          name: 'Best 2-Card Combination',
-          description: 'Optimal combination of Blue Cash Preferred and Citi Double Cash for maximum rewards across all categories.',
-          cards: cards.slice(0, 2),
-          netAnnualValue: 244.00,
-          totalRewards: 339.00,
-          totalFees: 95.00,
-          categories: ['All Categories']
-        }
-      ]
     })
 
     console.log(`✅ Multi-card strategies generated: ${strategies.length} strategies`)
@@ -60,14 +42,13 @@ export async function POST(request: Request) {
       
       // Return fallback strategy
       const fallbackStrategy = [{
-        id: '1',
-        name: 'Best 2-Card Combination',
+        strategyName: 'Best 2-Card Combination',
         description: 'Optimal combination for maximum rewards (database unavailable - showing cached result).',
         cards: [],
-        netAnnualValue: 244.00,
-        totalRewards: 339.00,
-        totalFees: 95.00,
-        categories: ['All Categories']
+        totalAnnualValue: 244.00,
+        totalAnnualFees: 95.00,
+        netAnnualValue: 149.00,
+        categoryAllocations: []
       }]
       
       return NextResponse.json({

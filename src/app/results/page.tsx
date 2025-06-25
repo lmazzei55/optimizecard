@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CardRecommendation } from '@/lib/recommendation-engine'
 import { RecommendationItem } from '@/components/RecommendationItem'
+import { MultiCardStrategies } from '@/components/MultiCardStrategies'
 import { Button } from '@/components/ui/button'
 import { Header } from '@/components/Header'
 import { CardCustomizationModal } from '@/components/CardCustomizationModal'
@@ -443,6 +444,17 @@ export default function ResultsPage() {
               ))}
             </div>
           </div>
+        </div>
+
+        {/* Multi-Card Strategies Section */}
+        <div className="mt-12">
+          <MultiCardStrategies 
+            userSpending={basePayload?.userSpending || []}
+            benefitValuations={basePayload?.benefitValuations || []}
+            rewardPreference={basePayload?.rewardPreference || 'cashback'}
+            onError={(error) => console.error('Multi-card strategy error:', error)}
+            onUpgradePrompt={() => router.push('/pricing')}
+          />
         </div>
       </div>
 

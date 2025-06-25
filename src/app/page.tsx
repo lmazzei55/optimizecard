@@ -90,7 +90,7 @@ export default function Home() {
                   Credit Card Optimizer
                 </h1>
                 <p className="text-lg md:text-2xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed mb-6">
-                  Find the <span className="font-semibold text-purple-600 dark:text-purple-400">perfect credit card</span> for your spending habits. Simply enter your monthly expenses, and our AI will calculate which cards give you the highest rewards.
+                  Discover which credit cards are <span className="font-semibold text-purple-600 dark:text-purple-400">mathematically best</span> for each spending category and for your combined spending. Our AI analyzes reward rates to find optimal single cards and multi-card strategies.
                 </p>
                 <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-xl p-4 mb-8 max-w-2xl mx-auto">
                   <div className="flex items-center justify-center space-x-2 text-green-700 dark:text-green-300">
@@ -104,15 +104,15 @@ export default function Home() {
                 <div className="flex flex-wrap justify-center gap-4 mb-8">
                   <div className="flex items-center space-x-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-full px-4 py-2 border border-green-200 dark:border-green-700">
                     <span className="text-green-500">✓</span>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Mathematical Precision</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Category-Specific Analysis</span>
                   </div>
                   <div className="flex items-center space-x-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-full px-4 py-2 border border-blue-200 dark:border-blue-700">
                     <span className="text-blue-500">✓</span>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Real-time Calculations</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Multi-Card Strategies</span>
                   </div>
                   <div className="flex items-center space-x-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-full px-4 py-2 border border-purple-200 dark:border-purple-700">
                     <span className="text-purple-500">✓</span>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Personalized Results</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Mathematical Precision</span>
                   </div>
                 </div>
               </div>
@@ -163,7 +163,7 @@ export default function Home() {
                       </div>
                     </div>
                     <h3 className="font-bold text-gray-900 dark:text-white mb-4 text-lg md:text-xl">Get Personalized Rankings</h3>
-                    <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-sm md:text-base">See exactly which cards earn you the most money based on your actual spending. Each recommendation shows detailed calculations and annual value projections.</p>
+                    <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-sm md:text-base">See exactly which cards earn you the most money for each category and overall. Get single-card recommendations plus <strong>multi-card strategies</strong> that optimize 2-3 cards for maximum rewards across all spending.</p>
                   </div>
                 </div>
               </div>
@@ -188,27 +188,27 @@ export default function Home() {
               {/* Features Grid */}
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
                 <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-6 border border-white/30 dark:border-gray-700/30 text-center group hover:shadow-xl transition-all duration-300">
-                  <div className="text-3xl mb-4">💰</div>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Maximize Rewards</h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">Find cards that earn the most for your spending</p>
-                </div>
-                
-                <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-6 border border-white/30 dark:border-gray-700/30 text-center group hover:shadow-xl transition-all duration-300">
                   <div className="text-3xl mb-4">🎯</div>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Precise Calculations</h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">Mathematical accuracy down to the penny</p>
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Category Analysis</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Find the best card for each spending category</p>
                 </div>
                 
                 <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-6 border border-white/30 dark:border-gray-700/30 text-center group hover:shadow-xl transition-all duration-300">
-                  <div className="text-3xl mb-4">⚡</div>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Real-time Updates</h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">Instant recalculations as you adjust preferences</p>
+                  <div className="text-3xl mb-4">💳</div>
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Multi-Card Strategies</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Optimize 2-3 card combinations for maximum rewards</p>
                 </div>
                 
                 <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-6 border border-white/30 dark:border-gray-700/30 text-center group hover:shadow-xl transition-all duration-300">
-                  <div className="text-3xl mb-4">🎨</div>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Beautiful Interface</h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">Modern, intuitive design for the best experience</p>
+                  <div className="text-3xl mb-4">📊</div>
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Mathematical Precision</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Exact calculations for optimal reward maximization</p>
+                </div>
+                
+                <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-6 border border-white/30 dark:border-gray-700/30 text-center group hover:shadow-xl transition-all duration-300">
+                  <div className="text-3xl mb-4">👤</div>
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Account Features</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Track owned cards and get expanded recommendations</p>
                 </div>
               </div>
               
