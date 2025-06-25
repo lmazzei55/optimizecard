@@ -930,9 +930,23 @@ export function SpendingForm() {
         {/* Left Side - Categories Grid (3/4 width) */}
         <div className="lg:col-span-3">
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-6">
-            <h2 className="text-3xl font-semibold text-gray-900 dark:text-white mb-8 text-center">
+            <h2 className="text-3xl font-semibold text-gray-900 dark:text-white mb-4 text-center">
               💳 Monthly Spending by Category
             </h2>
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-600 rounded-xl p-4 mb-8">
+              <div className="flex items-start space-x-3">
+                <span className="text-xl">💡</span>
+                <div>
+                  <h3 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">How to get started:</h3>
+                  <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                    <li>• Enter your <strong>monthly</strong> spending amounts in each category</li>
+                    <li>• Use estimates - they don't need to be exact</li>
+                    <li>• Focus on your largest spending categories first</li>
+                    <li>• We'll calculate your annual totals and find the best cards for you</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {enableSubcategories ? (
@@ -1258,12 +1272,17 @@ export function SpendingForm() {
             <div className="grid grid-cols-3 gap-4">
               <button
                 onClick={() => handleRewardPreferenceChange('cashback')}
-                className={`p-4 rounded-xl border-2 transition-all duration-200 ${
+                className={`p-4 rounded-xl border-2 transition-all duration-200 relative group ${
                   rewardPreference === 'cashback'
                     ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
                     : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:border-blue-300 dark:hover:border-blue-500'
                 }`}
               >
+                {/* Hover Tooltip */}
+                <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 translate-y-full bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 max-w-48 text-center">
+                  Get cash back directly - simple and straightforward
+                </div>
+                
                 <div className="text-center">
                   <div className="text-2xl mb-2">💵</div>
                   <div className="font-semibold">Cashback</div>
@@ -1273,12 +1292,17 @@ export function SpendingForm() {
               
               <button
                 onClick={() => handleRewardPreferenceChange('points')}
-                className={`p-4 rounded-xl border-2 transition-all duration-200 relative ${
+                className={`p-4 rounded-xl border-2 transition-all duration-200 relative group ${
                   rewardPreference === 'points'
                     ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300'
                     : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:border-purple-300 dark:hover:border-purple-500'
                 }`}
               >
+                {/* Hover Tooltip */}
+                <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 translate-y-full bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 max-w-56 text-center">
+                  Earn points/miles for travel, hotels, or transfer to airline partners
+                </div>
+                
                 <div className="text-center">
                   <div className="text-2xl mb-2">🎯</div>
                   <div className="font-semibold">Points/Miles</div>
@@ -1293,12 +1317,17 @@ export function SpendingForm() {
 
               <button
                 onClick={() => handleRewardPreferenceChange('best_overall')}
-                className={`p-4 rounded-xl border-2 transition-all duration-200 relative ${
+                className={`p-4 rounded-xl border-2 transition-all duration-200 relative group ${
                   rewardPreference === 'best_overall'
                     ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
                     : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:border-green-300 dark:hover:border-green-500'
                 }`}
               >
+                {/* Hover Tooltip */}
+                <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 translate-y-full bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 max-w-52 text-center">
+                  Compare both cash and points value to find the highest total return
+                </div>
+                
                 <div className="text-center">
                   <div className="text-2xl mb-2">🏆</div>
                   <div className="font-semibold">Best Overall</div>
@@ -1321,65 +1350,11 @@ export function SpendingForm() {
               </p>
             </div>
           )}
-
-          {/* Testing Tools (only in development) */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-xl p-4 border border-yellow-200 dark:border-yellow-600">
-              <h4 className="font-semibold text-yellow-800 dark:text-yellow-300 mb-2">🧪 Testing Tools</h4>
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={() => {
-                    localStorage.removeItem('spending-data')
-                    setSpending(prev => prev.map(s => ({ ...s, monthlySpend: 0 })))
-                    if (session?.user?.email) {
-                      fetch('/api/user/spending', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ spending: spending.map(s => ({ ...s, monthlySpend: 0 })) })
-                      })
-                    }
-                  }}
-                  className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Clear All Spending Data
-                </button>
-                <button
-                  onClick={() => {
-                    const testSpending = spending.map((s, index) => ({ 
-                      ...s, 
-                      monthlySpend: [500, 300, 200, 150, 100, 75, 50, 25][index] || 0 
-                    }))
-                    setSpending(testSpending)
-                  }}
-                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Load Test Data
-                </button>
-              </div>
-              <p className="text-xs text-yellow-700 dark:text-yellow-400 mt-2">
-                These buttons help test spending persistence when navigating between pages.
-              </p>
-            </div>
-          )}
         </div>
       </div>
 
       {/* System Status & Calculate Button */}
       <div className="text-center space-y-4">
-        {/* System Status Indicator */}
-        {isWarming && (
-          <div className="inline-flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-4 py-2 rounded-full text-sm">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-            <span>🔥 Warming up servers...</span>
-          </div>
-        )}
-        
-        {systemReady && !isWarming && (
-          <div className="inline-flex items-center space-x-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 px-4 py-2 rounded-full text-sm">
-            <span>✅ System ready</span>
-          </div>
-        )}
-
         <Button
           onClick={calculateRecommendations}
           disabled={totalMonthlySpend === 0 || calculating}
@@ -1529,7 +1504,7 @@ export function SpendingForm() {
                               value={amount || ''}
                               onChange={(e) => updateSpending(subCategory.id, parseFloat(e.target.value) || 0, true)}
                               onClick={(e) => e.stopPropagation()}
-                              className="w-full px-3 py-2 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                              className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                               placeholder="Monthly amount ($)"
                             />
                           </div>

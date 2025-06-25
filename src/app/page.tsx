@@ -89,9 +89,18 @@ export default function Home() {
                 <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight">
                   Credit Card Optimizer
                 </h1>
-                <p className="text-lg md:text-2xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed mb-8">
-                  Maximize your credit card rewards with <span className="font-semibold text-purple-600 dark:text-purple-400">AI-powered recommendations</span> based on your unique spending patterns and preferences.
+                <p className="text-lg md:text-2xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed mb-6">
+                  Find the <span className="font-semibold text-purple-600 dark:text-purple-400">perfect credit card</span> for your spending habits. Simply enter your monthly expenses, and our AI will calculate which cards give you the highest rewards.
                 </p>
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-xl p-4 mb-8 max-w-2xl mx-auto">
+                  <div className="flex items-center justify-center space-x-2 text-green-700 dark:text-green-300">
+                    <span className="text-xl">🔒</span>
+                    <span className="font-medium">100% Private - No personal information required</span>
+                  </div>
+                  <p className="text-sm text-green-600 dark:text-green-400 mt-2 text-center">
+                    We only ask for spending estimates to calculate your best rewards. No names, addresses, or financial data needed.
+                  </p>
+                </div>
                 <div className="flex flex-wrap justify-center gap-4 mb-8">
                   <div className="flex items-center space-x-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-full px-4 py-2 border border-green-200 dark:border-green-700">
                     <span className="text-green-500">✓</span>
@@ -127,8 +136,8 @@ export default function Home() {
                         <span className="text-lg font-bold text-white">1</span>
                       </div>
                     </div>
-                    <h3 className="font-bold text-gray-900 dark:text-white mb-4 text-lg md:text-xl">Input Your Spending</h3>
-                    <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-sm md:text-base">Tell us how much you spend across different categories each month. Our smart interface makes it quick and easy.</p>
+                    <h3 className="font-bold text-gray-900 dark:text-white mb-4 text-lg md:text-xl">Enter Monthly Spending</h3>
+                    <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-sm md:text-base">Enter how much you spend each <strong>month</strong> in categories like dining, groceries, and travel. We'll show both monthly and <strong>annual</strong> totals to help you see the bigger picture.</p>
                   </div>
                   
                   <div className="text-center group">
@@ -140,8 +149,8 @@ export default function Home() {
                         <span className="text-lg font-bold text-white">2</span>
                       </div>
                     </div>
-                    <h3 className="font-bold text-gray-900 dark:text-white mb-4 text-lg md:text-xl">Set Your Preferences</h3>
-                    <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-sm md:text-base">Choose between cashback or points, customize benefit valuations, and set your personal preferences.</p>
+                    <h3 className="font-bold text-gray-900 dark:text-white mb-4 text-lg md:text-xl">Choose Reward Type</h3>
+                    <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-sm md:text-base">Select whether you prefer <strong>cashback</strong> (direct money back), <strong>points/miles</strong> (for travel), or let us find the <strong>best overall</strong> value by comparing both options.</p>
                   </div>
                   
                   <div className="text-center group">
@@ -153,8 +162,8 @@ export default function Home() {
                         <span className="text-lg font-bold text-white">3</span>
                       </div>
                     </div>
-                    <h3 className="font-bold text-gray-900 dark:text-white mb-4 text-lg md:text-xl">Get Smart Recommendations</h3>
-                    <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-sm md:text-base">Receive ranked, personalized card recommendations with detailed breakdowns and mathematical precision.</p>
+                    <h3 className="font-bold text-gray-900 dark:text-white mb-4 text-lg md:text-xl">Get Personalized Rankings</h3>
+                    <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-sm md:text-base">See exactly which cards earn you the most money based on your actual spending. Each recommendation shows detailed calculations and annual value projections.</p>
                   </div>
                 </div>
               </div>
