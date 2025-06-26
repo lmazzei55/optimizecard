@@ -8,6 +8,7 @@ import { MultiCardStrategies } from '@/components/MultiCardStrategies'
 import { Button } from '@/components/ui/button'
 import { Header } from '@/components/Header'
 import { CardCustomizationModal } from '@/components/CardCustomizationModal'
+import PortfolioAnalysis from '@/components/PortfolioAnalysis'
 
 interface CalculationPreferences {
   includeAnnualFees: boolean
@@ -455,6 +456,11 @@ export default function ResultsPage() {
             onError={(error) => console.error('Multi-card strategy error:', error)}
             onUpgradePrompt={() => router.push('/pricing')}
           />
+        </div>
+
+        {/* Portfolio Analysis Section */}
+        <div className="mt-12">
+          <PortfolioAnalysis />
         </div>
       </div>
 
