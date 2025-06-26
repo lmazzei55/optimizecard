@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
@@ -50,44 +51,128 @@ interface PortfolioAnalysisData {
 }
 
 export default function PortfolioAnalysis() {
-  const [analysis, setAnalysis] = useState<PortfolioAnalysisData | null>(null)
+  const { data: session, status } = useSession()
+  const [data, setData] = useState<PortfolioAnalysisData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchPortfolioAnalysis()
-  }, [])
+    // Only fetch if user is authenticated
+    if (status === 'loading') {
+      return // Still loading authentication
+    }
+    
+    if (status === 'unauthenticated') {
+      setLoading(false)
+      return // User not authenticated, don't show portfolio analysis
+    }
 
-  const fetchPortfolioAnalysis = async () => {
+    // User is authenticated, fetch portfolio data
+    if (status === 'authenticated' && session?.user?.email) {
+      fetchPortfolioData()
+    }
+  }, [status, session])
+
+  const fetchPortfolioData = async () => {
     try {
+      setLoading(true)
+      setError(null)
+      
       const response = await fetch('/api/user/portfolio-analysis')
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch portfolio analysis')
+        if (response.status === 401) {
+          setError('Please sign in to view your portfolio analysis')
+          return
+        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
-      const data = await response.json()
-      setAnalysis(data)
+      
+      const result = await response.json()
+      setData(result)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
+      console.error('Portfolio analysis error:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load portfolio analysis')
     } finally {
       setLoading(false)
     }
   }
 
-  if (loading) {
+  // Don't render anything if user is not authenticated
+  if (status === 'unauthenticated') {
+    return null
+  }
+
+  // Show loading state
+  if (loading || status === 'loading') {
     return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            📊 Portfolio Analysis
+          </CardTitle>
+          <CardDescription>
+            Analyzing your credit card portfolio...
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-3 text-gray-600">Loading portfolio analysis...</span>
           </div>
         </CardContent>
       </Card>
     )
   }
 
-  if (error || !analysis) {
-    return null
+  // Show error state
+  if (error) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            📊 Portfolio Analysis
+            <AlertCircle className="h-5 w-5 text-red-500" />
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+            <div>
+              <p className="font-medium text-red-800">Unable to load portfolio analysis</p>
+              <p className="text-sm text-red-600">{error}</p>
+              <button 
+                onClick={fetchPortfolioData}
+                className="mt-2 text-sm text-red-700 underline hover:text-red-800"
+              >
+                Try again
+              </button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Show empty state if no data
+  if (!data) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            📊 Portfolio Analysis
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">
+            <p className="text-gray-600">No portfolio data available</p>
+            <p className="text-sm text-gray-500 mt-2">
+              Add some owned cards in your profile to see portfolio analysis
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
@@ -97,7 +182,7 @@ export default function PortfolioAnalysis() {
         <CardHeader>
           <CardTitle>Your Credit Card Portfolio</CardTitle>
           <CardDescription>
-            {analysis.portfolio.cards.length} cards with ${analysis.portfolio.totalAnnualFees}/year in fees
+            {data.portfolio.cards.length} cards with ${data.portfolio.totalAnnualFees}/year in fees
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -105,29 +190,29 @@ export default function PortfolioAnalysis() {
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">Portfolio Score</p>
               <div className="flex items-center gap-2">
-                <Progress value={analysis.metrics.portfolioScore} className="flex-1" />
-                <span className="text-sm font-medium">{analysis.metrics.portfolioScore}%</span>
+                <Progress value={data.metrics.portfolioScore} className="flex-1" />
+                <span className="text-sm font-medium">{data.metrics.portfolioScore}%</span>
               </div>
             </div>
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">Coverage</p>
               <div className="flex items-center gap-2">
-                <Progress value={analysis.metrics.coverageScore} className="flex-1" />
-                <span className="text-sm font-medium">{analysis.metrics.coverageScore}%</span>
+                <Progress value={data.metrics.coverageScore} className="flex-1" />
+                <span className="text-sm font-medium">{data.metrics.coverageScore}%</span>
               </div>
             </div>
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">Optimization</p>
               <div className="flex items-center gap-2">
-                <Progress value={analysis.metrics.optimizationScore} className="flex-1" />
-                <span className="text-sm font-medium">{analysis.metrics.optimizationScore}%</span>
+                <Progress value={data.metrics.optimizationScore} className="flex-1" />
+                <span className="text-sm font-medium">{data.metrics.optimizationScore}%</span>
               </div>
             </div>
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">Diversification</p>
               <div className="flex items-center gap-2">
-                <Progress value={analysis.metrics.diversificationScore} className="flex-1" />
-                <span className="text-sm font-medium">{analysis.metrics.diversificationScore}%</span>
+                <Progress value={data.metrics.diversificationScore} className="flex-1" />
+                <span className="text-sm font-medium">{data.metrics.diversificationScore}%</span>
               </div>
             </div>
           </div>
@@ -135,7 +220,7 @@ export default function PortfolioAnalysis() {
       </Card>
 
       {/* Category Analysis */}
-      {analysis.categoryAnalysis.length > 0 && (
+      {data.categoryAnalysis.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Category Optimization Opportunities</CardTitle>
@@ -145,7 +230,7 @@ export default function PortfolioAnalysis() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {analysis.categoryAnalysis.map((cat) => (
+              {data.categoryAnalysis.map((cat) => (
                 <div key={cat.category} className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="space-y-1">
                     <p className="font-medium">{cat.category}</p>
@@ -175,7 +260,7 @@ export default function PortfolioAnalysis() {
       )}
 
       {/* Gap Analysis */}
-      {analysis.gaps.length > 0 && (
+      {data.gaps.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Coverage Gaps</CardTitle>
@@ -185,7 +270,7 @@ export default function PortfolioAnalysis() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {analysis.gaps.map((gap) => (
+              {data.gaps.map((gap) => (
                 <div key={gap.category} className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
