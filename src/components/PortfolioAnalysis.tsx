@@ -58,25 +58,24 @@ const CACHE_DURATION = 10 * 60 * 1000 // 10 minutes
 function PortfolioAnalysisContent({ isPremiumBlocked, onUpgradePrompt }: { isPremiumBlocked?: boolean, onUpgradePrompt?: () => void }) {
   const { data: session, status } = useSession()
   const [data, setData] = useState<PortfolioAnalysisData | null>(() => {
-    // Initialize with cached data if available
+    // Initialize with cached data if available (no console logs to prevent re-mount noise)
     try {
       const cached = localStorage.getItem(CACHE_KEY)
       if (cached) {
         const parsedCache = JSON.parse(cached)
         if (parsedCache.timestamp && (Date.now() - parsedCache.timestamp < CACHE_DURATION)) {
-          console.log('📊 Loading cached portfolio analysis on mount')
           return parsedCache.data || null
         }
       }
     } catch (error) {
-      console.warn('Failed to load cached portfolio data:', error)
+      // Silently handle cache errors during initialization
     }
     return null
   })
   const [loading, setLoading] = useState(false) // Never auto-start loading
   const [error, setError] = useState<string | null>(null)
   const [lastFetch, setLastFetch] = useState<number | null>(() => {
-    // Initialize lastFetch with cached timestamp if available
+    // Initialize lastFetch with cached timestamp if available (no console logs to prevent re-mount noise)
     try {
       const cached = localStorage.getItem(CACHE_KEY)
       if (cached) {
@@ -86,44 +85,28 @@ function PortfolioAnalysisContent({ isPremiumBlocked, onUpgradePrompt }: { isPre
         }
       }
     } catch (error) {
-      console.warn('Failed to load cached timestamp:', error)
+      // Silently handle cache errors during initialization
     }
     return null
   })
 
-  // Debug logging
-  console.log('🔍 PortfolioAnalysis props:', { isPremiumBlocked, hasUpgradePrompt: !!onUpgradePrompt })
-
   useEffect(() => {
-    console.log('🔍 PortfolioAnalysis useEffect triggered:', { isPremiumBlocked, status, hasData: !!data })
-    
     // Don't auto-fetch if premium blocked
     if (isPremiumBlocked === true) {
-      console.log('🚫 Auto-fetch blocked - premium required')
       setLoading(false)
       return
     }
 
-    if (status === 'loading') {
-      return // Still loading authentication
-    }
-    
-    if (status === 'unauthenticated') {
+    if (status === 'loading' || status === 'unauthenticated') {
       setLoading(false)
-      return // User not authenticated, don't show portfolio analysis
+      return
     }
 
     // User is authenticated, but NEVER auto-load data - always wait for user to click
-    // However, if we already have cached data loaded, don't interfere with it
     if (status === 'authenticated' && session?.user?.email) {
-      if (data) {
-        console.log('📊 User authenticated and cached data already loaded - preserving state')
-      } else {
-        console.log('📊 User authenticated but not auto-loading - waiting for user to click button')
-      }
       setLoading(false)
     }
-  }, [status, session, isPremiumBlocked]) // Removed 'data' from dependencies to prevent loops
+  }, [status, session, isPremiumBlocked])
 
   const getCachedData = () => {
     try {

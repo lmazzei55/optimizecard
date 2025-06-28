@@ -28,19 +28,18 @@ const CACHE_KEY = 'cco_multi_card_strategies'
 const CACHE_DURATION = 10 * 60 * 1000 // 10 minutes
 
 function MultiCardStrategiesContent({ userSpending, benefitValuations, rewardPreference, calculationPreferences, onError, onUpgradePrompt, isPremiumBlocked, isAuthenticated, featureName, featureDescription }: MultiCardStrategiesProps) {
+  // Initialize state with cached data synchronously to prevent visual flicker
   const [strategies, setStrategies] = useState<MultiCardStrategy[]>(() => {
-    // Initialize with cached data if available
     try {
       const cached = localStorage.getItem(CACHE_KEY)
       if (cached) {
         const parsedCache = JSON.parse(cached)
         if (parsedCache.timestamp && (Date.now() - parsedCache.timestamp < CACHE_DURATION)) {
-          console.log('🎯 Loading cached multi-card strategies')
           return parsedCache.strategies || []
         }
       }
     } catch (error) {
-      console.warn('Failed to load cached strategies:', error)
+      // Silently handle cache errors during initialization
     }
     return []
   })
@@ -108,7 +107,6 @@ function MultiCardStrategiesContent({ userSpending, benefitValuations, rewardPre
           timestamp: Date.now()
         }
         localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData))
-        console.log('🎯 Cached multi-card strategies')
       } catch (error) {
         console.warn('Failed to cache strategies:', error)
       }

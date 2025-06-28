@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { CardRecommendation } from '@/lib/recommendation-engine'
 import { RecommendationItem } from '@/components/RecommendationItem'
@@ -19,6 +19,7 @@ interface CalculationPreferences {
 
 export default function ResultsPage() {
   const router = useRouter()
+  const hasInitialized = useRef(false)
 
   const [loading, setLoading] = useState(true)
   const [customizationLoading, setCustomizationLoading] = useState(false)
@@ -40,6 +41,16 @@ export default function ResultsPage() {
 
   // Load initial payload & recommendations
   useEffect(() => {
+    // Prevent multiple initializations
+    if (hasInitialized.current) {
+      console.log('🔄 Results page already initialized, skipping re-fetch')
+      setLoading(false)
+      return
+    }
+
+    hasInitialized.current = true
+    console.log('🚀 Initializing results page for the first time')
+
     // Scroll to top when component mounts
     window.scrollTo({ top: 0, behavior: 'smooth' })
     
@@ -73,7 +84,7 @@ export default function ResultsPage() {
         setLoading(false)
       }
     })()
-  }, [router])
+  }, [router]) // Keep router dependency but use ref to prevent re-initialization
 
   // Auto-recalculate when calculation preferences change
   useEffect(() => {
