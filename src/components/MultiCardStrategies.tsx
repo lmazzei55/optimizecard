@@ -342,6 +342,12 @@ function MultiCardStrategiesContent({ userSpending, benefitValuations, rewardPre
 }
 
 export function MultiCardStrategies(props: MultiCardStrategiesProps) {
+  // If premium blocking props are passed directly, use them without PremiumFeatureGate
+  if ('isPremiumBlocked' in props && 'isAuthenticated' in props && 'featureName' in props) {
+    return <MultiCardStrategiesContent {...props} />
+  }
+
+  // Otherwise, use PremiumFeatureGate (for backward compatibility)
   return (
     <PremiumFeatureGate
       featureName="Multi-Card Strategies"

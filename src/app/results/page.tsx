@@ -9,6 +9,9 @@ import { Button } from '@/components/ui/button'
 import { Header } from '@/components/Header'
 import { CardCustomizationModal } from '@/components/CardCustomizationModal'
 import PortfolioAnalysis from '@/components/PortfolioAnalysis'
+import { useSession } from 'next-auth/react'
+import { useSubscription } from '@/hooks/useSubscription'
+import { UpgradePrompt } from '@/components/UpgradePrompt'
 
 interface CalculationPreferences {
   includeAnnualFees: boolean
@@ -20,8 +23,10 @@ interface CalculationPreferences {
 export default function ResultsPage() {
   const router = useRouter()
   const hasInitialized = useRef(false)
+  const { data: session, status } = useSession()
+  const { isPremium, loading: subscriptionLoading } = useSubscription()
 
-  const [loading, setLoading] = useState(true)
+  const [pageLoading, setPageLoading] = useState(true)
   const [customizationLoading, setCustomizationLoading] = useState(false)
   const [recommendations, setRecommendations] = useState<CardRecommendation[]>([])
   const [sortKey, setSortKey] = useState<'name' | 'value'>('value')
@@ -39,12 +44,25 @@ export default function ResultsPage() {
     calculationMode: 'comprehensive'
   })
 
+  // Add state to track component mounting to prevent re-mounting
+  const [multiCardStrategiesKey, setMultiCardStrategiesKey] = useState(() => 
+    `multicard-${Date.now()}`
+  )
+  const [portfolioAnalysisKey, setPortfolioAnalysisKey] = useState(() => 
+    `portfolio-${Date.now()}`
+  )
+
+  // Add upgrade prompt state
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false)
+  const [upgradeFeature, setUpgradeFeature] = useState('')
+  const [upgradeDescription, setUpgradeDescription] = useState('')
+
   // Load initial payload & recommendations
   useEffect(() => {
     // Prevent multiple initializations
     if (hasInitialized.current) {
       console.log('🔄 Results page already initialized, skipping re-fetch')
-      setLoading(false)
+      setPageLoading(false)
       return
     }
 
@@ -81,7 +99,7 @@ export default function ResultsPage() {
       } catch (err) {
         console.error('Failed to load recommendations', err)
       } finally {
-        setLoading(false)
+        setPageLoading(false)
       }
     })()
   }, [router]) // Keep router dependency but use ref to prevent re-initialization
@@ -143,6 +161,13 @@ export default function ResultsPage() {
   // Modal helpers
   const openCustomization = (id: string) => setEditingCardId(id)
   const closeCustomization = () => setEditingCardId(null)
+
+  // Upgrade prompt helpers
+  const triggerUpgradePrompt = (featureName: string, featureDescription: string) => {
+    setUpgradeFeature(featureName)
+    setUpgradeDescription(featureDescription)
+    setShowUpgradePrompt(true)
+  }
 
   const handleSaveCustomization = (cust: any) => {
     if (!editingCardId) return
@@ -221,7 +246,7 @@ export default function ResultsPage() {
       .finally(() => setCustomizationLoading(false))
   }
 
-  if (loading) {
+  if (pageLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="text-center text-white space-y-4">
@@ -464,18 +489,27 @@ export default function ResultsPage() {
         {/* Multi-Card Strategies Section */}
         <div className="mt-12">
           <MultiCardStrategies 
+            key={multiCardStrategiesKey}
             userSpending={basePayload?.userSpending || []}
             benefitValuations={basePayload?.benefitValuations || []}
             rewardPreference={basePayload?.rewardPreference || 'cashback'}
             calculationPreferences={calculationPreferences}
             onError={(error) => console.error('Multi-card strategy error:', error)}
-            onUpgradePrompt={() => router.push('/pricing')}
+            onUpgradePrompt={() => triggerUpgradePrompt('Multi-Card Strategies', 'Discover optimal 2-3 card combinations that maximize your rewards across all spending categories. Get AI-powered recommendations for which card to use for each purchase.')}
+            isPremiumBlocked={!subscriptionLoading && !isPremium}
+            isAuthenticated={status === 'authenticated'}
+            featureName="Multi-Card Strategies"
+            featureDescription="Discover optimal 2-3 card combinations that maximize your rewards across all spending categories."
           />
         </div>
 
         {/* Portfolio Analysis Section */}
         <div className="mt-12">
-          <PortfolioAnalysis />
+          <PortfolioAnalysis 
+            key={portfolioAnalysisKey}
+            isPremiumBlocked={!subscriptionLoading && !isPremium}
+            onUpgradePrompt={() => triggerUpgradePrompt('Portfolio Analysis', 'Get comprehensive analysis of your credit card portfolio including coverage, optimization, and diversification scores. Discover which cards to use for each category and identify opportunities to maximize your rewards.')}
+          />
         </div>
       </div>
 
@@ -497,6 +531,14 @@ export default function ResultsPage() {
           currentCustomization={cardCustomizations[editingCardId]}
         />
       )}
+
+      {/* Upgrade Prompt Modal */}
+      <UpgradePrompt
+        isOpen={showUpgradePrompt}
+        onClose={() => setShowUpgradePrompt(false)}
+        feature={upgradeFeature}
+        description={upgradeDescription}
+      />
     </>
   )
 }

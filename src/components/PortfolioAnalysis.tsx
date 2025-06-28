@@ -64,7 +64,10 @@ function PortfolioAnalysisContent({ isPremiumBlocked, onUpgradePrompt }: { isPre
       if (cached) {
         const parsedCache = JSON.parse(cached)
         if (parsedCache.timestamp && (Date.now() - parsedCache.timestamp < CACHE_DURATION)) {
-          return parsedCache.data || null
+          // Only use cached data if it's valid (not an error state)
+          if (parsedCache.data && !parsedCache.data.error && parsedCache.data.portfolio) {
+            return parsedCache.data
+          }
         }
       }
     } catch (error) {
@@ -144,11 +147,14 @@ function PortfolioAnalysisContent({ isPremiumBlocked, onUpgradePrompt }: { isPre
       if (!forceRefresh) {
         const cached = getCachedData()
         if (cached && cached.timestamp && (Date.now() - cached.timestamp < CACHE_DURATION)) {
-          console.log('📊 Using cached portfolio data from user click')
-          setData(cached.data)
-          setLastFetch(cached.timestamp)
-          setLoading(false)
-          return
+          // Only use cached data if it's valid (not an error state)
+          if (cached.data && !cached.data.error && cached.data.portfolio) {
+            console.log('📊 Using cached portfolio data from user click')
+            setData(cached.data)
+            setLastFetch(cached.timestamp)
+            setLoading(false)
+            return
+          }
         }
       }
       
@@ -263,7 +269,12 @@ function PortfolioAnalysisContent({ isPremiumBlocked, onUpgradePrompt }: { isPre
   // Show empty state if no data
   if (!data) {
     return (
-      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8 text-center">
+      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8 text-center relative">
+        {isPremiumBlocked && (
+          <span className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-lg">
+            PRO
+          </span>
+        )}
         <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-2xl mb-6 shadow-xl">
           <span className="text-2xl">📊</span>
         </div>
@@ -302,7 +313,12 @@ function PortfolioAnalysisContent({ isPremiumBlocked, onUpgradePrompt }: { isPre
   }
 
   return (
-    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8 space-y-8">
+    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8 space-y-8 relative">
+      {isPremiumBlocked && (
+        <span className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-lg">
+          PRO
+        </span>
+      )}
       {/* Portfolio Overview */}
       <div className="bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-2xl shadow-lg overflow-hidden">
         {/* Header Section */}
@@ -490,7 +506,13 @@ function PortfolioAnalysisContent({ isPremiumBlocked, onUpgradePrompt }: { isPre
   )
 }
 
-export default function PortfolioAnalysis() {
+export default function PortfolioAnalysis({ isPremiumBlocked, onUpgradePrompt }: { isPremiumBlocked?: boolean, onUpgradePrompt?: () => void } = {}) {
+  // If premium blocking props are passed directly, use them without PremiumFeatureGate
+  if (isPremiumBlocked !== undefined && onUpgradePrompt !== undefined) {
+    return <PortfolioAnalysisContent isPremiumBlocked={isPremiumBlocked} onUpgradePrompt={onUpgradePrompt} />
+  }
+
+  // Otherwise, use PremiumFeatureGate (for backward compatibility)
   return (
     <PremiumFeatureGate
       featureName="Portfolio Analysis"
