@@ -1,28 +1,54 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { withRetry } from '@/lib/prisma'
+import { withRetry, prisma } from '@/lib/prisma'
 import { calculateMultiCardStrategies } from '@/lib/multi-card-engine'
 
 export async function POST(request: Request) {
   try {
-    const { userSpending, benefitValuations, rewardPreference } = await request.json()
+    const { userSpending, benefitValuations, rewardPreference, calculationPreferences } = await request.json()
 
     console.log('🎯 Multi-card strategies request:', {
       spendingCategories: userSpending?.length || 0,
       rewardPreference,
-      benefitValuations: benefitValuations?.length || 0
+      benefitValuations: benefitValuations?.length || 0,
+      calculationPreferences
     })
 
     if (!userSpending || userSpending.length === 0) {
       return NextResponse.json({ error: 'User spending data is required' }, { status: 400 })
     }
 
+    // Get user session to get their preferences
+    const session = await auth()
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Get user's actual preferences
+    const user = await withRetry(async () => {
+      return await prisma.user.findUnique({
+        where: { email: session.user.email! },
+        select: {
+          rewardPreference: true,
+          pointValue: true,
+          subscriptionTier: true
+        }
+      })
+    })
+
     const strategies = await withRetry(async () => {
       return await calculateMultiCardStrategies({
         userSpending,
         benefitValuations: benefitValuations || [],
-        rewardPreference: rewardPreference || 'cashback',
-        pointValue: 0.01 // Default point value
+        rewardPreference: rewardPreference || user?.rewardPreference || 'best_overall',
+        pointValue: user?.pointValue || 0.01,
+        subscriptionTier: user?.subscriptionTier as 'free' | 'premium' || 'free',
+        calculationPreferences: calculationPreferences || {
+          includeAnnualFees: true,
+          includeBenefits: true,
+          includeSignupBonuses: true,
+          calculationMode: 'comprehensive'
+        }
       })
     })
 

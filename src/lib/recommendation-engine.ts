@@ -344,8 +344,15 @@ export async function calculateCardRecommendations(
 
       // Add signup bonus information if available
       if (card.signupBonus && card.signupSpend && card.signupTimeframe) {
+        let signupBonusValue = card.signupBonus
+        
+        // For points cards, convert points to dollar value
+        if (card.rewardType === 'points') {
+          signupBonusValue = card.signupBonus * effectivePointValue
+        }
+        
         recommendation.signupBonus = {
-          amount: card.signupBonus,
+          amount: signupBonusValue, // This is now in dollar value for both cashback and points
           requiredSpend: card.signupSpend,
           timeframe: card.signupTimeframe,
         }

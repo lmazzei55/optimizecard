@@ -37,6 +37,11 @@ export const RecommendationItem: React.FC<Props> = ({ recommendation: rec, rank,
           <span className="hidden sm:inline ml-2 px-2 py-0.5 rounded-full text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
             {rec.rewardType === 'cashback' ? '💵 Cashback' : '🎯 Points'}
           </span>
+          {rec.signupBonus && rec.signupBonus.amount > 0 && (
+            <span className="hidden sm:inline ml-2 px-2 py-0.5 rounded-full text-xs bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold shadow-lg">
+              🎁 Signup Bonus
+            </span>
+          )}
         </div>
 
         {/* Right side: net value + actions + chevron */}
@@ -74,7 +79,7 @@ export const RecommendationItem: React.FC<Props> = ({ recommendation: rec, rank,
       {/* Expanded details */}
       {open && (
         <div className="px-4 pb-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div className={`grid ${rec.signupBonus && rec.signupBonus.amount > 0 ? 'grid-cols-2 md:grid-cols-5' : 'grid-cols-2 md:grid-cols-4'} gap-4 text-sm`}>
             <div>
               <div className="text-gray-500 dark:text-gray-400">Annual Rewards</div>
               <div className="font-medium">{formatCurrency(rec.totalAnnualValue)}</div>
@@ -98,6 +103,17 @@ export const RecommendationItem: React.FC<Props> = ({ recommendation: rec, rank,
                 return `${effectiveRate.toFixed(1)}%`
               })()}</div>
             </div>
+            {rec.signupBonus && rec.signupBonus.amount > 0 && (
+              <div>
+                <div className="text-gray-500 dark:text-gray-400">Signup Bonus</div>
+                <div className="font-medium text-orange-600 dark:text-orange-400">
+                  {rec.rewardType === 'points' ? `${rec.signupBonus.amount.toLocaleString()} points` : formatCurrency(rec.signupBonus.amount)}
+                </div>
+                <div className="text-xs text-gray-400 mt-1">
+                  Spend ${rec.signupBonus.requiredSpend?.toLocaleString() || 'N/A'} in {rec.signupBonus.timeframe || 'N/A'} months
+                </div>
+              </div>
+            )}
           </div>
           {/* Show category breakdown & benefits in simple table */}
           {rec.categoryBreakdown?.length > 0 && (

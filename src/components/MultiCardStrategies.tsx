@@ -8,11 +8,17 @@ interface MultiCardStrategiesProps {
   userSpending: any[]
   benefitValuations?: any[]
   rewardPreference: 'cashback' | 'points' | 'best_overall'
+  calculationPreferences?: {
+    includeAnnualFees: boolean
+    includeBenefits: boolean
+    includeSignupBonuses: boolean
+    calculationMode: string
+  }
   onError?: (error: string) => void
   onUpgradePrompt?: () => void
 }
 
-export function MultiCardStrategies({ userSpending, benefitValuations, rewardPreference, onError, onUpgradePrompt }: MultiCardStrategiesProps) {
+export function MultiCardStrategies({ userSpending, benefitValuations, rewardPreference, calculationPreferences, onError, onUpgradePrompt }: MultiCardStrategiesProps) {
   const [strategies, setStrategies] = useState<MultiCardStrategy[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -36,7 +42,13 @@ export function MultiCardStrategies({ userSpending, benefitValuations, rewardPre
         body: JSON.stringify({
           userSpending,
           benefitValuations: benefitValuations || [],
-          rewardPreference
+          rewardPreference,
+          calculationPreferences: calculationPreferences || {
+            includeAnnualFees: true,
+            includeBenefits: true,
+            includeSignupBonuses: true,
+            calculationMode: 'comprehensive'
+          }
         }),
       })
 
@@ -240,7 +252,11 @@ export function MultiCardStrategies({ userSpending, benefitValuations, rewardPre
                               <div className="text-right">
                                 <div className="font-bold text-blue-600 dark:text-blue-400">{allocation.bestCard}</div>
                                 <div className="text-sm text-gray-600 dark:text-gray-300">
-                                  {allocation.rewardRate}x = {formatCurrency(allocation.annualValue)}/year
+                                  {allocation.cardRewardType === 'points' ? (
+                                    `${allocation.rewardRate}x = ${formatCurrency(allocation.annualValue)}/year`
+                                  ) : (
+                                    `${(allocation.rewardRate * 100).toFixed(1)}% = ${formatCurrency(allocation.annualValue)}/year`
+                                  )}
                                 </div>
                               </div>
                             </div>

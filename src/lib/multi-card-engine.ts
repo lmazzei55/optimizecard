@@ -18,12 +18,20 @@ export interface MultiCardStrategy {
     rewardRate: number
     monthlyValue: number
     annualValue: number
+    cardRewardType: 'cashback' | 'points'
   }[]
   description: string
 }
 
 export async function calculateMultiCardStrategies(
-  options: RecommendationOptions
+  options: RecommendationOptions & {
+    calculationPreferences?: {
+      includeAnnualFees: boolean
+      includeBenefits: boolean
+      includeSignupBonuses: boolean
+      calculationMode: string
+    }
+  }
 ): Promise<MultiCardStrategy[]> {
   // First get all individual card recommendations
   const individualCards = await calculateCardRecommendations(options)
@@ -32,24 +40,48 @@ export async function calculateMultiCardStrategies(
     return []
   }
 
+  // Apply calculation preferences to filter and adjust card values
+  const adjustedCards = individualCards.map(card => {
+    const adjustedCard = { ...card }
+    
+    // Apply calculation preferences
+    if (!options.calculationPreferences?.includeAnnualFees) {
+      adjustedCard.annualFee = 0
+    }
+    if (!options.calculationPreferences?.includeBenefits) {
+      adjustedCard.benefitsValue = 0
+    }
+    if (!options.calculationPreferences?.includeSignupBonuses && adjustedCard.signupBonus) {
+      adjustedCard.signupBonus = { ...adjustedCard.signupBonus, amount: 0 }
+    }
+    
+    // Recalculate net value based on preferences
+    adjustedCard.netAnnualValue = adjustedCard.totalAnnualValue + 
+      (options.calculationPreferences?.includeBenefits ? adjustedCard.benefitsValue : 0) - 
+      (options.calculationPreferences?.includeAnnualFees ? adjustedCard.annualFee : 0) +
+      (options.calculationPreferences?.includeSignupBonuses && adjustedCard.signupBonus ? adjustedCard.signupBonus.amount : 0)
+    
+    return adjustedCard
+  })
+
   const strategies: MultiCardStrategy[] = []
 
   // Strategy 1: Best 2-card combination
-  const twoCardStrategy = await findBestTwoCardCombination(individualCards, options)
+  const twoCardStrategy = await findBestTwoCardCombination(adjustedCards, options)
   if (twoCardStrategy) {
     strategies.push(twoCardStrategy)
   }
 
   // Strategy 2: Best 3-card combination (if we have enough cards)
-  if (individualCards.length >= 3) {
-    const threeCardStrategy = await findBestThreeCardCombination(individualCards, options)
+  if (adjustedCards.length >= 3) {
+    const threeCardStrategy = await findBestThreeCardCombination(adjustedCards, options)
     if (threeCardStrategy) {
       strategies.push(threeCardStrategy)
     }
   }
 
   // Strategy 3: Category specialist combination
-  const specialistStrategy = await findCategorySpecialistCombination(individualCards, options)
+  const specialistStrategy = await findCategorySpecialistCombination(adjustedCards, options)
   if (specialistStrategy) {
     strategies.push(specialistStrategy)
   }
@@ -190,15 +222,6 @@ function calculateOptimalCardUsage(
           value: categoryReward.monthlyValue,
           rate: categoryReward.rewardRate
         }
-      } else {
-        // Use base reward if no specific category reward
-        const baseValue = spending.monthlySpend * (card.rewardType === 'points' ? 
-          (card.categoryBreakdown[0]?.rewardRate || 1) * 0.01 : 
-          (card.categoryBreakdown[0]?.rewardRate || 0.01))
-        categoryCardValues[spending.categoryName][card.cardId] = {
-          value: baseValue,
-          rate: card.categoryBreakdown[0]?.rewardRate || 0.01
-        }
       }
     }
   }
@@ -232,13 +255,24 @@ function calculateOptimalCardUsage(
       const annualValue = bestValue * 12
       totalAnnualValue += annualValue
       
+      // For points cards, convert decimal rate to multiplier for display (0.05 -> 5)
+      const displayRate = card.rewardType === 'points' ? bestRate * 100 : bestRate
+      
+      console.log(`🔧 Multi-card allocation for ${card.cardName}:`)
+      console.log(`  Category: ${bestCategory.categoryName}`)
+      console.log(`  Monthly value: $${bestValue.toFixed(2)}`)
+      console.log(`  Annual value: $${annualValue.toFixed(2)} (${bestValue} * 12)`)
+      console.log(`  Display rate: ${displayRate}x (${card.rewardType})`)
+      console.log(`  Raw rate: ${bestRate}`)
+      
       categoryAllocations.push({
         categoryName: bestCategory.categoryName,
         bestCard: card.cardName,
         monthlySpend: bestCategory.monthlySpend,
-        rewardRate: bestRate,
+        rewardRate: displayRate,
         monthlyValue: bestValue,
-        annualValue
+        annualValue,
+        cardRewardType: card.rewardType
       })
       
       cardUsage[card.cardId].categories.push(bestCategory.categoryName)
@@ -270,13 +304,24 @@ function calculateOptimalCardUsage(
       const annualValue = bestValue * 12
       totalAnnualValue += annualValue
       
+      // For points cards, convert decimal rate to multiplier for display (0.05 -> 5)
+      const displayRate = bestCard.rewardType === 'points' ? bestRate * 100 : bestRate
+      
+      console.log(`🔧 Multi-card second pass for ${bestCard.cardName}:`)
+      console.log(`  Category: ${spending.categoryName}`)
+      console.log(`  Monthly value: $${bestValue.toFixed(2)}`)
+      console.log(`  Annual value: $${annualValue.toFixed(2)} (${bestValue} * 12)`)
+      console.log(`  Display rate: ${displayRate}x (${bestCard.rewardType})`)
+      console.log(`  Raw rate: ${bestRate}`)
+      
       categoryAllocations.push({
         categoryName: spending.categoryName,
         bestCard: bestCard.cardName,
         monthlySpend: spending.monthlySpend,
-        rewardRate: bestRate,
+        rewardRate: displayRate,
         monthlyValue: bestValue,
-        annualValue
+        annualValue,
+        cardRewardType: bestCard.rewardType
       })
       
       cardUsage[bestCard.cardId].categories.push(spending.categoryName)
@@ -300,7 +345,16 @@ function calculateOptimalCardUsage(
     })
   })
 
-  totalAnnualValue += totalBenefitsValue
+  // Add welcome bonuses from all cards (they're one-time, not annual)
+  let totalWelcomeBonuses = 0
+  cards.forEach(card => {
+    if (card.signupBonus && card.signupBonus.amount > 0) {
+      totalWelcomeBonuses += card.signupBonus.amount
+    }
+  })
+
+  // Calculate the true total value including benefits and bonuses
+  totalAnnualValue = totalAnnualValue + totalBenefitsValue + totalWelcomeBonuses
 
   // Format card recommendations with their usage - only include cards that are actually used
   const cardRecommendations = Object.values(cardUsage)
@@ -336,13 +390,17 @@ function calculateOptimalCardUsage(
           const annualValue = cardValue.value * 12
           resetTotalValue += annualValue
           
+          // For points cards, convert decimal rate to multiplier for display (0.05 -> 5)
+          const displayRate = assignedCard.rewardType === 'points' ? cardValue.rate * 100 : cardValue.rate
+          
           resetAllocations.push({
             categoryName: spending.categoryName,
             bestCard: assignedCard.cardName,
             monthlySpend: spending.monthlySpend,
-            rewardRate: cardValue.rate,
+            rewardRate: displayRate,
             monthlyValue: cardValue.value,
-            annualValue
+            annualValue,
+            cardRewardType: assignedCard.rewardType
           })
           
           resetCardUsage[assignedCard.cardId].categories.push(spending.categoryName)

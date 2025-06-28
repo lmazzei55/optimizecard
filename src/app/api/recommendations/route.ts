@@ -138,8 +138,9 @@ export async function POST(request: NextRequest) {
     // Get cards using direct database connection
     const cards = await getCreditCardsWithRewards({
       rewardType: rewardPreference === 'best_overall' ? undefined : rewardPreference,
-      // Free tier users can only see cashback cards, premium users see all cards
-      tier: userSubscriptionTier === 'free' ? 'free' : undefined,
+      // Only apply tier filtering if user specifically requests cashback only
+      // For best_overall, show all cards regardless of tier to give full recommendations
+      tier: (userSubscriptionTier === 'free' && rewardPreference === 'cashback') ? 'free' : undefined,
       isActive: true
     })
 
@@ -153,10 +154,9 @@ export async function POST(request: NextRequest) {
 
     // Filter cards based on subscription tier - but don't return empty, just filter the list
     let availableCards = cards
-    if (userSubscriptionTier === 'free' && (rewardPreference === 'points' || rewardPreference === 'best_overall')) {
-      console.log('🚫 Free tier user requesting premium features - filtering to cashback cards only')
-      availableCards = cards.filter(card => card.rewardType === 'cashback')
-    }
+    // Note: Subscription tier filtering is already handled in the database query above
+    // The tier filtering in getCreditCardsWithRewards() ensures free users only see free tier cards
+    // No additional filtering needed here to avoid incorrectly removing points cards
     
     console.log(`🎯 Available cards after tier filtering: ${availableCards.length}`)
 
@@ -300,9 +300,31 @@ export async function POST(request: NextRequest) {
         
         if (shouldIncludeAnnualFees) {
           netAnnualValue -= card.annualFee
-          console.log(`  📈 Total annual value: $${totalAnnualValue.toFixed(2)}, Benefits: $${benefitsValue.toFixed(2)}, Annual Fee: -$${card.annualFee}, Net: $${netAnnualValue.toFixed(2)}`)
+        }
+
+        // Apply signup bonus based on calculation preferences
+        const shouldIncludeSignupBonuses = calculationPreferences.calculationMode === 'comprehensive' 
+          ? calculationPreferences.includeSignupBonuses 
+          : calculationPreferences.calculationMode !== 'rewards_only' && calculationPreferences.calculationMode !== 'net_value'
+        
+        let signupBonusValue = 0
+        if (shouldIncludeSignupBonuses && card.signupBonus) {
+          if (card.rewardType === 'points') {
+            // For points cards, convert points to cash value
+            const cardCustomization = cardCustomizations[card.id]
+            const effectivePointValue = cardCustomization?.pointValue || pointValue
+            signupBonusValue = card.signupBonus * effectivePointValue
+          } else {
+            // For cashback cards, use the signup bonus directly
+            signupBonusValue = card.signupBonus
+          }
+          netAnnualValue += signupBonusValue
+        }
+
+        if (shouldIncludeAnnualFees) {
+          console.log(`  📈 Total annual value: $${totalAnnualValue.toFixed(2)}, Benefits: $${benefitsValue.toFixed(2)}, Annual Fee: -$${card.annualFee}, Signup Bonus: +$${signupBonusValue.toFixed(2)}, Net: $${netAnnualValue.toFixed(2)}`)
         } else {
-          console.log(`  📈 Total annual value: $${totalAnnualValue.toFixed(2)}, Benefits: $${benefitsValue.toFixed(2)}, Annual Fee: ignored, Net: $${netAnnualValue.toFixed(2)}`)
+          console.log(`  📈 Total annual value: $${totalAnnualValue.toFixed(2)}, Benefits: $${benefitsValue.toFixed(2)}, Annual Fee: ignored, Signup Bonus: +$${signupBonusValue.toFixed(2)}, Net: $${netAnnualValue.toFixed(2)}`)
         }
 
         // Create recommendation object

@@ -4,14 +4,29 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-export let prisma = globalForPrisma.prisma ?? new PrismaClient({
-  log: ['query'],
-    datasources: {
-      db: {
-      url: process.env.DATABASE_URL,
-    },
-  },
-})
+// Create Prisma client with safe configuration
+function createPrismaClient() {
+  const config: any = {
+    log: ['query'],
+    // Add unique client identifier to avoid prepared statement conflicts
+    __internal: {
+      engine: {
+        enableDebugLogs: false
+      }
+    }
+  }
+  
+  // Only add datasources if DATABASE_URL is defined
+  if (process.env.DATABASE_URL) {
+    config.datasources = {
+      db: { url: process.env.DATABASE_URL }
+    }
+  }
+  
+  return new PrismaClient(config)
+}
+
+export let prisma = globalForPrisma.prisma ?? createPrismaClient()
 
 // Add connection pool management for serverless - only in Node.js runtime (not Edge Runtime)
 // Skip entirely in browser or Edge Runtime environments
@@ -36,14 +51,7 @@ if (typeof window === 'undefined' &&
     }
     
     // CRITICAL: Enhanced Prisma client for better stability
-    prisma = new PrismaClient({
-      log: ['query'],
-      datasources: {
-        db: {
-          url: process.env.DATABASE_URL,
-        },
-      },
-    })
+    prisma = createPrismaClient()
   } catch (error) {
     console.warn('⚠️ Could not set up serverless connection management:', error)
   }
@@ -54,75 +62,60 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
 // Enhanced retry wrapper with better error categorization
 export async function withRetry<T>(
   operation: () => Promise<T>,
-  maxRetries: number = 5, // Increased from 3
-  baseDelay: number = 200  // Increased from 100
+  maxRetries: number = 3,
+  baseDelay: number = 1000
 ): Promise<T> {
-  let lastError: Error | undefined
-
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      // Force connection refresh on first retry
-      if (attempt === 2) {
-        await prisma.$connect()
-      }
-      
       return await operation()
-    } catch (error) {
-      lastError = error as Error
+    } catch (error: any) {
+      const isLastAttempt = attempt === maxRetries
       
-      // Don't retry for certain types of errors
-      if (
-        lastError.message.includes('unique constraint') ||
-        lastError.message.includes('foreign key constraint') ||
-        lastError.message.includes('not found') ||
-        lastError.message.includes('Invalid')
-      ) {
-        throw lastError
-      }
+      // Check for specific error types that warrant retry including prepared statement conflicts
+      const shouldRetry = 
+        error?.code === 'P1001' || // Database unreachable
+        error?.code === 'P1008' || // Operations timed out
+        error?.code === 'P1017' || // Connection closed
+        error?.code === 'P2024' || // Timed out fetching a new connection
+        error?.code === '42P05' || // Prepared statement conflicts
+        error?.message?.includes('prepared statement') ||
+        error?.message?.includes('already exists') ||
+        error?.message?.includes('Connection terminated') ||
+        error?.message?.includes('ECONNRESET') ||
+        error?.message?.includes('timeout') ||
+        error?.message?.includes('Connection lost')
 
-      // Enhanced detection of connection issues
-      const isConnectionIssue = 
-        lastError.message.includes('connection') ||
-        lastError.message.includes('timeout') ||
-        lastError.message.includes('ECONNREFUSED') ||
-        lastError.message.includes('ENOTFOUND') ||
-        lastError.message.includes('prepared statement') ||
-        (lastError as any).code === 'P1001' ||
-        (lastError as any).code === 'P2010' ||
-        (lastError as any).code === '42P05'
-
-      if (attempt === maxRetries) {
-        console.error(`❌ Database operation failed after ${maxRetries} attempts:`, {
-          message: lastError.message,
-          code: (lastError as any).code,
-          isConnectionIssue
-        })
-        throw lastError
-      }
-
-      // Enhanced exponential backoff with jitter
-      const delay = Math.min(baseDelay * Math.pow(2, attempt - 1) + Math.random() * 200, 5000)
-      console.warn(`⚠️ Database operation failed (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms...`, {
-        error: lastError.message,
-        code: (lastError as any).code
-      })
+      if (!shouldRetry || isLastAttempt) {
+        // For prepared statement conflicts, try to recreate the client
+        if ((error?.code === '42P05' || error?.message?.includes('prepared statement')) && !isLastAttempt) {
+          console.log(`🔄 Prepared statement conflict detected, recreating Prisma client (attempt ${attempt}/${maxRetries})`)
+          try {
+            await prisma.$disconnect()
+            prisma = createPrismaClient()
+            if (process.env.NODE_ENV !== 'production') {
+              globalForPrisma.prisma = prisma
+            }
+            // Continue to next retry iteration
+            continue
+          } catch (resetError) {
+            console.warn('⚠️ Failed to reset Prisma client:', resetError)
+          }
+        }
         
-      // Force reconnection for connection issues
-      if (isConnectionIssue && attempt > 1) {
-        try {
-          await prisma.$disconnect()
-          await new Promise(resolve => setTimeout(resolve, 100))
-          await prisma.$connect()
-        } catch (reconnectError) {
-          console.warn('⚠️ Reconnection attempt failed:', reconnectError)
+        throw error
       }
-    }
+
+      const delay = baseDelay * Math.pow(2, attempt - 1) + Math.random() * 1000
+      console.log(`⚠️ Database operation failed (attempt ${attempt}/${maxRetries}), retrying in ${Math.round(delay)}ms...`, {
+        error: error?.message || error,
+        code: error?.code
+      })
       
       await new Promise(resolve => setTimeout(resolve, delay))
     }
   }
-
-  throw lastError
+  
+  throw new Error('Max retries exceeded')
 }
 
 // Alternative query function that bypasses prepared statements for critical operations
@@ -147,14 +140,7 @@ export async function resetPrismaClient() {
   try {
     console.log('🔄 Resetting Prisma client due to connection issues...')
     await prisma.$disconnect()
-    prisma = new PrismaClient({
-      log: ['query'],
-      datasources: {
-        db: {
-          url: process.env.DATABASE_URL
-        }
-      }
-    })
+    prisma = createPrismaClient()
     if (process.env.NODE_ENV !== 'production') {
       globalForPrisma.prisma = prisma
     }

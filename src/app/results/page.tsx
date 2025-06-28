@@ -453,6 +453,7 @@ export default function ResultsPage() {
             userSpending={basePayload?.userSpending || []}
             benefitValuations={basePayload?.benefitValuations || []}
             rewardPreference={basePayload?.rewardPreference || 'cashback'}
+            calculationPreferences={calculationPreferences}
             onError={(error) => console.error('Multi-card strategy error:', error)}
             onUpgradePrompt={() => router.push('/pricing')}
           />

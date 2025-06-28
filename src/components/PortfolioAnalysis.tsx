@@ -50,14 +50,18 @@ interface PortfolioAnalysisData {
   }
 }
 
+// Cache key helper so we don't refetch every time user returns to the page
+const CACHE_KEY = 'cco_portfolio_analysis'
+const CACHE_DURATION = 10 * 60 * 1000 // 10 minutes
+
 export default function PortfolioAnalysis() {
   const { data: session, status } = useSession()
   const [data, setData] = useState<PortfolioAnalysisData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [lastFetch, setLastFetch] = useState<number | null>(null)
 
   useEffect(() => {
-    // Only fetch if user is authenticated
     if (status === 'loading') {
       return // Still loading authentication
     }
@@ -67,32 +71,96 @@ export default function PortfolioAnalysis() {
       return // User not authenticated, don't show portfolio analysis
     }
 
-    // User is authenticated, fetch portfolio data
+    // User is authenticated, check cache first
     if (status === 'authenticated' && session?.user?.email) {
+      // Check if we have cached data that's still fresh
+      const cached = getCachedData()
+      if (cached && cached.timestamp && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+        console.log('📊 Using cached portfolio data')
+        setData(cached.data)
+        setLastFetch(cached.timestamp)
+        setLoading(false)
+        return
+      }
+      
+      // No valid cache, fetch fresh data
       fetchPortfolioData()
     }
   }, [status, session])
 
-  const fetchPortfolioData = async () => {
+  const getCachedData = () => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY)
+      return cached ? JSON.parse(cached) : null
+    } catch {
+      return null
+    }
+  }
+
+  const setCachedData = (data: PortfolioAnalysisData) => {
+    try {
+      const cacheData = {
+        data,
+        timestamp: Date.now()
+      }
+      localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData))
+    } catch {
+      // Ignore localStorage errors
+    }
+  }
+
+  const fetchPortfolioData = async (forceRefresh = false) => {
     try {
       setLoading(true)
       setError(null)
       
-      const response = await fetch('/api/user/portfolio-analysis')
+      console.log('📊 Fetching portfolio data...')
+      const response = await fetch('/api/user/portfolio-analysis', {
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
+      })
       
       if (!response.ok) {
-        if (response.status === 401) {
-          setError('Please sign in to view your portfolio analysis')
-          return
-        }
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
       
       const result = await response.json()
+      
+      // Check if this is fallback data due to server issues
+      if (result.error && result.error.includes('temporarily unavailable')) {
+        console.log('📊 Received fallback data due to server issues')
+        // Try to use cached data if available
+        const cached = getCachedData()
+        if (cached && cached.data) {
+          setData(cached.data)
+          setLastFetch(cached.timestamp)
+          setError('Using cached data - server temporarily unavailable')
+          return
+        } else {
+          setError(result.error)
+          return
+        }
+      }
+      
       setData(result)
-    } catch (err) {
+      setLastFetch(Date.now())
+      setCachedData(result)
+      console.log('📊 Portfolio data fetched and cached')
+    } catch (err: any) {
       console.error('Portfolio analysis error:', err)
-      setError(err instanceof Error ? err.message : 'Failed to load portfolio analysis')
+      setError(err.message || 'Failed to load portfolio analysis')
+      
+      // If this is not a forced refresh and we have cached data, use it
+      if (!forceRefresh) {
+        const cached = getCachedData()
+        if (cached && cached.data) {
+          console.log('📊 Using cached data due to fetch error')
+          setData(cached.data)
+          setLastFetch(cached.timestamp)
+          setError(null) // Clear error since we have fallback data
+        }
+      }
     } finally {
       setLoading(false)
     }
@@ -142,7 +210,7 @@ export default function PortfolioAnalysis() {
               <p className="font-medium text-red-800">Unable to load portfolio analysis</p>
               <p className="text-sm text-red-600">{error}</p>
               <button 
-                onClick={fetchPortfolioData}
+                onClick={() => fetchPortfolioData(true)}
                 className="mt-2 text-sm text-red-700 underline hover:text-red-800"
               >
                 Try again
@@ -176,52 +244,109 @@ export default function PortfolioAnalysis() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8 space-y-8">
       {/* Portfolio Overview */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Your Credit Card Portfolio</CardTitle>
-          <CardDescription>
-            {data.portfolio.cards.length} cards with ${data.portfolio.totalAnnualFees}/year in fees
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Portfolio Score</p>
-              <div className="flex items-center gap-2">
-                <Progress value={data.metrics.portfolioScore} className="flex-1" />
-                <span className="text-sm font-medium">{data.metrics.portfolioScore}%</span>
+      <div className="bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-2xl shadow-lg overflow-hidden">
+        {/* Header Section */}
+        <div className="p-8 text-white">
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 className="text-3xl font-bold flex items-center gap-3">
+                📊 Your Credit Card Portfolio
+              </h2>
+              <div className="space-y-1">
+                <p className="text-lg opacity-90">
+                  {data.portfolio.cards.length} cards with ${data.portfolio.totalAnnualFees}/year in fees
+                </p>
+                {lastFetch && (
+                  <p className="text-sm opacity-75">
+                    Last updated: {new Date(lastFetch).toLocaleTimeString()}
+                  </p>
+                )}
               </div>
             </div>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Coverage</p>
-              <div className="flex items-center gap-2">
-                <Progress value={data.metrics.coverageScore} className="flex-1" />
-                <span className="text-sm font-medium">{data.metrics.coverageScore}%</span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Optimization</p>
-              <div className="flex items-center gap-2">
-                <Progress value={data.metrics.optimizationScore} className="flex-1" />
-                <span className="text-sm font-medium">{data.metrics.optimizationScore}%</span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Diversification</p>
-              <div className="flex items-center gap-2">
-                <Progress value={data.metrics.diversificationScore} className="flex-1" />
-                <span className="text-sm font-medium">{data.metrics.diversificationScore}%</span>
+            <div className="text-right flex flex-col items-end gap-3">
+              <button
+                onClick={() => fetchPortfolioData(true)}
+                disabled={loading}
+                className="bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {loading ? '⟳' : '🔄'} Refresh
+              </button>
+              <div>
+                <div className="text-4xl font-bold">{data.metrics.portfolioScore}%</div>
+                <div className="text-sm opacity-80">Overall Score</div>
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        {/* Metrics Grid */}
+        <div className="bg-white/10 backdrop-blur-sm p-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Coverage Metric */}
+            <div className="bg-white/20 rounded-xl p-6 backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-white">
+                  <h3 className="font-semibold text-lg">Coverage</h3>
+                  <p className="text-sm opacity-80">Categories earning rewards</p>
+                </div>
+                <div className="text-3xl font-bold text-white">{data.metrics.coverageScore}%</div>
+              </div>
+              <Progress value={data.metrics.coverageScore} className="h-2 bg-white/20" />
+            </div>
+
+            {/* Optimization Metric */}
+            <div className="bg-white/20 rounded-xl p-6 backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-white">
+                  <h3 className="font-semibold text-lg">Optimization</h3>
+                  <p className="text-sm opacity-80">Using best owned card</p>
+                </div>
+                <div className="text-3xl font-bold text-white">{data.metrics.optimizationScore}%</div>
+              </div>
+              <Progress value={data.metrics.optimizationScore} className="h-2 bg-white/20" />
+            </div>
+
+            {/* Diversification Metric */}
+            <div className="bg-white/20 rounded-xl p-6 backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-white">
+                  <h3 className="font-semibold text-lg">Diversification</h3>
+                  <p className="text-sm opacity-80">Card/issuer variety</p>
+                </div>
+                <div className="text-3xl font-bold text-white">{data.metrics.diversificationScore}%</div>
+              </div>
+              <Progress value={data.metrics.diversificationScore} className="h-2 bg-white/20" />
+            </div>
+          </div>
+
+          {/* Help Text */}
+          <details className="mt-6 text-white">
+            <summary className="cursor-pointer select-none font-medium text-sm opacity-90 hover:opacity-100">
+              ℹ️ What do these scores mean?
+            </summary>
+            <div className="mt-4 space-y-3 text-sm bg-white/10 rounded-lg p-4">
+              <div>
+                <strong>Portfolio Score:</strong> How much of the maximum possible rewards you're capturing
+              </div>
+              <div>
+                <strong>Coverage:</strong> Percentage of your spending categories where you earn any rewards
+              </div>
+              <div>
+                <strong>Optimization:</strong> How well you're using your best card for each category
+              </div>
+              <div>
+                <strong>Diversification:</strong> Protection against devaluations (3+ cards = 100%)
+              </div>
+            </div>
+          </details>
+        </div>
+      </div>
 
       {/* Category Analysis */}
       {data.categoryAnalysis.length > 0 && (
-        <Card>
+        <Card className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-700 dark:to-gray-600 border-gray-200 dark:border-gray-600">
           <CardHeader>
             <CardTitle>Category Optimization Opportunities</CardTitle>
             <CardDescription>
@@ -261,7 +386,7 @@ export default function PortfolioAnalysis() {
 
       {/* Gap Analysis */}
       {data.gaps.length > 0 && (
-        <Card>
+        <Card className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-700 dark:to-gray-600 border-gray-200 dark:border-gray-600">
           <CardHeader>
             <CardTitle>Coverage Gaps</CardTitle>
             <CardDescription>
