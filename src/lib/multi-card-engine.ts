@@ -150,7 +150,14 @@ export async function calculateMultiCardStrategies(
 
 async function findBestTwoCardCombination(
   cards: CardRecommendation[],
-  options: RecommendationOptions
+  options: RecommendationOptions & {
+    calculationPreferences?: {
+      includeAnnualFees: boolean
+      includeBenefits: boolean
+      includeSignupBonuses: boolean
+      calculationMode: string
+    }
+  }
 ): Promise<MultiCardStrategy | null> {
   console.log(`🔧 DEBUGGING: findBestTwoCardCombination ENTRY - received ${cards.length} cards`)
   
@@ -210,7 +217,14 @@ async function findBestTwoCardCombination(
 
 async function findBestThreeCardCombination(
   cards: CardRecommendation[],
-  options: RecommendationOptions
+  options: RecommendationOptions & {
+    calculationPreferences?: {
+      includeAnnualFees: boolean
+      includeBenefits: boolean
+      includeSignupBonuses: boolean
+      calculationMode: string
+    }
+  }
 ): Promise<MultiCardStrategy | null> {
   let bestStrategy: MultiCardStrategy | null = null
   let bestValue = -Infinity
@@ -240,7 +254,14 @@ async function findBestThreeCardCombination(
 
 async function findCategorySpecialistCombination(
   cards: CardRecommendation[],
-  options: RecommendationOptions
+  options: RecommendationOptions & {
+    calculationPreferences?: {
+      includeAnnualFees: boolean
+      includeBenefits: boolean
+      includeSignupBonuses: boolean
+      calculationMode: string
+    }
+  }
 ): Promise<MultiCardStrategy | null> {
   // Find cards that excel in specific categories
   const categorySpecialists: { [category: string]: CardRecommendation } = {}
@@ -287,9 +308,24 @@ async function findCategorySpecialistCombination(
 
 function calculateOptimalCardUsage(
   cards: CardRecommendation[],
-  options: RecommendationOptions
+  options: RecommendationOptions & {
+    calculationPreferences?: {
+      includeAnnualFees: boolean
+      includeBenefits: boolean
+      includeSignupBonuses: boolean
+      calculationMode: string
+    }
+  }
 ): MultiCardStrategy | null {
   if (cards.length === 0) return null
+
+  // Apply calculation preferences to determine what to include
+  const calculationPreferences = options.calculationPreferences || {
+    includeAnnualFees: true,
+    includeBenefits: true,
+    includeSignupBonuses: true,
+    calculationMode: 'comprehensive'
+  }
 
   // Debug what cards we're working with
   console.log(`🔧 DEBUGGING: calculateOptimalCardUsage called with ${cards.length} cards:`)
@@ -321,7 +357,10 @@ function calculateOptimalCardUsage(
       categories: [],
       value: 0
     }
-    totalAnnualFees += card.annualFee
+    // Only include annual fees if calculation preferences allow it
+    if (calculationPreferences.includeAnnualFees) {
+      totalAnnualFees += card.annualFee
+    }
   })
 
   // Create a matrix of card values for each category
@@ -531,29 +570,32 @@ function calculateOptimalCardUsage(
     }
   }
 
-  // Add benefits from all cards (avoid double counting)
-  const allBenefits = new Set<string>()
+  // Conditionally add benefits based on calculation preferences
   let totalBenefitsValue = 0
-  
-  cards.forEach(card => {
-    card.benefitsBreakdown.forEach(benefit => {
-      const benefitKey = `${benefit.benefitName}-${benefit.category}`
-      if (!allBenefits.has(benefitKey)) {
-        allBenefits.add(benefitKey)
-        totalBenefitsValue += benefit.personalValue
+  if (calculationPreferences.includeBenefits) {
+    const allBenefits = new Set<string>()
+    cards.forEach(card => {
+      card.benefitsBreakdown.forEach(benefit => {
+        const benefitKey = `${benefit.benefitName}-${benefit.category}`
+        if (!allBenefits.has(benefitKey)) {
+          allBenefits.add(benefitKey)
+          totalBenefitsValue += benefit.personalValue
+        }
+      })
+    })
+  }
+
+  // Conditionally add welcome bonuses based on calculation preferences
+  let totalWelcomeBonuses = 0
+  if (calculationPreferences.includeSignupBonuses) {
+    cards.forEach(card => {
+      if (card.signupBonus && card.signupBonus.amount > 0) {
+        totalWelcomeBonuses += card.signupBonus.amount
       }
     })
-  })
+  }
 
-  // Add welcome bonuses from all cards (they're one-time, not annual)
-  let totalWelcomeBonuses = 0
-  cards.forEach(card => {
-    if (card.signupBonus && card.signupBonus.amount > 0) {
-      totalWelcomeBonuses += card.signupBonus.amount
-    }
-  })
-
-  // Calculate the true total value including benefits and bonuses
+  // Calculate the total value based on what's included
   totalAnnualValue = totalAnnualValue + totalBenefitsValue + totalWelcomeBonuses
 
   // Format card recommendations with their usage - only include cards that are actually used

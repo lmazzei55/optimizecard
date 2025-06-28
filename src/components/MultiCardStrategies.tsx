@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { MultiCardStrategy } from '@/lib/multi-card-engine'
 import { formatCurrency } from '@/lib/utils'
 import { PremiumFeatureGate } from '@/components/PremiumFeatureGate'
@@ -28,6 +28,9 @@ const CACHE_KEY = 'cco_multi_card_strategies'
 const CACHE_DURATION = 10 * 60 * 1000 // 10 minutes
 
 function MultiCardStrategiesContent({ userSpending, benefitValuations, rewardPreference, calculationPreferences, onError, onUpgradePrompt, isPremiumBlocked, isAuthenticated, featureName, featureDescription }: MultiCardStrategiesProps) {
+  // Track previous calculation preferences to detect changes
+  const prevCalculationPreferences = useRef(calculationPreferences)
+  
   // Initialize state with cached data synchronously to prevent visual flicker
   const [strategies, setStrategies] = useState<MultiCardStrategy[]>(() => {
     try {
@@ -45,6 +48,31 @@ function MultiCardStrategiesContent({ userSpending, benefitValuations, rewardPre
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Clear cached strategies when calculation preferences change
+  useEffect(() => {
+    const prev = prevCalculationPreferences.current
+    const current = calculationPreferences
+    
+    // Check if calculation preferences have changed
+    if (prev && current && (
+      prev.includeAnnualFees !== current.includeAnnualFees ||
+      prev.includeBenefits !== current.includeBenefits ||
+      prev.includeSignupBonuses !== current.includeSignupBonuses ||
+      prev.calculationMode !== current.calculationMode
+    )) {
+      console.log('🔄 Calculation preferences changed, clearing cached strategies')
+      setStrategies([])
+      try {
+        localStorage.removeItem(CACHE_KEY)
+      } catch (error) {
+        // Silently handle localStorage errors
+      }
+    }
+    
+    // Update the ref for next comparison
+    prevCalculationPreferences.current = calculationPreferences
+  }, [calculationPreferences])
 
   const fetchStrategies = async () => {
     // If this is a premium-blocked user, show upgrade prompt instead
