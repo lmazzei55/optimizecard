@@ -336,7 +336,18 @@ export async function GET(request: Request) {
     console.log(`📊 User owned cards count: ${user.ownedCards?.length || 0}`)
     if (user.ownedCards && user.ownedCards.length > 0) {
       console.log(`📊 Owned cards:`, user.ownedCards.map(oc => `${oc.card.name} (${oc.card.issuer})`))
+      console.log(`📊 Owned cards detailed:`)
+      user.ownedCards.forEach(uc => {
+        console.log(`  Card: ${uc.card.name}`)
+        console.log(`    Category rewards: ${uc.card.categoryRewards?.length || 0}`)
+        uc.card.categoryRewards?.forEach(cr => {
+          console.log(`      ${cr.category?.name || 'Unknown'}: ${cr.rewardRate}`)
+        })
+        console.log(`    Base reward: ${uc.card.baseReward}`)
+      })
     }
+    
+    console.log(`📊 DEBUGGING: Starting portfolio analysis calculation...`)
 
     if (!user.ownedCards || user.ownedCards.length === 0) {
       console.log(`📊 No owned cards found, returning empty portfolio`)
@@ -359,19 +370,54 @@ export async function GET(request: Request) {
     }
 
     // Convert user spending to the format expected by the analysis
-    const userSpending: {
+    console.log(`📊 User spending categories: ${user.spendingCategories?.length || 0}`)
+    user.spendingCategories?.forEach(sc => {
+      console.log(`  ${sc.category.name}: $${sc.monthlySpend}/month`)
+    })
+    
+    // Check if user has spending data in JSON format (like recommendations use)
+    let userSpending: {
       categoryId: string
       categoryName: string
       monthlySpend: number
       subCategoryId: string | null
       subCategoryName: string | null
-    }[] = user.spendingCategories.map(spending => ({
-      categoryId: spending.categoryId,
-      categoryName: spending.category.name,
-      monthlySpend: spending.monthlySpend,
-      subCategoryId: null,
-      subCategoryName: null
-    }))
+    }[] = []
+
+    if (user.spendingCategories && user.spendingCategories.length > 0) {
+      // Use relational spending data
+      userSpending = user.spendingCategories.map(spending => ({
+        categoryId: spending.categoryId,
+        categoryName: spending.category.name,
+        monthlySpend: spending.monthlySpend,
+        subCategoryId: null,
+        subCategoryName: null
+      }))
+    } else if (user.spendingData) {
+      // Use JSON spending data (same as recommendations)
+      console.log(`📊 Using JSON spending data from user.spendingData`)
+      try {
+        const spendingData = typeof user.spendingData === 'string' 
+          ? JSON.parse(user.spendingData) 
+          : user.spendingData
+        
+        if (Array.isArray(spendingData)) {
+          userSpending = spendingData.map((spending: any) => ({
+            categoryId: spending.categoryId || spending.id || '',
+            categoryName: spending.categoryName || spending.name || '',
+            monthlySpend: spending.monthlySpend || spending.amount || 0,
+            subCategoryId: null,
+            subCategoryName: null
+          }))
+          console.log(`📊 Converted ${userSpending.length} spending categories from JSON:`)
+          userSpending.forEach(s => {
+            console.log(`  ${s.categoryName}: $${s.monthlySpend}/month`)
+          })
+        }
+      } catch (error) {
+        console.error(`📊 Error parsing spending data:`, error)
+      }
+    }
 
     // Add subcategory spending if enabled
     if (user.enableSubCategories && user.spendingSubCategories && Array.isArray(user.spendingSubCategories) && user.spendingSubCategories.length > 0) {
@@ -572,6 +618,13 @@ export async function GET(request: Request) {
     console.log(`📊 Diversification calculation:`)
     console.log(`  Unique issuers: ${uniqueIssuers.size} (${Array.from(uniqueIssuers).join(', ')})`)
     console.log(`  Diversification score: ${diversificationScore}%`)
+    
+    // Add debugging for the actual response
+    console.log(`📊 FINAL PORTFOLIO RESPONSE:`)
+    console.log(`  Portfolio cards: ${ownedCards.length}`)
+    console.log(`  Coverage: ${coverageScore}%`)
+    console.log(`  Optimization: ${optimizationScore}%`) 
+    console.log(`  Diversification: ${diversificationScore}%`)
 
     // Build the response in the format expected by the component
     const response = {

@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { AlertCircle, CheckCircle2, TrendingUp } from 'lucide-react'
+import { AlertCircle, CheckCircle2, TrendingUp, ChevronDown } from 'lucide-react'
 
 interface PortfolioAnalysisData {
   portfolio: {
@@ -346,30 +346,40 @@ export default function PortfolioAnalysis() {
 
       {/* Category Analysis */}
       {data.categoryAnalysis.length > 0 && (
-        <Card className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-700 dark:to-gray-600 border-gray-200 dark:border-gray-600">
-          <CardHeader>
-            <CardTitle>Category Optimization Opportunities</CardTitle>
-            <CardDescription>
-              See where you could earn more rewards with your current cards
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+        <div className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-700 dark:to-gray-600 border border-gray-200 dark:border-gray-600 rounded-2xl shadow-lg overflow-hidden">
+          <details className="group">
+            <summary className="cursor-pointer select-none p-6 hover:bg-gray-100/50 dark:hover:bg-gray-600/50 transition-colors list-none">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">Category Optimization Opportunities</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                    See where you could earn more rewards with your current cards
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {data.categoryAnalysis.filter(cat => cat.improvementPotential > 0).length} opportunities
+                  </span>
+                  <ChevronDown className="h-5 w-5 text-gray-400 group-open:rotate-180 transition-transform duration-200" />
+                </div>
+              </div>
+            </summary>
+            <div className="px-6 pb-6 space-y-3">
               {data.categoryAnalysis.map((cat) => (
-                <div key={cat.category} className="flex items-center justify-between p-4 border rounded-lg">
+                <div key={cat.category} className="flex items-center justify-between p-4 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-gray-200/50 dark:border-gray-600/50 rounded-lg">
                   <div className="space-y-1">
-                    <p className="font-medium">{cat.category}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Currently using: {cat.currentBestCard} ({cat.currentRewardRate}%)
+                    <p className="font-medium text-gray-900 dark:text-white">{cat.category}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                      Currently using: {cat.currentBestCard} ({(cat.currentRewardRate * 100).toFixed(1)}%)
                     </p>
                   </div>
                   {cat.improvementPotential > 0 && (
                     <div className="text-right">
-                      <Badge variant="secondary" className="gap-1">
+                      <Badge variant="secondary" className="gap-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                         <TrendingUp className="h-3 w-3" />
-                        +{cat.improvementPotential.toFixed(1)}%
+                        +{(cat.improvementPotential * 100).toFixed(1)}%
                       </Badge>
-                      <p className="text-sm text-muted-foreground mt-1">
+                      <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                         with {cat.potentialBestCard}
                       </p>
                     </div>
@@ -380,8 +390,8 @@ export default function PortfolioAnalysis() {
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
+          </details>
+        </div>
       )}
 
       {/* Gap Analysis */}

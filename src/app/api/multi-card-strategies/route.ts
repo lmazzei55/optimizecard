@@ -37,6 +37,12 @@ export async function POST(request: Request) {
     })
 
     const strategies = await withRetry(async () => {
+      console.log('🔧 DEBUGGING: API route about to call calculateMultiCardStrategies with options:')
+      console.log(`  userSpending categories: ${userSpending.length}`)
+      console.log(`  rewardPreference: ${rewardPreference || user?.rewardPreference || 'best_overall'}`)
+      console.log(`  pointValue: ${user?.pointValue || 0.01}`)
+      console.log(`  subscriptionTier: ${user?.subscriptionTier || 'free'}`)
+      
       return await calculateMultiCardStrategies({
         userSpending,
         benefitValuations: benefitValuations || [],
@@ -53,6 +59,14 @@ export async function POST(request: Request) {
     })
 
     console.log(`✅ Multi-card strategies generated: ${strategies.length} strategies`)
+    
+    // Debug the first strategy's category allocations
+    if (strategies.length > 0 && strategies[0].categoryAllocations.length > 0) {
+      console.log('🔧 DEBUGGING: First strategy category allocations:')
+      strategies[0].categoryAllocations.forEach((allocation, index) => {
+        console.log(`  ${index}: ${allocation.categoryName} - ${allocation.bestCard} - Annual: $${allocation.annualValue}`)
+      })
+    }
 
     return NextResponse.json({
       success: true,

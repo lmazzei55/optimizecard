@@ -217,10 +217,15 @@ export async function calculateCardRecommendations(
           const overageSpending = Math.max(0, spending.monthlySpend - maxSpendingPerMonth)
           
           if (card.rewardType === 'points') {
-            // Bonus rate on capped amount + base rate on overage
-            const cappedPoints = cappedSpending * rewardRate * finalPointValue
-            const overagePoints = overageSpending * card.baseReward * finalPointValue
-            monthlyValue = cappedPoints + overagePoints
+            if (rewardRate < 1) {
+              // rewardRate already represents $ value per $1 spend (e.g. 0.05 for 5x at 1cpp)
+              monthlyValue = (cappedSpending * rewardRate) + (overageSpending * card.baseReward)
+            } else {
+              // rewardRate is points per $1. Convert to dollars using pointValue
+              const cappedPoints = cappedSpending * rewardRate * finalPointValue
+              const overagePoints = overageSpending * card.baseReward * finalPointValue
+              monthlyValue = cappedPoints + overagePoints
+            }
           } else {
             // Cashback: bonus rate on capped amount + base rate on overage
             monthlyValue = (cappedSpending * rewardRate) + (overageSpending * card.baseReward)
@@ -228,8 +233,13 @@ export async function calculateCardRecommendations(
         } else {
           // No spending caps - use full bonus rate
           if (card.rewardType === 'points') {
-            const pointsEarned = spending.monthlySpend * rewardRate
-            monthlyValue = pointsEarned * finalPointValue
+            if (rewardRate < 1) {
+              // rewardRate already represents $ value per $1 spend (e.g. 0.05 for 5x at 1cpp)
+              monthlyValue = spending.monthlySpend * rewardRate
+            } else {
+              // rewardRate is points per $1. Convert to dollars using pointValue
+              monthlyValue = spending.monthlySpend * rewardRate * finalPointValue
+            }
           } else {
             monthlyValue = spending.monthlySpend * rewardRate
           }
