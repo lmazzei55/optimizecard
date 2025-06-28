@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { MultiCardStrategy } from '@/lib/multi-card-engine'
 import { formatCurrency } from '@/lib/utils'
+import { PremiumFeatureGate } from '@/components/PremiumFeatureGate'
 
 interface MultiCardStrategiesProps {
   userSpending: any[]
@@ -16,14 +17,43 @@ interface MultiCardStrategiesProps {
   }
   onError?: (error: string) => void
   onUpgradePrompt?: () => void
+  isPremiumBlocked?: boolean
+  isAuthenticated?: boolean
+  featureName?: string
+  featureDescription?: string
 }
 
-export function MultiCardStrategies({ userSpending, benefitValuations, rewardPreference, calculationPreferences, onError, onUpgradePrompt }: MultiCardStrategiesProps) {
-  const [strategies, setStrategies] = useState<MultiCardStrategy[]>([])
+// Cache key for MultiCardStrategies data persistence
+const CACHE_KEY = 'cco_multi_card_strategies'
+const CACHE_DURATION = 10 * 60 * 1000 // 10 minutes
+
+function MultiCardStrategiesContent({ userSpending, benefitValuations, rewardPreference, calculationPreferences, onError, onUpgradePrompt, isPremiumBlocked, isAuthenticated, featureName, featureDescription }: MultiCardStrategiesProps) {
+  const [strategies, setStrategies] = useState<MultiCardStrategy[]>(() => {
+    // Initialize with cached data if available
+    try {
+      const cached = localStorage.getItem(CACHE_KEY)
+      if (cached) {
+        const parsedCache = JSON.parse(cached)
+        if (parsedCache.timestamp && (Date.now() - parsedCache.timestamp < CACHE_DURATION)) {
+          console.log('🎯 Loading cached multi-card strategies')
+          return parsedCache.strategies || []
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load cached strategies:', error)
+    }
+    return []
+  })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const fetchStrategies = async () => {
+    // If this is a premium-blocked user, show upgrade prompt instead
+    if (isPremiumBlocked && onUpgradePrompt) {
+      onUpgradePrompt()
+      return
+    }
+
     if (!userSpending || userSpending.length === 0) {
       setError('Please add spending categories first')
       return
@@ -58,6 +88,9 @@ export function MultiCardStrategies({ userSpending, benefitValuations, rewardPre
           // Free tier or unauthenticated users should see upgrade prompt
           onUpgradePrompt?.()
           return
+        } else if (response.status === 503) {
+          // Database temporarily unavailable - show retry option
+          setError(errorData.error || 'Service temporarily unavailable. Please try again.')
         } else {
           setError(errorData.error || 'Failed to fetch strategies')
         }
@@ -65,7 +98,20 @@ export function MultiCardStrategies({ userSpending, benefitValuations, rewardPre
       }
 
       const data = await response.json()
-      setStrategies(data.strategies || [])
+      const strategies = data.strategies || []
+      setStrategies(strategies)
+      
+      // Cache the strategies data
+      try {
+        const cacheData = {
+          strategies,
+          timestamp: Date.now()
+        }
+        localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData))
+        console.log('🎯 Cached multi-card strategies')
+      } catch (error) {
+        console.warn('Failed to cache strategies:', error)
+      }
     } catch (err) {
       setError('Network error occurred')
       console.error('Error fetching strategies:', err)
@@ -75,19 +121,36 @@ export function MultiCardStrategies({ userSpending, benefitValuations, rewardPre
   }
 
   if (error) {
+    const isRetryableError = error.includes('temporarily unavailable') || error.includes('try again')
+    
     return (
       <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-xl p-6">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <svg className="h-6 w-6 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <svg className="h-6 w-6 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-lg font-medium text-red-800 dark:text-red-300">
+                  {isRetryableError ? 'Service Temporarily Unavailable' : 'Premium Feature Required'}
+                </h3>
+                <p className="text-red-700 dark:text-red-400 mt-1">{error}</p>
+              </div>
             </div>
-            <div className="ml-3">
-              <h3 className="text-lg font-medium text-red-800 dark:text-red-300">Premium Feature Required</h3>
-              <p className="text-red-700 dark:text-red-400 mt-1">{error}</p>
-            </div>
+            {isRetryableError && (
+              <button
+                onClick={() => {
+                  setError(null)
+                  fetchStrategies()
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+              >
+                Try Again
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -95,7 +158,12 @@ export function MultiCardStrategies({ userSpending, benefitValuations, rewardPre
   }
 
   return (
-    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">
+    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8 relative">
+      {isPremiumBlocked && (
+        <span className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-lg">
+          PRO
+        </span>
+      )}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h2 className="text-3xl font-semibold text-gray-900 dark:text-white mb-2">
@@ -272,5 +340,16 @@ export function MultiCardStrategies({ userSpending, benefitValuations, rewardPre
         </div>
       )}
     </div>
+  )
+}
+
+export function MultiCardStrategies(props: MultiCardStrategiesProps) {
+  return (
+    <PremiumFeatureGate
+      featureName="Multi-Card Strategies"
+      featureDescription="Discover optimal 2-3 card combinations that maximize your rewards across all spending categories. Get AI-powered recommendations for which card to use for each purchase."
+    >
+      <MultiCardStrategiesContent {...props} />
+    </PremiumFeatureGate>
   )
 } 

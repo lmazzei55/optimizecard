@@ -40,6 +40,9 @@ export default function ResultsPage() {
 
   // Load initial payload & recommendations
   useEffect(() => {
+    // Scroll to top when component mounts
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    
     const payloadRaw = localStorage.getItem('cc-recommendation-input')
     if (!payloadRaw) {
       router.replace('/')

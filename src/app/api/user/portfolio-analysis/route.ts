@@ -86,6 +86,17 @@ export async function POST(request: Request) {
       }, { status: 400 })
     }
 
+    // Check if user has premium access
+    const isPremium = user.subscriptionTier === 'premium' && 
+                     (user.subscriptionStatus === 'active' || user.subscriptionStatus === 'trialing')
+    
+    if (!isPremium) {
+      return NextResponse.json({ 
+        error: 'Portfolio analysis is a premium feature. Upgrade to access comprehensive portfolio insights.',
+        premiumRequired: true 
+      }, { status: 403 })
+    }
+
     // Extract owned card IDs
     const ownedCardIds = user.ownedCards.map(uc => uc.cardId)
     const ownedCards = user.ownedCards.map(uc => uc.card)
@@ -331,6 +342,17 @@ export async function GET(request: Request) {
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    // Check if user has premium access
+    const isPremium = user.subscriptionTier === 'premium' && 
+                     (user.subscriptionStatus === 'active' || user.subscriptionStatus === 'trialing')
+    
+    if (!isPremium) {
+      return NextResponse.json({ 
+        error: 'Portfolio analysis is a premium feature. Upgrade to access comprehensive portfolio insights.',
+        premiumRequired: true 
+      }, { status: 403 })
     }
 
     console.log(`📊 User owned cards count: ${user.ownedCards?.length || 0}`)

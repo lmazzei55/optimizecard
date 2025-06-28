@@ -884,22 +884,48 @@ export function SpendingForm() {
   }, [totalMonthlySpend, calculating, spending.length])
 
   const handleRewardPreferenceChange = async (newPreference: 'cashback' | 'points' | 'best_overall') => {
-    // Check if user is trying to access premium features without subscription
-    // Only check if subscription tier has been loaded (not null)
-    if (userSubscriptionTier === 'free' && (newPreference === 'points' || newPreference === 'best_overall')) {
-      setUpgradePromptFeature(newPreference === 'points' ? 'Points Optimization' : 'Best Overall Analysis')
-      setUpgradePromptDescription(
-        newPreference === 'points' 
-          ? 'Access premium travel and points cards with advanced optimization for maximum point earning potential.'
-          : 'Compare both cashback and points cards to find the absolute best option for your spending patterns.'
-      )
-      setUpgradePromptOpen(true)
-      return
-    }
+    console.log('🎯 REWARD PREFERENCE CLICK DEBUG:', {
+      newPreference,
+      sessionExists: !!session,
+      sessionUserEmail: session?.user?.email,
+      sessionStatus: status,
+      userSubscriptionTier,
+      upgradePromptOpen,
+      upgradePromptFeature
+    })
     
-    // If subscription tier is still loading (null), allow the change but don't validate yet
-    if (userSubscriptionTier === null && (newPreference === 'points' || newPreference === 'best_overall')) {
-      console.log('ℹ️ Subscription tier still loading, allowing preference change without validation')
+    // Check if user is trying to access premium features without subscription
+    // For non-authenticated users OR free tier users, show upgrade prompt
+    const isAuthenticated = !!session?.user?.email
+    const isPremiumFeature = newPreference === 'points' || newPreference === 'best_overall'
+    
+    console.log('🎯 PREMIUM FEATURE CHECK:', {
+      isPremiumFeature,
+      isAuthenticated,
+      userSubscriptionTier,
+      shouldBlock: isPremiumFeature && (!isAuthenticated || userSubscriptionTier === 'free')
+    })
+    
+    if (isPremiumFeature && (!isAuthenticated || userSubscriptionTier === 'free')) {
+      console.log('🚫 BLOCKING PREMIUM FEATURE - SHOWING UPGRADE PROMPT')
+      
+      const featureName = newPreference === 'points' ? 'Points Optimization' : 'Best Overall Analysis'
+      const description = newPreference === 'points' 
+        ? 'Access premium travel and points cards with advanced optimization for maximum point earning potential.'
+        : 'Compare both cashback and points cards to find the absolute best option for your spending patterns.'
+      
+      console.log('🚫 Setting upgrade prompt state:', {
+        featureName,
+        description,
+        aboutToSetOpen: true
+      })
+      
+      setUpgradePromptFeature(featureName)
+      setUpgradePromptDescription(description)
+      setUpgradePromptOpen(true)
+      
+      console.log('🚫 Upgrade prompt state set, returning early')
+      return
     }
     
     console.log('🎯 SpendingForm: Allowing preference change to:', newPreference)
@@ -925,28 +951,43 @@ export function SpendingForm() {
 
   return (
     <div className="space-y-8">
+      {/* Full Width Header Section */}
+      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">
+        <div className="flex items-center justify-between mb-0">
+          <div className="flex items-center flex-1">
+            <div>
+              <h2 className="text-3xl font-semibold text-gray-900 dark:text-white mb-2">
+                💳 Monthly Spending by Category
+              </h2>
+              <p className="text-lg text-gray-600 dark:text-gray-300">
+                Enter your average monthly spending for each category
+              </p>
+            </div>
+          </div>
+          
+          {/* How to get started info box */}
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-600 max-w-lg ml-8 flex items-center">
+            <div className="flex items-start space-x-3">
+              <span className="text-blue-500 text-xl flex-shrink-0">💡</span>
+              <div>
+                <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">How to get started:</h3>
+                <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                  <li>• Enter your <strong>monthly</strong> spending amounts in each category</li>
+                  <li>• Use estimates - they don't need to be exact</li>
+                  <li>• Focus on your largest spending categories first</li>
+                  <li>• We'll calculate your annual totals and find the best cards for you</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Main Content with Sidebar Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 max-w-8xl mx-auto">
         {/* Left Side - Categories Grid (3/4 width) */}
         <div className="lg:col-span-3">
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-6">
-            <h2 className="text-3xl font-semibold text-gray-900 dark:text-white mb-4 text-center">
-          💳 Monthly Spending by Category
-        </h2>
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-600 rounded-xl p-4 mb-8">
-              <div className="flex items-start space-x-3">
-                <span className="text-xl">💡</span>
-            <div>
-                  <h3 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">How to get started:</h3>
-                  <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-                    <li>• Enter your <strong>monthly</strong> spending amounts in each category</li>
-                    <li>• Use estimates - they don't need to be exact</li>
-                    <li>• Focus on your largest spending categories first</li>
-                    <li>• We'll calculate your annual totals and find the best cards for you</li>
-                  </ul>
-            </div>
-          </div>
-        </div>
         
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {enableSubcategories ? (
@@ -1530,6 +1571,14 @@ export function SpendingForm() {
           </div>
         </div>
       )}
+
+      {/* Upgrade Prompt Modal */}
+      <UpgradePrompt
+        isOpen={upgradePromptOpen}
+        onClose={() => setUpgradePromptOpen(false)}
+        feature={upgradePromptFeature}
+        description={upgradePromptDescription}
+      />
     </div>
   )
 } 

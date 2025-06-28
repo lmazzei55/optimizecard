@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { AlertCircle, CheckCircle2, TrendingUp, ChevronDown } from 'lucide-react'
+import { PremiumFeatureGate } from '@/components/PremiumFeatureGate'
 
 interface PortfolioAnalysisData {
   portfolio: {
@@ -54,14 +55,55 @@ interface PortfolioAnalysisData {
 const CACHE_KEY = 'cco_portfolio_analysis'
 const CACHE_DURATION = 10 * 60 * 1000 // 10 minutes
 
-export default function PortfolioAnalysis() {
+function PortfolioAnalysisContent({ isPremiumBlocked, onUpgradePrompt }: { isPremiumBlocked?: boolean, onUpgradePrompt?: () => void }) {
   const { data: session, status } = useSession()
-  const [data, setData] = useState<PortfolioAnalysisData | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [data, setData] = useState<PortfolioAnalysisData | null>(() => {
+    // Initialize with cached data if available
+    try {
+      const cached = localStorage.getItem(CACHE_KEY)
+      if (cached) {
+        const parsedCache = JSON.parse(cached)
+        if (parsedCache.timestamp && (Date.now() - parsedCache.timestamp < CACHE_DURATION)) {
+          console.log('📊 Loading cached portfolio analysis on mount')
+          return parsedCache.data || null
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load cached portfolio data:', error)
+    }
+    return null
+  })
+  const [loading, setLoading] = useState(false) // Never auto-start loading
   const [error, setError] = useState<string | null>(null)
-  const [lastFetch, setLastFetch] = useState<number | null>(null)
+  const [lastFetch, setLastFetch] = useState<number | null>(() => {
+    // Initialize lastFetch with cached timestamp if available
+    try {
+      const cached = localStorage.getItem(CACHE_KEY)
+      if (cached) {
+        const parsedCache = JSON.parse(cached)
+        if (parsedCache.timestamp && (Date.now() - parsedCache.timestamp < CACHE_DURATION)) {
+          return parsedCache.timestamp
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load cached timestamp:', error)
+    }
+    return null
+  })
+
+  // Debug logging
+  console.log('🔍 PortfolioAnalysis props:', { isPremiumBlocked, hasUpgradePrompt: !!onUpgradePrompt })
 
   useEffect(() => {
+    console.log('🔍 PortfolioAnalysis useEffect triggered:', { isPremiumBlocked, status, hasData: !!data })
+    
+    // Don't auto-fetch if premium blocked
+    if (isPremiumBlocked === true) {
+      console.log('🚫 Auto-fetch blocked - premium required')
+      setLoading(false)
+      return
+    }
+
     if (status === 'loading') {
       return // Still loading authentication
     }
@@ -71,22 +113,17 @@ export default function PortfolioAnalysis() {
       return // User not authenticated, don't show portfolio analysis
     }
 
-    // User is authenticated, check cache first
+    // User is authenticated, but NEVER auto-load data - always wait for user to click
+    // However, if we already have cached data loaded, don't interfere with it
     if (status === 'authenticated' && session?.user?.email) {
-      // Check if we have cached data that's still fresh
-      const cached = getCachedData()
-      if (cached && cached.timestamp && (Date.now() - cached.timestamp < CACHE_DURATION)) {
-        console.log('📊 Using cached portfolio data')
-        setData(cached.data)
-        setLastFetch(cached.timestamp)
-        setLoading(false)
-        return
+      if (data) {
+        console.log('📊 User authenticated and cached data already loaded - preserving state')
+      } else {
+        console.log('📊 User authenticated but not auto-loading - waiting for user to click button')
       }
-      
-      // No valid cache, fetch fresh data
-      fetchPortfolioData()
+      setLoading(false)
     }
-  }, [status, session])
+  }, [status, session, isPremiumBlocked]) // Removed 'data' from dependencies to prevent loops
 
   const getCachedData = () => {
     try {
@@ -110,11 +147,29 @@ export default function PortfolioAnalysis() {
   }
 
   const fetchPortfolioData = async (forceRefresh = false) => {
+    // If premium blocked, show upgrade prompt instead
+    if (isPremiumBlocked && onUpgradePrompt) {
+      onUpgradePrompt()
+      return
+    }
+
     try {
       setLoading(true)
       setError(null)
       
-      console.log('📊 Fetching portfolio data...')
+      // Check cache first unless forcing refresh
+      if (!forceRefresh) {
+        const cached = getCachedData()
+        if (cached && cached.timestamp && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+          console.log('📊 Using cached portfolio data from user click')
+          setData(cached.data)
+          setLastFetch(cached.timestamp)
+          setLoading(false)
+          return
+        }
+      }
+      
+      console.log('📊 Fetching fresh portfolio data...')
       const response = await fetch('/api/user/portfolio-analysis', {
         headers: {
           'Cache-Control': 'no-cache'
@@ -225,21 +280,41 @@ export default function PortfolioAnalysis() {
   // Show empty state if no data
   if (!data) {
     return (
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            📊 Portfolio Analysis
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8">
-            <p className="text-gray-600">No portfolio data available</p>
-            <p className="text-sm text-gray-500 mt-2">
-              Add some owned cards in your profile to see portfolio analysis
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8 text-center">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-2xl mb-6 shadow-xl">
+          <span className="text-2xl">📊</span>
+        </div>
+        
+        <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+          Portfolio Analysis
+        </h2>
+        
+        <p className="text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto leading-relaxed">
+          Get comprehensive analysis of your credit card portfolio including coverage, optimization, and diversification scores.
+        </p>
+
+        <button
+          onClick={() => fetchPortfolioData(true)}
+          disabled={loading}
+          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-3 text-lg font-semibold rounded-full shadow-lg transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center gap-3 mx-auto"
+        >
+          {loading ? (
+            <>
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              <span>Analyzing...</span>
+            </>
+          ) : (
+            <>
+              <span>📊</span>
+              <span>Analyze My Portfolio</span>
+            </>
+          )}
+        </button>
+        
+                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-6">
+           Add some owned cards in your profile to see portfolio analysis
+         </p>
+      </div>
     )
   }
 
@@ -429,5 +504,16 @@ export default function PortfolioAnalysis() {
         </Card>
       )}
     </div>
+  )
+}
+
+export default function PortfolioAnalysis() {
+  return (
+    <PremiumFeatureGate
+      featureName="Portfolio Analysis"
+      featureDescription="Get comprehensive analysis of your credit card portfolio including coverage, optimization, and diversification scores. Discover which cards to use for each category and identify opportunities to maximize your rewards."
+    >
+      <PortfolioAnalysisContent />
+    </PremiumFeatureGate>
   )
 } 

@@ -31,10 +31,22 @@ export async function POST(request: Request) {
         select: {
           rewardPreference: true,
           pointValue: true,
-          subscriptionTier: true
+          subscriptionTier: true,
+          subscriptionStatus: true
         }
       })
     })
+
+    // Check if user has premium access
+    const isPremium = user?.subscriptionTier === 'premium' && 
+                     (user?.subscriptionStatus === 'active' || user?.subscriptionStatus === 'trialing')
+    
+    if (!isPremium) {
+      return NextResponse.json({ 
+        error: 'Multi-card strategies are a premium feature. Upgrade to access advanced optimization tools.',
+        premiumRequired: true 
+      }, { status: 403 })
+    }
 
     const strategies = await withRetry(async () => {
       console.log('🔧 DEBUGGING: API route about to call calculateMultiCardStrategies with options:')
@@ -76,29 +88,14 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error('❌ Multi-card strategies API Error:', error)
     
-    // Return 503 for database connection issues with fallback data
+    // Return 503 for database connection issues with retry suggestion
     if (error?.code === 'P2010' || error?.message?.includes('prepared statement') || error?.message?.includes('connection')) {
       console.error('Database connection pool issue detected')
       
-      // Return fallback strategy
-      const fallbackStrategy = [{
-        strategyName: 'Best 2-Card Combination',
-        description: 'Optimal combination for maximum rewards (database unavailable - showing cached result).',
-        cards: [],
-        totalAnnualValue: 244.00,
-        totalAnnualFees: 95.00,
-        netAnnualValue: 149.00,
-        categoryAllocations: []
-      }]
-      
       return NextResponse.json({
-        success: true,
-        strategies: fallbackStrategy,
-        fallback: true
-      }, { 
-        status: 200,
-        headers: { 'X-Fallback-Data': 'true' }
-      })
+        error: 'Database temporarily unavailable. Please try again in a moment.',
+        retryable: true
+      }, { status: 503 })
     }
     
     return NextResponse.json(
