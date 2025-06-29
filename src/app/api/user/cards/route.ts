@@ -11,25 +11,40 @@ export async function GET() {
     }
 
     // Get all available cards with enhanced retry logic
-    const allCards = await withRetry(async () => {
-      return await prisma.creditCard.findMany({
-        where: {
-          isActive: true
-        },
-      select: {
-        id: true,
-        name: true,
-        issuer: true,
-        annualFee: true,
-        rewardType: true,
-        applicationUrl: true,
-      },
-      orderBy: [
-        { issuer: 'asc' },
-        { name: 'asc' }
-      ]
-    })
-    })
+    let allCards: Array<{
+      id: string
+      name: string
+      issuer: string
+      annualFee: number
+      rewardType: string
+      applicationUrl: string | null
+    }> = []
+    try {
+      allCards = await withRetry(async () => {
+        return await prisma.creditCard.findMany({
+          where: {
+            isActive: true
+          },
+          select: {
+            id: true,
+            name: true,
+            issuer: true,
+            annualFee: true,
+            rewardType: true,
+            applicationUrl: true,
+          },
+          orderBy: [
+            { issuer: 'asc' },
+            { name: 'asc' }
+          ]
+        })
+      })
+    } catch (cardError: any) {
+      console.error('⚠️ Error fetching credit cards:', cardError.message)
+      // If the creditCard table doesn't exist or is empty, return empty array
+      // This allows the app to function even without seeded card data
+      allCards = []
+    }
 
     // Get user's owned cards, auto-create if needed
     let user = await withRetry(async () => {
