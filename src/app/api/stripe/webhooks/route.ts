@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe, WEBHOOK_SECRET, isStripeConfigured } from '@/lib/stripe'
-import { prisma } from '@/lib/prisma'
+import { prisma, withRetry } from '@/lib/prisma'
 import Stripe from 'stripe'
 
 export async function POST(request: NextRequest) {
   try {
     // Check if Stripe is configured
     if (!isStripeConfigured || !stripe) {
+      console.error('❌ Stripe not configured for webhook')
       return NextResponse.json({ 
         error: 'Payment processing is not configured' 
       }, { status: 503 })
@@ -16,60 +17,72 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get('stripe-signature')
 
     if (!signature) {
+      console.error('❌ No Stripe signature in webhook')
       return NextResponse.json({ error: 'No signature' }, { status: 400 })
     }
 
-    // Verify webhook signature (stripe is guaranteed to be non-null here)
+    // Verify webhook signature
     let event: Stripe.Event
     try {
       event = stripe!.webhooks.constructEvent(body, signature, WEBHOOK_SECRET)
     } catch (err) {
-      console.error('Webhook signature verification failed:', err)
+      console.error('❌ Webhook signature verification failed:', err)
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
     }
 
-    console.log('📨 Stripe webhook event:', event.type)
+    console.log('📨 Stripe webhook event:', event.type, event.id)
 
-    // Handle the event
-    switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object as Stripe.Checkout.Session
-        await handleCheckoutCompleted(session)
-        break
+    // Handle the event with retry logic
+    try {
+      switch (event.type) {
+        case 'checkout.session.completed': {
+          const session = event.data.object as Stripe.Checkout.Session
+          await withRetry(() => handleCheckoutCompleted(session))
+          break
+        }
+
+        case 'customer.subscription.created':
+        case 'customer.subscription.updated': {
+          const subscription = event.data.object as Stripe.Subscription
+          await withRetry(() => handleSubscriptionChanged(subscription))
+          break
+        }
+
+        case 'customer.subscription.deleted': {
+          const subscription = event.data.object as Stripe.Subscription
+          await withRetry(() => handleSubscriptionDeleted(subscription))
+          break
+        }
+
+        case 'invoice.payment_succeeded': {
+          const invoice = event.data.object as Stripe.Invoice
+          await withRetry(() => handlePaymentSucceeded(invoice))
+          break
+        }
+
+        case 'invoice.payment_failed': {
+          const invoice = event.data.object as Stripe.Invoice
+          await withRetry(() => handlePaymentFailed(invoice))
+          break
+        }
+
+        default:
+          console.log(`ℹ️ Unhandled event type: ${event.type}`)
       }
-
-      case 'customer.subscription.created':
-      case 'customer.subscription.updated': {
-        const subscription = event.data.object as Stripe.Subscription
-        await handleSubscriptionChanged(subscription)
-        break
-      }
-
-      case 'customer.subscription.deleted': {
-        const subscription = event.data.object as Stripe.Subscription
-        await handleSubscriptionDeleted(subscription)
-        break
-      }
-
-      case 'invoice.payment_succeeded': {
-        const invoice = event.data.object as Stripe.Invoice
-        await handlePaymentSucceeded(invoice)
-        break
-      }
-
-      case 'invoice.payment_failed': {
-        const invoice = event.data.object as Stripe.Invoice
-        await handlePaymentFailed(invoice)
-        break
-      }
-
-      default:
-        console.log(`Unhandled event type: ${event.type}`)
+    } catch (handlerError) {
+      console.error(`❌ Failed to handle webhook event ${event.type}:`, handlerError)
+      // Return 500 so Stripe retries the webhook
+      return NextResponse.json({ 
+        error: 'Webhook handler failed',
+        eventType: event.type,
+        eventId: event.id
+      }, { status: 500 })
     }
 
-    return NextResponse.json({ received: true })
+    console.log(`✅ Successfully processed webhook: ${event.type}`)
+    return NextResponse.json({ received: true, eventType: event.type })
   } catch (error) {
-    console.error('Webhook error:', error)
+    console.error('❌ Webhook error:', error)
     return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 })
   }
 }
@@ -90,7 +103,7 @@ async function handleSubscriptionChanged(subscription: Stripe.Subscription) {
   const customer = await stripe!.customers.retrieve(customerId) as Stripe.Customer
   
   if (!customer.email) {
-    console.error('No email found for customer:', customerId)
+    console.error('❌ No email found for customer:', customerId)
     return
   }
 
@@ -102,7 +115,7 @@ async function handleSubscriptionChanged(subscription: Stripe.Subscription) {
     case 'active':
     case 'trialing':
       subscriptionTier = 'premium'
-      subscriptionStatus = 'active'
+      subscriptionStatus = subscription.status
       break
     case 'past_due':
       subscriptionTier = 'premium' // Keep premium during grace period
@@ -123,21 +136,37 @@ async function handleSubscriptionChanged(subscription: Stripe.Subscription) {
       subscriptionStatus = subscription.status
   }
 
-  // Update user in database
-  await prisma.user.update({
+  console.log(`💾 Updating user ${customer.email} to ${subscriptionTier} (${subscriptionStatus})`)
+
+  // Update user in database with upsert to handle new users
+  await prisma.user.upsert({
     where: { email: customer.email },
-    data: {
+    update: {
       subscriptionTier,
       subscriptionStatus,
       subscriptionId: subscription.id,
       customerId: customerId,
-      subscriptionStartDate: (subscription as any).start_date ? new Date((subscription as any).start_date * 1000) : null,
+      subscriptionStartDate: subscription.start_date ? new Date(subscription.start_date * 1000) : null,
       subscriptionEndDate: (subscription as any).current_period_end ? new Date((subscription as any).current_period_end * 1000) : null,
-      trialEndDate: (subscription as any).trial_end ? new Date((subscription as any).trial_end * 1000) : null,
+      trialEndDate: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
+    },
+    create: {
+      email: customer.email,
+      name: customer.name || customer.email.split('@')[0],
+      subscriptionTier,
+      subscriptionStatus,
+      subscriptionId: subscription.id,
+      customerId: customerId,
+      subscriptionStartDate: subscription.start_date ? new Date(subscription.start_date * 1000) : null,
+      subscriptionEndDate: (subscription as any).current_period_end ? new Date((subscription as any).current_period_end * 1000) : null,
+      trialEndDate: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
+      rewardPreference: 'cashback',
+      pointValue: 0.01,
+      enableSubCategories: false
     }
   })
 
-  console.log(`Updated user ${customer.email} to ${subscriptionTier} (${subscriptionStatus})`)
+  console.log(`✅ Successfully updated user ${customer.email} to ${subscriptionTier} (${subscriptionStatus})`)
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
@@ -147,9 +176,11 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   const customer = await stripe!.customers.retrieve(customerId) as Stripe.Customer
   
   if (!customer.email) {
-    console.error('No email found for customer:', customerId)
+    console.error('❌ No email found for customer:', customerId)
     return
   }
+
+  console.log(`💾 Downgrading user ${customer.email} to free tier`)
 
   // Downgrade user to free tier
   await prisma.user.update({
@@ -161,7 +192,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
     }
   })
 
-  console.log(`Downgraded user ${customer.email} to free tier`)
+  console.log(`✅ Successfully downgraded user ${customer.email} to free tier`)
 }
 
 async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
