@@ -71,8 +71,10 @@ function PricingContent() {
               newValue: Date.now().toString()
             }))
             
-            // Refresh subscription data
+            // Refresh subscription data multiple times to ensure it updates
             await fetchSubscription()
+            setTimeout(() => fetchSubscription(), 1000)
+            setTimeout(() => fetchSubscription(), 3000)
           } else {
             console.error('Error auto-syncing subscription:', data.error)
           }
@@ -89,9 +91,21 @@ function PricingContent() {
   const fetchSubscription = async () => {
     try {
       const response = await fetch('/api/user/subscription')
+      
       if (response.ok) {
         const data = await response.json()
-        setSubscription(data.data)
+        // Convert API response to expected format
+        const subscriptionData = {
+          subscriptionTier: data.tier,
+          subscriptionStatus: data.status,
+          subscriptionStartDate: data.currentPeriodStart,
+          subscriptionEndDate: data.currentPeriodEnd,
+          trialEndDate: data.trialEnd
+        }
+        console.log('📋 Pricing page subscription data:', subscriptionData)
+        setSubscription(subscriptionData)
+      } else {
+        console.error('Failed to fetch subscription:', response.status)
       }
     } catch (error) {
       console.error('Error fetching subscription:', error)
@@ -416,7 +430,7 @@ function PricingContent() {
       </div>
       
       {/* Debug Component (development only) */}
-      <DebugCustomerInfo />
+      {/* <DebugCustomerInfo /> */}
     </div>
   )
 }

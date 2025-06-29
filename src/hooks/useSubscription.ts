@@ -52,8 +52,19 @@ export function useSubscription(): UseSubscriptionReturn {
       
       // Handle fallback responses gracefully
       if (data.fallback) {
-        console.log('⚠️ Using fallback subscription data:', data)
-        setError(data.error || 'Using fallback subscription data')
+        console.warn('⚠️ Using fallback subscription data:', data)
+        setError(data.error || 'Database temporarily unavailable')
+        // For fallback, try to get subscription from localStorage or user state
+        const cachedSubscription = localStorage.getItem('subscriptionTier')
+        if (cachedSubscription === 'premium') {
+          console.log('🔄 Using cached premium subscription from localStorage')
+          setSubscription({ 
+            tier: 'premium', 
+            status: 'active',
+            fallback: true 
+          })
+          return
+        }
       }
       
       setSubscription(data)

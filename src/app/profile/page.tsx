@@ -334,25 +334,100 @@ export default function Profile() {
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
               Account Information
             </h2>
-            <div className="flex items-center space-x-4">
-              {session.user?.image ? (
-                <img
-                  src={session.user.image}
-                  alt={session.user.name || "User"}
-                  className="w-16 h-16 rounded-full"
-                />
-              ) : (
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-xl">
-                  {session.user?.name?.[0] || session.user?.email?.[0] || "U"}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                {session.user?.image ? (
+                  <img
+                    src={session.user.image}
+                    alt={session.user.name || "User"}
+                    className="w-16 h-16 rounded-full"
+                  />
+                ) : (
+                  <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-xl">
+                    {session.user?.name?.[0] || session.user?.email?.[0] || "U"}
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {session.user?.name || "User"}
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    {session.user?.email}
+                  </p>
+                  <div className="flex items-center space-x-2 mt-2">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      userSubscriptionTier === 'premium' 
+                        ? 'bg-gradient-to-r from-purple-100 to-blue-100 text-purple-800 dark:from-purple-900/20 dark:to-blue-900/20 dark:text-purple-300'
+                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                    }`}>
+                      {userSubscriptionTier === 'premium' ? '✨ Premium' : '🆓 Free'}
+                    </span>
+                  </div>
                 </div>
-              )}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {session.user?.name || "User"}
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400">
-                  {session.user?.email}
-                </p>
+              </div>
+              
+              {/* Subscription Management */}
+              <div className="text-right">
+                {userSubscriptionTier === 'premium' ? (
+                  <div className="space-y-2">
+                    <Button
+                      onClick={async () => {
+                        try {
+                          setIsLoading(true)
+                          const response = await fetch('/api/stripe/portal', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                          })
+                          const data = await response.json()
+                          if (response.ok && data.portalUrl) {
+                            window.location.href = data.portalUrl
+                          } else if (response.status === 404 && data.error?.includes('Customer not found')) {
+                            // Customer ID issue - offer to fix it
+                            const fixConfirm = confirm('Your subscription needs to be migrated to live mode. This will reset your subscription status. Continue?')
+                            if (fixConfirm) {
+                              const fixResponse = await fetch('/api/debug/fix-customer', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                              })
+                              const fixData = await fixResponse.json()
+                              if (fixResponse.ok) {
+                                alert('Account migrated successfully! Please subscribe again to access premium features.')
+                                window.location.reload()
+                              } else {
+                                alert(`Migration failed: ${fixData.error}`)
+                              }
+                            }
+                          } else {
+                            alert('Unable to open billing portal. Please try again.')
+                          }
+                        } catch (error) {
+                          console.error('Error opening portal:', error)
+                          alert('Unable to open billing portal. Please try again.')
+                        } finally {
+                          setIsLoading(false)
+                        }
+                      }}
+                      disabled={isLoading}
+                      className="bg-white/20 hover:bg-white/30 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 px-4 py-2 rounded-lg text-sm"
+                    >
+                      Manage Subscription
+                    </Button>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Cancel, update payment, or view invoices
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Link href="/pricing">
+                      <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-4 py-2 rounded-lg text-sm">
+                        Upgrade to Premium
+                      </Button>
+                    </Link>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      7-day free trial
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
