@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   description: 'Get personalized credit card recommendations based on your spending patterns. Our AI analyzes your expenses to find cards that maximize your rewards and benefits.',
   keywords: 'credit card optimizer, best credit cards, credit card rewards, cashback cards, points cards, credit card comparison',
   robots: 'index, follow',
+  alternates: {
+    canonical: 'https://optimizecard.com',
+  },
   openGraph: {
     title: 'Credit Card Optimizer - Find Your Perfect Rewards Card',
     description: 'Get personalized credit card recommendations based on your spending patterns.',

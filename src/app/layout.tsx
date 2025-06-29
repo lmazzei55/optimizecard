@@ -36,9 +36,7 @@ export const metadata: Metadata = {
     description: "AI-powered credit card recommendations based on your spending patterns.",
     creator: "@optimizecard",
   },
-  alternates: {
-    canonical: "https://optimizecard.com",
-  },
+  metadataBase: new URL('https://optimizecard.com'),
   verification: {
     google: "your-google-verification-code", // Replace with actual verification code
   },
