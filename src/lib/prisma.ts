@@ -6,7 +6,8 @@ const globalForPrisma = globalThis as unknown as {
 
 // Create Prisma client with safe configuration
 function createPrismaClient() {
-  const databaseUrl = process.env.DIRECT_DATABASE_URL || process.env.DATABASE_URL
+  // Use the pooled DATABASE_URL instead of DIRECT_DATABASE_URL for better stability
+  const databaseUrl = process.env.DATABASE_URL
   const config: any = {
     log: ['query'],
     // Add unique client identifier to avoid prepared statement conflicts
