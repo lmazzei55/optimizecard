@@ -6,23 +6,24 @@ const globalForPrisma = globalThis as unknown as {
 
 // Create Prisma client with safe configuration
 function createPrismaClient() {
+  const databaseUrl = process.env.DIRECT_DATABASE_URL || process.env.DATABASE_URL
   const config: any = {
     log: ['query'],
     // Add unique client identifier to avoid prepared statement conflicts
     __internal: {
       engine: {
-        enableDebugLogs: false
-      }
-    }
+        enableDebugLogs: false,
+      },
+    },
   }
-  
-  // Only add datasources if DATABASE_URL is defined
-  if (process.env.DATABASE_URL) {
+
+  // Only add datasources if databaseUrl is defined
+  if (databaseUrl) {
     config.datasources = {
-      db: { url: process.env.DATABASE_URL }
+      db: { url: databaseUrl },
     }
   }
-  
+
   return new PrismaClient(config)
 }
 
@@ -56,8 +57,6 @@ if (typeof window === 'undefined' &&
     console.warn('⚠️ Could not set up serverless connection management:', error)
   }
 }
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
 
 // Enhanced retry wrapper with better error categorization
 export async function withRetry<T>(
