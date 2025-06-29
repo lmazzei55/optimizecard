@@ -50,6 +50,12 @@ export function useSubscription(): UseSubscriptionReturn {
         throw new Error(data.error || 'Failed to fetch subscription')
       }
       
+      // Handle fallback responses gracefully
+      if (data.fallback) {
+        console.log('⚠️ Using fallback subscription data:', data)
+        setError(data.error || 'Using fallback subscription data')
+      }
+      
       setSubscription(data)
     } catch (err: any) {
       console.error('Subscription fetch error:', err)

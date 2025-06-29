@@ -32,7 +32,7 @@ export async function GET() {
     if (!user) {
       console.log('❌ User not found in database, auto-creating:', session.user.email)
       
-      // Auto-create user with premium tier (since you're a premium customer)
+      // Auto-create user with free tier (default for new users)
       try {
         const newUser = await withRetry(async () => {
           return await prisma.user.create({
@@ -43,7 +43,7 @@ export async function GET() {
               rewardPreference: 'cashback',
               pointValue: 0.01,
               enableSubCategories: false,
-              subscriptionTier: 'premium', // Set as premium since you're a paying customer
+              subscriptionTier: 'free', // Default to free tier for new users
               subscriptionStatus: 'active'
             },
             select: {
@@ -58,7 +58,7 @@ export async function GET() {
           })
         })
         
-        console.log('✅ Auto-created premium user:', session.user.email)
+        console.log('✅ Auto-created free tier user:', session.user.email)
         
         return NextResponse.json({
           tier: newUser.subscriptionTier,
@@ -95,23 +95,31 @@ export async function GET() {
   } catch (error: any) {
     console.error('❌ Subscription API Error:', error)
     
-    // Return 200 fallback instead of 503 for database connection issues
+    // Return 200 fallback instead of 500 for database connection issues
     if (error?.code === 'P2010' || error?.message?.includes('prepared statement') || error?.message?.includes('connection')) {
-      console.log('⚠️ Database connection issue - falling back to premium tier for development')
+      console.log('⚠️ Database connection issue - falling back to free tier')
       return NextResponse.json(
         { 
           error: 'Database temporarily unavailable', 
-          tier: 'premium',  // Fallback to premium for development
+          tier: 'free',  // Fallback to free tier for safety
           status: 'active',
           fallback: true
         },
         { status: 200 }
       )
     }
-    
+
+    // For other errors, also fallback to free tier instead of failing hard
+    console.log('⚠️ Subscription API error - falling back to free tier for safety')
     return NextResponse.json(
-      { error: 'Failed to fetch subscription', details: error?.message || 'Unknown error' },
-      { status: 500 }
+      { 
+        error: 'Subscription service temporarily unavailable', 
+        tier: 'free',  // Fallback to free tier for safety
+        status: 'active',
+        fallback: true,
+        details: error?.message || 'Unknown error'
+      },
+      { status: 200 }  // Return 200 instead of 500 to prevent infinite retries
     )
   }
 }
