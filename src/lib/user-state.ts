@@ -177,8 +177,8 @@ class UserStateManager {
       if (response.ok) {
         const data = await response.json()
         
-        // CRITICAL: Protect premium status - don't downgrade due to temporary issues
-        if (data.tier === 'premium' || (!data.fallback && data.tier)) {
+        // CRITICAL: If API returns a definitive tier (not fallback), use it
+        if (!data.fallback && data.tier) {
           this.state.subscriptionTier = data.tier
           this.notifyListeners()
           console.log('✅ UserState: Subscription tier loaded:', data.tier)
@@ -189,6 +189,10 @@ class UserStateManager {
             console.log('🛡️ UserState: Protecting premium status during database issues')
             return 'premium'
           }
+          // If current tier is not premium, use the fallback tier
+          this.state.subscriptionTier = data.tier || 'free'
+          this.notifyListeners()
+          return data.tier || 'free'
         }
       } else if (response.status === 401) {
         // Not authenticated - default to free tier
