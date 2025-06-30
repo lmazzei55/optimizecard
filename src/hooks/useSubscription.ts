@@ -39,8 +39,32 @@ export function useSubscription() {
 
         const data = await response.json()
         
+        // Check if this is a database fallback response
+        if (data.fallback) {
+          console.log('⚠️ Database temporarily unavailable, using cached subscription data')
+          
+          // Check localStorage for cached premium status
+          const cached = localStorage.getItem('subscriptionTier')
+          if (cached === 'premium') {
+            console.log('✅ Found cached premium status, using it')
+            setSubscription({
+              subscriptionTier: 'premium',
+              subscriptionStatus: 'active',
+              customerId: null
+            })
+          } else {
+            // No cached premium status, use fallback free tier
+            setSubscription({
+              subscriptionTier: 'free',
+              subscriptionStatus: 'active',
+              customerId: null
+            })
+          }
+          return
+        }
+        
         // If user is showing as free but we haven't verified with Stripe recently, do a verification
-        if (data.tier === 'free' && !data.recentlyVerified) {
+        if (data.tier === 'free' && !data.recentlyVerified && !data.fallback) {
           console.log('🔍 Free tier detected, verifying with Stripe...')
           
           try {
@@ -50,6 +74,9 @@ export function useSubscription() {
               
               if (verifyData.subscriptionTier === 'premium') {
                 console.log('✅ Premium subscription found in Stripe!')
+                // Cache the premium status
+                localStorage.setItem('subscriptionTier', 'premium')
+                
                 // Update the subscription data with verified premium status
                 setSubscription({
                   subscriptionTier: 'premium',
@@ -69,6 +96,13 @@ export function useSubscription() {
           }
         }
         
+        // Cache the subscription tier for future fallback use
+        if (data.tier === 'premium') {
+          localStorage.setItem('subscriptionTier', 'premium')
+        } else {
+          localStorage.removeItem('subscriptionTier')
+        }
+        
         setSubscription({
           subscriptionTier: data.tier || 'free',
           subscriptionStatus: data.status || 'active',
@@ -84,6 +118,7 @@ export function useSubscription() {
         // On error, check localStorage for cached data
         const cached = localStorage.getItem('subscriptionTier')
         if (cached === 'premium') {
+          console.log('✅ Using cached premium status due to fetch error')
           setSubscription(prev => ({ ...prev, subscriptionTier: 'premium' }))
         }
       } finally {
