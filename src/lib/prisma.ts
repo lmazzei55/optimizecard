@@ -6,18 +6,10 @@ const globalForPrisma = globalThis as unknown as {
 
 // Enhanced Prisma client creation with serverless optimization
 function createPrismaClient() {
-  // CRITICAL: Use direct database connection to avoid pooling conflicts
-  // Prioritize DIRECT_URL over DATABASE_URL for serverless environments
-  let connectionUrl = process.env.DIRECT_URL || process.env.DIRECT_DATABASE_URL || process.env.DATABASE_URL
+  // Use DATABASE_URL as it works fine locally and in production
+  const connectionUrl = process.env.DATABASE_URL
   
-  // Log which connection type we're using
-  if (process.env.DIRECT_URL || process.env.DIRECT_DATABASE_URL) {
-    console.log('🔄 Using DIRECT database connection to avoid pooling conflicts')
-  } else if (process.env.DATABASE_URL?.includes('pooler')) {
-    console.log('⚠️ Warning: Using pooled connection - may cause prepared statement conflicts')
-  } else {
-    console.log('🔄 Using standard database connection')
-  }
+  console.log('🔄 Using DATABASE_URL for database connection')
   
   const client = new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['query', 'error'] : ['error'],
