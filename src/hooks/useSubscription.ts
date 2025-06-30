@@ -12,6 +12,7 @@ interface SubscriptionData {
   customerId?: string | null
 }
 
+// Enhanced subscription hook with database fallback handling
 export function useSubscription() {
   const { data: session, status } = useSession()
   const [subscription, setSubscription] = useState<SubscriptionData>({
