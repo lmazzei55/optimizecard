@@ -1,98 +1,131 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 
 interface SubscriptionData {
-  tier: 'free' | 'premium'
-  status: 'active' | 'canceled' | 'past_due' | 'trialing'
-  stripeCustomerId?: string
-  stripeSubscriptionId?: string
-  currentPeriodEnd?: string
-  currentPeriodStart?: string
-  trialEnd?: string
-  autoCreated?: boolean
-  fallback?: boolean
+  subscriptionTier: 'free' | 'premium'
+  subscriptionStatus: string
+  subscriptionStartDate?: Date | null
+  subscriptionEndDate?: Date | null
+  trialEndDate?: Date | null
+  customerId?: string | null
 }
 
-interface UseSubscriptionReturn {
-  subscription: SubscriptionData | null
-  loading: boolean
-  error: string | null
-  isPremium: boolean
-  isAuthenticated: boolean
-  refreshSubscription: () => Promise<void>
-}
-
-export function useSubscription(): UseSubscriptionReturn {
+export function useSubscription() {
   const { data: session, status } = useSession()
-  const [subscription, setSubscription] = useState<SubscriptionData | null>(null)
+  const [subscription, setSubscription] = useState<SubscriptionData>({
+    subscriptionTier: 'free',
+    subscriptionStatus: 'active',
+  })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchSubscription = async () => {
-    if (status === 'loading') return
-    
-    if (status === 'unauthenticated') {
-      setSubscription(null)
-      setLoading(false)
-      return
+  useEffect(() => {
+    async function fetchSubscription() {
+      if (status === 'loading') return
+      
+      if (!session?.user?.email) {
+        setLoading(false)
+        return
+      }
+
+      try {
+        // First, try to get cached subscription data
+        const response = await fetch('/api/user/subscription')
+        if (!response.ok) {
+          throw new Error('Failed to fetch subscription')
+        }
+
+        const data = await response.json()
+        
+        // If user is showing as free but we haven't verified with Stripe recently, do a verification
+        if (data.tier === 'free' && !data.recentlyVerified) {
+          console.log('🔍 Free tier detected, verifying with Stripe...')
+          
+          try {
+            const verifyResponse = await fetch('/api/stripe/verify-subscription')
+            if (verifyResponse.ok) {
+              const verifyData = await verifyResponse.json()
+              
+              if (verifyData.subscriptionTier === 'premium') {
+                console.log('✅ Premium subscription found in Stripe!')
+                // Update the subscription data with verified premium status
+                setSubscription({
+                  subscriptionTier: 'premium',
+                  subscriptionStatus: verifyData.subscriptionStatus || 'active',
+                  customerId: verifyData.customerId
+                })
+                
+                // Force a reload to ensure all components get the update
+                if (verifyData.updated) {
+                  window.location.reload()
+                }
+                return
+              }
+            }
+          } catch (verifyError) {
+            console.error('Failed to verify with Stripe:', verifyError)
+          }
+        }
+        
+        setSubscription({
+          subscriptionTier: data.tier || 'free',
+          subscriptionStatus: data.status || 'active',
+          subscriptionStartDate: data.subscriptionStartDate,
+          subscriptionEndDate: data.subscriptionEndDate,
+          trialEndDate: data.trialEndDate,
+          customerId: data.customerId
+        })
+      } catch (err) {
+        console.error('Subscription fetch error:', err)
+        setError(err instanceof Error ? err.message : 'Failed to load subscription')
+        
+        // On error, check localStorage for cached data
+        const cached = localStorage.getItem('subscriptionTier')
+        if (cached === 'premium') {
+          setSubscription(prev => ({ ...prev, subscriptionTier: 'premium' }))
+        }
+      } finally {
+        setLoading(false)
+      }
     }
 
+    fetchSubscription()
+  }, [session, status])
+
+  // Helper function to manually sync subscription
+  const syncSubscription = async () => {
     try {
       setLoading(true)
-      setError(null)
-      
-      const response = await fetch('/api/user/subscription')
-      const data = await response.json()
+      const response = await fetch('/api/stripe/sync-subscription', {
+        method: 'POST'
+      })
       
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch subscription')
-      }
-      
-      // Handle fallback responses gracefully
-      if (data.fallback) {
-        console.warn('⚠️ Using fallback subscription data:', data)
-        setError(data.error || 'Database temporarily unavailable')
-        // For fallback, try to get subscription from localStorage or user state
-        const cachedSubscription = localStorage.getItem('subscriptionTier')
-        if (cachedSubscription === 'premium') {
-          console.log('🔄 Using cached premium subscription from localStorage')
-          setSubscription({ 
-            tier: 'premium', 
-            status: 'active',
-            fallback: true 
-          })
-          return
+        // If sync fails, try verify endpoint
+        const verifyResponse = await fetch('/api/stripe/verify-subscription')
+        if (verifyResponse.ok) {
+          const data = await verifyResponse.json()
+          if (data.updated) {
+            window.location.reload()
+          }
         }
+      } else {
+        window.location.reload()
       }
-      
-      setSubscription(data)
-    } catch (err: any) {
-      console.error('Subscription fetch error:', err)
-      setError(err.message)
-      // Fallback to free tier for unauthenticated errors
-      setSubscription({ tier: 'free', status: 'active' })
+    } catch (error) {
+      console.error('Failed to sync subscription:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    fetchSubscription()
-  }, [status, session])
-
-  const isPremium = subscription?.tier === 'premium' && 
-                   (subscription?.status === 'active' || subscription?.status === 'trialing')
-  
-  const isAuthenticated = status === 'authenticated'
-
   return {
-    subscription,
+    ...subscription,
     loading,
     error,
-    isPremium,
-    isAuthenticated,
-    refreshSubscription: fetchSubscription
+    isPremium: subscription.subscriptionTier === 'premium',
+    syncSubscription
   }
 } 
