@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { stripe, isStripeConfigured } from '@/lib/stripe'
-import { prisma } from '@/lib/prisma'
+import { withRetry } from '@/lib/prisma'
 
 export async function GET() {
   try {
@@ -19,38 +19,40 @@ export async function GET() {
       analysis: {} as any
     }
 
-    // 1. Check database user record
+    // 1. Check database user record with retry logic
     try {
-      const user = await prisma.user.findUnique({
-        where: { email: session.user.email },
-        select: {
-          id: true,
-          email: true,
-          subscriptionTier: true,
-          subscriptionStatus: true,
-          customerId: true,
-          subscriptionId: true,
-          trialEndDate: true,
-          subscriptionStartDate: true,
-          subscriptionEndDate: true
-        }
+      const { PrismaClient } = require('@/generated/prisma')
+      const prisma = new PrismaClient()
+      
+      const user = await withRetry(async () => {
+        return await prisma.$queryRaw`
+          SELECT "email", "subscriptionTier", "subscriptionStatus", "customerId", "subscriptionId"
+          FROM "User" 
+          WHERE "email" = ${session.user.email}
+          LIMIT 1
+        `
       })
+      
+      await prisma.$disconnect()
       
       report.checks.database = {
         success: true,
-        user: user
+        user: user[0] || null
       }
     } catch (error: any) {
       report.checks.database = {
         success: false,
-        error: error.message
+        error: error.message?.substring(0, 200)
       }
     }
 
-    // 2. Check Stripe customer
+    // 2. Check Stripe customer and subscriptions
     if (isStripeConfigured && stripe && report.checks.database?.user?.customerId) {
       try {
-        const customer = await stripe.customers.retrieve(report.checks.database.user.customerId)
+        const customerId = report.checks.database.user.customerId
+        
+        // Get customer info
+        const customer = await stripe.customers.retrieve(customerId)
         report.checks.stripeCustomer = {
           success: true,
           customer: {
@@ -59,20 +61,11 @@ export async function GET() {
             created: new Date((customer as any).created * 1000).toISOString()
           }
         }
-      } catch (error: any) {
-        report.checks.stripeCustomer = {
-          success: false,
-          error: error.message
-        }
-      }
-    }
-
-    // 3. Check Stripe subscriptions
-    if (isStripeConfigured && stripe && report.checks.database?.user?.customerId) {
-      try {
+        
+        // Get subscriptions
         const subscriptions = await stripe.subscriptions.list({
-          customer: report.checks.database.user.customerId,
-          limit: 10
+          customer: customerId,
+          limit: 5
         })
         
         report.checks.stripeSubscriptions = {
@@ -89,12 +82,12 @@ export async function GET() {
       } catch (error: any) {
         report.checks.stripeSubscriptions = {
           success: false,
-          error: error.message
+          error: error.message?.substring(0, 200)
         }
       }
     }
 
-    // 4. Analysis
+    // 3. Analysis
     const dbTier = report.checks.database?.user?.subscriptionTier
     const activeStripeSubscription = report.checks.stripeSubscriptions?.subscriptions?.find((sub: any) => 
       sub.status === 'active' || sub.status === 'trialing'
@@ -121,7 +114,7 @@ export async function GET() {
     console.error('❌ Debug subscription status error:', error)
     return NextResponse.json({
       error: 'Failed to check subscription status',
-      details: error.message
+      details: error.message?.substring(0, 200)
     }, { status: 500 })
   }
 }
@@ -135,21 +128,29 @@ export async function POST() {
 
     console.log('🔧 Debug: Manually fixing subscription for:', session.user.email)
 
-    // Force sync with Stripe and update database
     if (!isStripeConfigured || !stripe) {
       return NextResponse.json({ error: 'Stripe not configured' }, { status: 503 })
     }
 
-    // Get user
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true, customerId: true }
+    // Get user with retry logic
+    const { PrismaClient } = require('@/generated/prisma')
+    const prisma = new PrismaClient()
+    
+    const users = await withRetry(async () => {
+      return await prisma.$queryRaw`
+        SELECT "id", "email", "customerId", "subscriptionTier"
+        FROM "User" 
+        WHERE "email" = ${session.user.email}
+        LIMIT 1
+      `
     })
 
-    if (!user) {
+    if (!users || users.length === 0) {
+      await prisma.$disconnect()
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
+    const user = users[0]
     let customerId = user.customerId
 
     // Find customer by email if no customerId
@@ -161,16 +162,11 @@ export async function POST() {
       
       if (customers.data.length > 0) {
         customerId = customers.data[0].id
-        
-        // Update user with customer ID
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { customerId }
-        })
       }
     }
 
     if (!customerId) {
+      await prisma.$disconnect()
       return NextResponse.json({ error: 'No Stripe customer found' }, { status: 404 })
     }
 
@@ -192,40 +188,33 @@ export async function POST() {
       subscriptionStatus = activeSubscription.status
     }
 
-    // Update user in database
-    const updatedUser = await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        subscriptionTier,
-        subscriptionStatus,
-        customerId,
-        subscriptionId: activeSubscription?.id || null,
-        subscriptionStartDate: activeSubscription?.start_date 
-          ? new Date(activeSubscription.start_date * 1000) 
-          : null,
-        subscriptionEndDate: activeSubscription && (activeSubscription as any).current_period_end 
-          ? new Date((activeSubscription as any).current_period_end * 1000) 
-          : null,
-        trialEndDate: activeSubscription?.trial_end 
-          ? new Date(activeSubscription.trial_end * 1000) 
-          : null,
-      }
+    // Update user with raw SQL to avoid prepared statement conflicts
+    await withRetry(async () => {
+      return await prisma.$executeRaw`
+        UPDATE "User" 
+        SET 
+          "subscriptionTier" = ${subscriptionTier},
+          "subscriptionStatus" = ${subscriptionStatus},
+          "customerId" = ${customerId},
+          "subscriptionId" = ${activeSubscription?.id || null},
+          "subscriptionStartDate" = ${activeSubscription?.start_date ? new Date(activeSubscription.start_date * 1000) : null},
+          "subscriptionEndDate" = ${activeSubscription && (activeSubscription as any).current_period_end ? new Date((activeSubscription as any).current_period_end * 1000) : null},
+          "trialEndDate" = ${activeSubscription?.trial_end ? new Date(activeSubscription.trial_end * 1000) : null}
+        WHERE "email" = ${session.user.email}
+      `
     })
+
+    await prisma.$disconnect()
 
     return NextResponse.json({
       success: true,
       message: 'Subscription manually synced',
-      before: { tier: user.customerId ? 'unknown' : 'free' },
+      before: { tier: user.subscriptionTier },
       after: {
         tier: subscriptionTier,
         status: subscriptionStatus,
         customerId,
         subscriptionId: activeSubscription?.id
-      },
-      updatedUser: {
-        subscriptionTier: updatedUser.subscriptionTier,
-        subscriptionStatus: updatedUser.subscriptionStatus,
-        trialEndDate: updatedUser.trialEndDate
       }
     })
 
@@ -233,7 +222,7 @@ export async function POST() {
     console.error('❌ Debug fix subscription error:', error)
     return NextResponse.json({
       error: 'Failed to fix subscription',
-      details: error.message
+      details: error.message?.substring(0, 200)
     }, { status: 500 })
   }
 } 
