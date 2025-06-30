@@ -4,6 +4,7 @@ import React, { useState, ReactNode } from 'react'
 import { useSubscription } from '@/hooks/useSubscription'
 import { UpgradePrompt } from '@/components/UpgradePrompt'
 import Link from 'next/link'
+import { useSession } from 'next-auth/react'
 
 interface PremiumFeatureGateProps {
   children: ReactNode
@@ -60,7 +61,9 @@ export function PremiumFeatureGate({
   featureDescription, 
   fallbackComponent 
 }: PremiumFeatureGateProps) {
-  const { isPremium, isAuthenticated, loading } = useSubscription()
+  const { isPremium, loading } = useSubscription()
+  const { data: session } = useSession()
+  const isAuthenticated = !!session?.user
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false)
 
   // Show loading state while checking subscription
