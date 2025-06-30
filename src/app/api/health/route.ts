@@ -4,8 +4,11 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET() {
   try {
+    const startTime = Date.now()
+    
     // Quick health check
     const health = await healthCheck()
+    const latency = Date.now() - startTime
     
     if (!health.healthy) {
       return NextResponse.json({
@@ -27,7 +30,7 @@ export async function GET() {
       return NextResponse.json({
         status: 'healthy',
         database: 'connected',
-        latency: `${health.latency}ms`,
+        latency: `${latency}ms`,
         categories: categoryCount,
         users: userCount,
         cards: cardCount,
@@ -38,7 +41,7 @@ export async function GET() {
       return NextResponse.json({
         status: 'partially_healthy',
         database: 'connected',
-        latency: `${health.latency}ms`,
+        latency: `${latency}ms`,
         note: 'Connection works but some queries failing',
         timestamp: new Date().toISOString()
       })

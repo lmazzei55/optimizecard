@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { prisma, withRetry } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
-import { prisma, withRetry, resetPrismaClient } from '@/lib/prisma'
 
 // GET: Fetch all available cards and user's owned cards
 export async function GET() {
@@ -105,7 +105,6 @@ export async function GET() {
     // Check if it's a prepared statement conflict (common in serverless)
     if (error?.code === '42P05' || error?.message?.includes('prepared statement')) {
       console.error('🔄 Prepared statement conflict in cards API, resetting client...')
-      await resetPrismaClient()
       return NextResponse.json(
         { error: 'Database connection reset, please try again', code: 'PREPARED_STATEMENT_CONFLICT' },
         { status: 503 }
@@ -198,7 +197,6 @@ export async function POST(request: NextRequest) {
     // Check if it's a prepared statement conflict (common in serverless)
     if (error?.code === '42P05' || error?.message?.includes('prepared statement')) {
       console.error('🔄 Prepared statement conflict in cards update, resetting client...')
-      await resetPrismaClient()
       return NextResponse.json(
         { error: 'Database connection reset, please try again', code: 'PREPARED_STATEMENT_CONFLICT' },
         { status: 503 }

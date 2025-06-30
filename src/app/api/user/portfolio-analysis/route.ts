@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { withRetry, prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
-import { withRetry, prisma, resetPrismaClient } from '@/lib/prisma'
 import { calculateCardRecommendations, RecommendationOptions, UserSpending } from '@/lib/recommendation-engine'
 
 interface PortfolioAnalysis {
@@ -287,14 +287,6 @@ export async function GET(request: Request) {
     }
 
     console.log(`📊 Portfolio analysis GET request for ${session.user.email}`)
-
-    // Reset Prisma client to avoid prepared statement conflicts
-    try {
-      await resetPrismaClient()
-      console.log('📊 Prisma client reset for portfolio analysis')
-    } catch (resetError) {
-      console.warn('⚠️ Could not reset Prisma client:', resetError)
-    }
 
     // Get user and their spending data with enhanced error handling
     const user = await withRetry(async () => {
