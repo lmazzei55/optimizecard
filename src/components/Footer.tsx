@@ -2,7 +2,7 @@ import Link from "next/link"
 
 export function Footer() {
   return (
-    <footer className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-t border-gray-200/50 dark:border-gray-700/50 mt-16">
+    <footer className="bg-gray-900/80 backdrop-blur-sm border-t border-gray-700/50">
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
           {/* Logo and Description */}
@@ -44,7 +44,7 @@ export function Footer() {
 
           {/* Copyright */}
           <div className="text-sm text-gray-500 dark:text-gray-400">
-            © 2024 Credit Card Optimizer. All rights reserved.
+            © 2025 Credit Card Optimizer. All rights reserved.
           </div>
         </div>
 

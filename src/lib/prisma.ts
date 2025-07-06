@@ -156,7 +156,7 @@ export async function warmupDatabase(): Promise<{ success: boolean; operations: 
 }
 
 // Force disconnect on process termination to clean up connections
-if (typeof process !== 'undefined') {
+if (typeof process !== 'undefined' && typeof process.on === 'function' && process.env.NEXT_RUNTIME !== 'edge') {
   process.on('beforeExit', async () => {
     await prisma.$disconnect()
   })

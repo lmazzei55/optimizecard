@@ -90,20 +90,26 @@ export default function Home() {
                   <span className="text-2xl">💳</span>
                 </div>
                 <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight">
-                  Turn everyday spending into up to $700<span className="align-super text-sm">*</span> in extra rewards each year
+                  Turn everyday spending into $700+<span className="align-super text-base md:text-lg">*</span> in extra rewards each year
                 </h1>
-                <p className="text-lg md:text-2xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed mb-6">
-                  • Find the single card that pays you most today<br/>
-                  • Map every purchase category to the best card already in your wallet<br/>
-                  • Discover new cards that can boost your annual rewards even higher
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 max-w-xl mx-auto mb-6">*Estimate based on average U.S. household card-eligible spending of $2,500 per month and our reward-rate calculations.</p>
-                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-xl p-4 mb-8 max-w-2xl mx-auto">
-                  <div className="flex items-center justify-center space-x-2 text-green-700 dark:text-green-300">
+                <div className="flex flex-wrap justify-center gap-3 md:gap-4 max-w-4xl mx-auto mb-6">
+                  <span className="px-4 py-2 text-base md:text-xl font-medium rounded-full border border-white/30 text-white/90 bg-white/5 backdrop-blur-sm">
+                    Find the single card that pays you most today
+                  </span>
+                  <span className="px-4 py-2 text-base md:text-xl font-medium rounded-full border border-white/30 text-white/90 bg-white/5 backdrop-blur-sm">
+                    Map every purchase category to the best card already in your wallet
+                  </span>
+                  <span className="px-4 py-2 text-base md:text-xl font-medium rounded-full border border-white/30 text-white/90 bg-white/5 backdrop-blur-sm">
+                    Discover new cards that can boost your annual rewards even higher
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 max-w-xl mx-auto mb-6">*Based on U.S. Bureau of Labor Statistics Consumer Expenditure Survey average card-eligible spend (~$2.5 k/month). Baseline = 1 % cash-back; Optimized = minimum 2–3 % blended reward rate with our recommended cards.</p>
+                <div className="bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 dark:from-blue-500/20 dark:via-purple-500/20 dark:to-pink-500/20 border border-blue-200/50 dark:border-blue-700/50 rounded-xl p-4 mb-8 max-w-2xl mx-auto backdrop-blur-sm">
+                  <div className="flex items-center justify-center space-x-2 text-blue-700 dark:text-blue-300">
                     <span className="text-xl">🔒</span>
-                    <span className="font-medium">100% Private - No personal information required</span>
+                    <span className="font-medium">100% Private – No personal information required</span>
                   </div>
-                  <p className="text-sm text-green-600 dark:text-green-400 mt-2 text-center">
+                  <p className="text-sm text-blue-600 dark:text-blue-300 mt-2 text-center">
                     We only ask for spending estimates to calculate your best rewards. No names, addresses, or financial data needed.
                   </p>
                 </div>
@@ -174,8 +180,8 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* CTA Section */}
-              <div className="text-center mb-16">
+              {/* Secondary CTA Section (hidden on small screens) */}
+              <div className="text-center mb-16 hidden md:block">
                 <div className="bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 dark:from-blue-500/20 dark:via-purple-500/20 dark:to-pink-500/20 rounded-3xl p-6 md:p-8 mb-8 border border-blue-200/50 dark:border-blue-700/50">
                   <h3 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-4">
                     Ready to optimize your rewards?
@@ -229,6 +235,14 @@ export default function Home() {
               </div>
             </div>
           </div>
+          {/* Floating CTA Button (Option B) */}
+          <Link href="/dashboard" className="fixed bottom-6 right-6 z-50">
+            <Button
+              className="flex items-center gap-2 px-5 py-3 rounded-full bg-gradient-to-br from-pink-600 to-blue-600 hover:from-pink-700 hover:to-blue-700 text-white font-semibold shadow-xl transform hover:scale-105 transition-transform duration-300 animate-bounce hover:animate-none"
+            >
+              🚀 <span>Get Started</span>
+            </Button>
+          </Link>
         </main>
       </div>
     </>
