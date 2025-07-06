@@ -29,7 +29,7 @@ function createPrismaClient() {
   return client
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient()
+export let prisma: PrismaClient = globalForPrisma.prisma ?? createPrismaClient()
 
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma
@@ -72,6 +72,12 @@ export async function withRetry<T>(
           await prisma.$disconnect()
         } catch (disconnectError) {
           console.error('⚠️ Error while disconnecting Prisma during reset:', disconnectError)
+        } finally {
+          // Remove old client from the global cache and create a fresh one
+          globalForPrisma.prisma = undefined
+          prisma = createPrismaClient()
+          globalForPrisma.prisma = prisma
+          console.log('✅ Prisma client reset successfully')
         }
       }
 
