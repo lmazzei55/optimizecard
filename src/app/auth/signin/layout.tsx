@@ -6,12 +6,12 @@ export const metadata: Metadata = {
   keywords: 'sign in, login, credit card optimizer account, user authentication',
   robots: 'index, follow',
   alternates: {
-    canonical: 'https://optimizecard.com/auth/signin',
+    canonical: '/auth/signin',
   },
   openGraph: {
     title: 'Sign In - Credit Card Optimizer',
     description: 'Sign in to access personalized credit card recommendations.',
-    url: 'https://optimizecard.com/auth/signin',
+    url: '/auth/signin',
     type: 'website',
   },
 }

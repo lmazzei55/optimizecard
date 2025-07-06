@@ -6,12 +6,6 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useSearchParams } from "next/navigation"
 import { useEffect, useState, Suspense } from "react"
-import type { Metadata } from 'next'
-
-export const metadata: Metadata = {
-  title: 'Dashboard',
-  robots: 'noindex, nofollow', // Tell search engines not to index this page
-}
 
 // Prevent static generation to avoid useSearchParams issues
 export const dynamic = 'force-dynamic'

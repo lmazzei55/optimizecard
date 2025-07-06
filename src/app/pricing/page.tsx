@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect, Suspense, useRef } from "react"
-import type { Metadata } from 'next'
 import { useSession } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
@@ -19,14 +18,6 @@ interface SubscriptionData {
   subscriptionStartDate?: string
   subscriptionEndDate?: string
   trialEndDate?: string
-}
-
-export const metadata: Metadata = {
-  title: 'Pricing Plans',
-  description: 'Choose the right plan for you. Access premium features with a 7-day free trial.',
-  alternates: {
-    canonical: '/pricing',
-  },
 }
 
 function PricingContent() {

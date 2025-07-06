@@ -10,12 +10,12 @@ export const metadata: Metadata = {
   keywords: 'credit card optimizer, best credit cards, credit card rewards, cashback cards, points cards, credit card comparison',
   robots: 'index, follow',
   alternates: {
-    canonical: 'https://optimizecard.com',
+    canonical: '/',
   },
   openGraph: {
     title: 'Credit Card Optimizer - Find Your Perfect Rewards Card',
     description: 'Get personalized credit card recommendations based on your spending patterns.',
-    url: 'https://optimizecard.com',
+    url: '/',
     type: 'website',
   }
 }
@@ -25,7 +25,7 @@ const structuredData = {
   "@type": "WebApplication",
   "name": "Credit Card Optimizer",
   "description": "AI-powered credit card recommendation service that analyzes spending patterns to suggest optimal rewards cards",
-  "url": "https://optimizecard.com",
+  "url": "https://www.optimizecard.com",
   "applicationCategory": "FinanceApplication",
   "operatingSystem": "Web Browser",
   "offers": [
@@ -48,7 +48,7 @@ const structuredData = {
   "provider": {
     "@type": "Organization",
     "name": "Credit Card Optimizer",
-    "url": "https://optimizecard.com"
+    "url": "https://www.optimizecard.com"
   },
   "featureList": [
     "Personalized credit card recommendations",
@@ -57,7 +57,7 @@ const structuredData = {
     "Benefits valuation",
     "Multi-card strategies"
   ],
-  "screenshot": "https://optimizecard.com/screenshot.png",
+  "screenshot": "https://www.optimizecard.com/screenshot.png",
   "aggregateRating": {
     "@type": "AggregateRating",
     "ratingValue": "4.8",

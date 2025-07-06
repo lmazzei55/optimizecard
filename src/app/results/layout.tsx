@@ -6,12 +6,12 @@ export const metadata: Metadata = {
   keywords: 'credit card recommendations, reward calculations, card analysis, financial optimization',
   robots: 'index, follow',
   alternates: {
-    canonical: 'https://optimizecard.com/results',
+    canonical: '/results',
   },
   openGraph: {
     title: 'Credit Card Recommendations - Optimized Results',
     description: 'View your personalized credit card recommendations with detailed analysis.',
-    url: 'https://optimizecard.com/results',
+    url: '/results',
     type: 'website',
   },
 }
