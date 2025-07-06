@@ -1,47 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe, isStripeConfigured } from '@/lib/stripe'
 import { Client } from 'pg'
-import Stripe from 'stripe'
 
 export async function POST(request: NextRequest) {
   try {
+    // Simple admin authentication check
+    const authHeader = request.headers.get('authorization')
+    if (authHeader !== 'Bearer admin-sync-2024') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     if (!isStripeConfigured || !stripe) {
       return NextResponse.json({ error: 'Stripe not configured' }, { status: 503 })
     }
 
-    const body = await request.json()
-    let email = body.email
+    const { email } = await request.json()
     
-    // If no email provided, try to get from authenticated session
     if (!email) {
-      const { auth } = await import('@/lib/auth')
-      const session = await auth()
-      if (session?.user?.email) {
-        email = session.user.email
-      } else {
-        return NextResponse.json({ error: 'Email required or user must be authenticated' }, { status: 400 })
-      }
+      return NextResponse.json({ error: 'Email required' }, { status: 400 })
     }
 
-    console.log(`🔍 Looking up Stripe customer for email: ${email}`)
+    console.log(`🔧 Admin sync: Looking up subscription for ${email}`)
 
-    // Find customer by email
+    // Find customer by email in Stripe
     const customers = await stripe.customers.list({
       email: email,
       limit: 1
     })
 
     if (customers.data.length === 0) {
-      return NextResponse.json({ error: 'No Stripe customer found for this email' }, { status: 404 })
+      return NextResponse.json({ 
+        success: false,
+        message: 'No Stripe customer found for this email',
+        email 
+      })
     }
 
     const customer = customers.data[0]
     console.log(`✅ Found customer: ${customer.id}`)
 
-    // Get active subscriptions
+    // Get all subscriptions for this customer
     const subscriptions = await stripe.subscriptions.list({
       customer: customer.id,
-      status: 'all'
+      status: 'all',
+      limit: 10
     })
 
     console.log(`📋 Found ${subscriptions.data.length} subscriptions`)
@@ -56,7 +58,7 @@ export async function POST(request: NextRequest) {
     let subscriptionData: any = {}
 
     if (activeSubscription) {
-      console.log(`🎯 Active subscription found: ${activeSubscription.id} (${activeSubscription.status})`)
+      console.log(`🎯 Active subscription: ${activeSubscription.id} (${activeSubscription.status})`)
       
       switch (activeSubscription.status) {
         case 'active':
@@ -81,11 +83,9 @@ export async function POST(request: NextRequest) {
         trialEndDate: activeSubscription.trial_end ? 
           new Date(activeSubscription.trial_end * 1000).toISOString() : null,
       }
-    } else {
-      console.log(`ℹ️ No active subscription found for customer`)
     }
 
-    // Update database directly using pg client to avoid prepared statement issues
+    // Update database
     const client = new Client({
       connectionString: process.env.DATABASE_URL,
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
     try {
       await client.connect()
       
-      console.log(`💾 Updating database: ${email} -> ${subscriptionTier} (${subscriptionStatus})`)
+      console.log(`💾 Admin sync: Updating ${email} -> ${subscriptionTier} (${subscriptionStatus})`)
       
       const result = await client.query(`
         UPDATE "User" 
@@ -120,24 +120,29 @@ export async function POST(request: NextRequest) {
       ])
 
       if (result.rows.length === 0) {
-        return NextResponse.json({ error: 'User not found in database' }, { status: 404 })
+        return NextResponse.json({ 
+          success: false,
+          error: 'User not found in database',
+          email 
+        })
       }
 
       const updatedUser = result.rows[0]
-      console.log('✅ Database updated successfully:', updatedUser)
+      console.log('✅ Admin sync completed:', updatedUser)
 
       return NextResponse.json({
         success: true,
+        message: `Successfully synced ${email} to ${subscriptionTier} tier`,
         user: updatedUser,
-        stripeCustomer: {
-          id: customer.id,
-          email: customer.email
-        },
-        subscription: activeSubscription ? {
-          id: activeSubscription.id,
-          status: activeSubscription.status,
-          ...subscriptionData
-        } : null
+        stripeData: {
+          customerId: customer.id,
+          subscriptionsFound: subscriptions.data.length,
+          activeSubscription: activeSubscription ? {
+            id: activeSubscription.id,
+            status: activeSubscription.status,
+            ...subscriptionData
+          } : null
+        }
       })
 
     } finally {
@@ -145,8 +150,9 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error('❌ Sync subscription error:', error)
+    console.error('❌ Admin sync error:', error)
     return NextResponse.json({ 
+      success: false,
       error: 'Failed to sync subscription',
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })

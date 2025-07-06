@@ -1,7 +1,15 @@
-'use client'
+"use client"
 
 import { useEffect, useState } from 'react'
+import type { Metadata } from 'next'
+import { DebugCustomerInfo } from '@/components/DebugCustomerInfo'
+import { Header } from '@/components/Header'
 import { Button } from '@/components/ui/button'
+
+export const metadata: Metadata = {
+  title: 'System Status',
+  robots: 'noindex, nofollow',
+}
 
 interface HealthStatus {
   status: string

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { stripe, isStripeConfigured } from '@/lib/stripe'
-import { prisma } from '@/lib/prisma'
+import { Client } from 'pg'
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,17 +19,31 @@ export async function POST(request: NextRequest) {
 
     console.log('Portal request for user:', session.user.email)
 
-    // Get user from database
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { 
-        customerId: true,
-        subscriptionTier: true,
-        subscriptionStatus: true 
-      }
+    // Get user from database using direct SQL to avoid prepared statement conflicts
+    const client = new Client({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
     })
 
-    console.log('User data:', user)
+    let user
+    try {
+      await client.connect()
+      
+      const result = await client.query(`
+        SELECT "customerId", "subscriptionTier", "subscriptionStatus" 
+        FROM "User" 
+        WHERE "email" = $1
+      `, [session.user.email])
+      
+      user = result.rows[0]
+      console.log('User data:', user)
+      
+    } catch (dbError) {
+      console.error('Database error:', dbError)
+      return NextResponse.json({ error: 'Database error' }, { status: 500 })
+    } finally {
+      await client.end()
+    }
 
     if (!user?.customerId) {
       console.log('No customer ID found for user')
@@ -49,9 +63,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Create customer portal session
+    const returnUrl = `${process.env.NEXTAUTH_URL || 'https://www.optimizecard.com'}/pricing`
+    console.log('Creating portal session with return URL:', returnUrl)
+    
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: user.customerId,
-      return_url: `${process.env.NEXTAUTH_URL || 'https://optimizecard.com'}/pricing`,
+      return_url: returnUrl,
+      configuration: undefined, // Use default configuration which should respect account settings
     })
 
     console.log('Portal session created successfully')

@@ -2,125 +2,180 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { withRetry } from '@/lib/prisma'
+import { stripe, isStripeConfigured } from '@/lib/stripe'
 
 // GET /api/user/subscription - Get user's subscription status
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await auth()
     
     if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ 
+        tier: 'free',
+        status: 'active',
+        fallback: false
+      })
     }
 
-    console.log('🔍 Subscription API: Checking for user:', session.user.email)
-
-    const user = await withRetry(async () => {
-      return await prisma.user.findUnique({
-        where: { email: session.user.email! },
-        select: {
-          subscriptionTier: true,
-          subscriptionStatus: true,
-          subscriptionId: true,
-          customerId: true,
-          subscriptionStartDate: true,
-          subscriptionEndDate: true,
-          trialEndDate: true
-        }
+    try {
+      // Get user subscription from database
+      const user = await withRetry(async () => {
+        return await prisma.user.findUnique({
+          where: { email: session.user.email! },
+          select: {
+            subscriptionTier: true,
+            subscriptionStatus: true,
+            subscriptionStartDate: true,
+            subscriptionEndDate: true,
+            trialEndDate: true,
+            customerId: true,
+          }
+        })
       })
-    })
 
-    if (!user) {
-      console.log('❌ User not found in database, auto-creating:', session.user.email)
-      
-      // Auto-create user with free tier (default for new users)
-      try {
+      if (!user) {
+        // User doesn't exist, create them with free tier
         const newUser = await withRetry(async () => {
           return await prisma.user.create({
             data: {
               email: session.user.email!,
               name: session.user.name || session.user.email!.split('@')[0],
-              image: session.user.image,
+              subscriptionTier: 'free',
+              subscriptionStatus: 'active',
               rewardPreference: 'cashback',
               pointValue: 0.01,
               enableSubCategories: false,
-              subscriptionTier: 'free', // Default to free tier for new users
-              subscriptionStatus: 'active'
             },
             select: {
               subscriptionTier: true,
               subscriptionStatus: true,
-              subscriptionId: true,
-              customerId: true,
               subscriptionStartDate: true,
               subscriptionEndDate: true,
-              trialEndDate: true
+              trialEndDate: true,
+              customerId: true,
             }
           })
         })
-        
-        console.log('✅ Auto-created free tier user:', session.user.email)
-        
+
         return NextResponse.json({
           tier: newUser.subscriptionTier,
           status: newUser.subscriptionStatus,
-          stripeCustomerId: newUser.customerId,
-          stripeSubscriptionId: newUser.subscriptionId,
-          currentPeriodEnd: newUser.subscriptionEndDate,
-          currentPeriodStart: newUser.subscriptionStartDate,
-          trialEnd: newUser.trialEndDate,
-          autoCreated: true
+          subscriptionStartDate: newUser.subscriptionStartDate,
+          subscriptionEndDate: newUser.subscriptionEndDate,
+          trialEndDate: newUser.trialEndDate,
+          customerId: newUser.customerId,
+          fallback: false,
+          recentlyVerified: false
         })
-        
-      } catch (createError: any) {
-        console.error('❌ Failed to auto-create user:', createError)
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
       }
-    }
 
-    console.log('✅ Found user subscription data:', {
-      email: session.user.email,
-      tier: user.subscriptionTier,
-      status: user.subscriptionStatus
-    })
+      // If user shows as free tier and we have Stripe configured, do a quick verification
+      // This prevents the issue where webhooks fail but user has active subscription
+      if (user.subscriptionTier === 'free' && isStripeConfigured && stripe) {
+        console.log('🔍 Free tier user detected, checking for active Stripe subscription...')
+        
+        try {
+          // Check if user has a customer ID or find them by email
+          let customerId = user.customerId
+          
+          if (!customerId) {
+            const customers = await stripe.customers.list({
+              email: session.user.email,
+              limit: 1
+            })
+            
+            if (customers.data.length > 0) {
+              customerId = customers.data[0].id
+            }
+          }
+          
+          if (customerId) {
+            // Check for active subscriptions
+            const subscriptions = await stripe.subscriptions.list({
+              customer: customerId,
+              status: 'active',
+              limit: 1
+            })
+            
+            if (subscriptions.data.length > 0) {
+              const activeSubscription = subscriptions.data[0]
+              console.log('🎯 Found active subscription for free-tier user, upgrading...')
+              
+              // Update database to premium
+              await withRetry(async () => {
+                await prisma.user.update({
+                  where: { email: session.user.email! },
+                  data: {
+                    subscriptionTier: 'premium',
+                    subscriptionStatus: activeSubscription.status,
+                    subscriptionId: activeSubscription.id,
+                    customerId: customerId,
+                    subscriptionStartDate: new Date(activeSubscription.start_date * 1000),
+                    subscriptionEndDate: (activeSubscription as any).current_period_end 
+                      ? new Date((activeSubscription as any).current_period_end * 1000) 
+                      : null,
+                    trialEndDate: activeSubscription.trial_end 
+                      ? new Date(activeSubscription.trial_end * 1000) 
+                      : null,
+                  }
+                })
+              })
+              
+              console.log('✅ User upgraded to premium automatically')
+              
+              return NextResponse.json({
+                tier: 'premium',
+                status: activeSubscription.status,
+                subscriptionStartDate: new Date(activeSubscription.start_date * 1000),
+                subscriptionEndDate: (activeSubscription as any).current_period_end 
+                  ? new Date((activeSubscription as any).current_period_end * 1000) 
+                  : null,
+                trialEndDate: activeSubscription.trial_end 
+                  ? new Date(activeSubscription.trial_end * 1000) 
+                  : null,
+                customerId: customerId,
+                fallback: false,
+                recentlyVerified: true,
+                autoUpgraded: true
+              })
+            }
+          }
+        } catch (stripeError) {
+          console.log('⚠️ Stripe verification failed, continuing with database data:', stripeError)
+        }
+      }
 
-    return NextResponse.json({
-      tier: user.subscriptionTier,
-      status: user.subscriptionStatus,
-      stripeCustomerId: user.customerId,
-      stripeSubscriptionId: user.subscriptionId,
-      currentPeriodEnd: user.subscriptionEndDate,
-      currentPeriodStart: user.subscriptionStartDate,
-      trialEnd: user.trialEndDate
-    })
-  } catch (error: any) {
-    console.error('❌ Subscription API Error:', error)
-    
-    // Return 200 fallback instead of 500 for database connection issues
-    if (error?.code === 'P2010' || error?.message?.includes('prepared statement') || error?.message?.includes('connection')) {
-      console.log('⚠️ Database connection issue - falling back to free tier')
-      return NextResponse.json(
-        { 
-          error: 'Database temporarily unavailable', 
-          tier: 'free',  // Fallback to free tier for safety
-          status: 'active',
-          fallback: true
-        },
-        { status: 200 }
-      )
-    }
+      return NextResponse.json({
+        tier: user.subscriptionTier,
+        status: user.subscriptionStatus,
+        subscriptionStartDate: user.subscriptionStartDate,
+        subscriptionEndDate: user.subscriptionEndDate,
+        trialEndDate: user.trialEndDate,
+        customerId: user.customerId,
+        fallback: false,
+        recentlyVerified: false
+      })
 
-    // For other errors, also fallback to free tier instead of failing hard
-    console.log('⚠️ Subscription API error - falling back to free tier for safety')
-    return NextResponse.json(
-      { 
-        error: 'Subscription service temporarily unavailable', 
-        tier: 'free',  // Fallback to free tier for safety
+    } catch (dbError) {
+      console.error('Database error in subscription fetch:', dbError)
+      
+      // Database fallback - return basic free tier
+      return NextResponse.json({
+        tier: 'free',
         status: 'active',
         fallback: true,
-        details: error?.message || 'Unknown error'
-      },
-      { status: 200 }  // Return 200 instead of 500 to prevent infinite retries
-    )
+        error: 'Database temporarily unavailable'
+      })
+    }
+
+  } catch (error) {
+    console.error('Subscription API error:', error)
+    return NextResponse.json({
+      tier: 'free',
+      status: 'active',
+      fallback: true,
+      error: 'Service temporarily unavailable'
+    })
   }
 }
 

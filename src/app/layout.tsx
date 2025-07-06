@@ -14,32 +14,41 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
+const siteConfig = {
   title: "Credit Card Optimizer - Maximize Your Rewards",
   description: "Maximize your credit card rewards with AI-powered personalized recommendations based on your spending patterns. Get mathematical precision for optimal card selection.",
-  keywords: "credit cards, rewards, cashback, points, optimization, recommendations, personal finance, credit card comparison, best credit cards",
-  authors: [{ name: "Credit Card Optimizer" }],
-  creator: "Credit Card Optimizer",
-  publisher: "Credit Card Optimizer",
-  robots: "index, follow",
+  url: "https://www.optimizecard.com",
+}
+
+export const metadata: Metadata = {
+  title: {
+    default: siteConfig.title,
+    template: `%s - Credit Card Optimizer`,
+  },
+  description: siteConfig.description,
+  metadataBase: new URL(siteConfig.url),
   openGraph: {
-    title: "Credit Card Optimizer - Maximize Your Rewards",
-    description: "AI-powered credit card recommendations based on your spending patterns. Find the perfect card for maximum rewards.",
-    url: "https://optimizecard.com",
+    title: siteConfig.title,
+    description: siteConfig.description,
+    url: siteConfig.url,
     siteName: "Credit Card Optimizer",
     type: "website",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Credit Card Optimizer - Maximize Your Rewards",
-    description: "AI-powered credit card recommendations based on your spending patterns.",
+    title: siteConfig.title,
+    description: siteConfig.description,
     creator: "@optimizecard",
   },
-  metadataBase: new URL('https://optimizecard.com'),
+  robots: "index, follow",
   verification: {
     google: "your-google-verification-code", // Replace with actual verification code
   },
+  authors: [{ name: "Credit Card Optimizer" }],
+  creator: "Credit Card Optimizer",
+  publisher: "Credit Card Optimizer",
+  keywords: "credit cards, rewards, cashback, points, optimization, recommendations, personal finance, credit card comparison, best credit cards",
 };
 
 export const viewport: Viewport = {

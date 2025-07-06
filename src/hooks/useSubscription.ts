@@ -64,29 +64,52 @@ export function useSubscription() {
           return
         }
         
-        // If user is showing as free but we haven't verified with Stripe recently, do a verification
-        if (data.tier === 'free' && !data.recentlyVerified && !data.fallback) {
-          console.log('🔍 Free tier detected, verifying with Stripe...')
+        // Enhanced verification logic - check more frequently after recent activity
+        const shouldVerify = (
+          (data.tier === 'free' && !data.recentlyVerified) || // Original logic
+          (data.autoUpgraded) || // If auto-upgraded, verify immediately
+          (!data.recentlyVerified && !data.fallback) // If no recent verification at all
+        )
+        
+        if (shouldVerify) {
+          console.log('🔍 Verifying subscription status with Stripe...', {
+            tier: data.tier,
+            recentlyVerified: data.recentlyVerified,
+            autoUpgraded: data.autoUpgraded
+          })
           
           try {
             const verifyResponse = await fetch('/api/stripe/verify-subscription')
             if (verifyResponse.ok) {
               const verifyData = await verifyResponse.json()
               
-              if (verifyData.subscriptionTier === 'premium') {
-                console.log('✅ Premium subscription found in Stripe!')
-                // Cache the premium status
-                localStorage.setItem('subscriptionTier', 'premium')
+              if (verifyData.subscriptionTier !== data.tier || verifyData.updated) {
+                console.log('✅ Subscription status updated!', {
+                  from: data.tier,
+                  to: verifyData.subscriptionTier,
+                  updated: verifyData.updated
+                })
                 
-                // Update the subscription data with verified premium status
+                // Cache the premium status
+                if (verifyData.subscriptionTier === 'premium') {
+                  localStorage.setItem('subscriptionTier', 'premium')
+                } else {
+                  localStorage.removeItem('subscriptionTier')
+                }
+                
+                // Update the subscription data with verified status
                 setSubscription({
-                  subscriptionTier: 'premium',
+                  subscriptionTier: verifyData.subscriptionTier,
                   subscriptionStatus: verifyData.subscriptionStatus || 'active',
+                  subscriptionStartDate: verifyData.subscriptionStartDate,
+                  subscriptionEndDate: verifyData.subscriptionEndDate,
+                  trialEndDate: verifyData.trialEndDate,
                   customerId: verifyData.customerId
                 })
                 
-                // Force a reload to ensure all components get the update
+                // Force a reload if database was updated
                 if (verifyData.updated) {
+                  console.log('🔄 Reloading to sync all components...')
                   window.location.reload()
                 }
                 return
