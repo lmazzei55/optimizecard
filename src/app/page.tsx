@@ -90,11 +90,14 @@ export default function Home() {
                   <span className="text-2xl">💳</span>
                 </div>
                 <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight">
-                  Credit Card Optimizer
+                  Turn everyday spending into up to $700<span className="align-super text-sm">*</span> in extra rewards each year
                 </h1>
                 <p className="text-lg md:text-2xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed mb-6">
-                  Discover which credit cards are <span className="font-semibold text-purple-600 dark:text-purple-400">mathematically best</span> for each spending category and for your combined spending. Our AI analyzes reward rates to find optimal single cards and multi-card strategies.
+                  • Find the single card that pays you most today<br/>
+                  • Map every purchase category to the best card already in your wallet<br/>
+                  • Discover new cards that can boost your annual rewards even higher
                 </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 max-w-xl mx-auto mb-6">*Estimate based on average U.S. household card-eligible spending of $2,500 per month and our reward-rate calculations.</p>
                 <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-xl p-4 mb-8 max-w-2xl mx-auto">
                   <div className="flex items-center justify-center space-x-2 text-green-700 dark:text-green-300">
                     <span className="text-xl">🔒</span>
