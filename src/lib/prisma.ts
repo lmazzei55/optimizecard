@@ -61,6 +61,16 @@ export async function withRetry<T>(
         error?.message?.includes('connection closed') ||
         error?.message?.includes('connection reset')
 
+      // NEW: If the error is a prepared statement conflict, reset the Prisma client
+      if (shouldRetry && (error?.code === '42P05' || error?.message?.includes('prepared statement'))) {
+        try {
+          console.warn('🔄 Prepared statement conflict detected – resetting Prisma client')
+          await prisma.$disconnect()
+        } catch (disconnectError) {
+          console.error('⚠️ Error while disconnecting Prisma during reset:', disconnectError)
+        }
+      }
+
       if (!shouldRetry || isLastAttempt) {
         console.error(`❌ Database operation failed (attempt ${attempt}/${maxRetries}):`, {
           code: error?.code,
