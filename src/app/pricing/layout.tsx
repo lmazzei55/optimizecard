@@ -6,12 +6,12 @@ export const metadata: Metadata = {
   keywords: 'credit card optimizer pricing, premium credit cards, subscription plans, free trial',
   robots: 'index, follow',
   alternates: {
-    canonical: '/pricing',
+    canonical: 'https://optimizecard.com/pricing',
   },
   openGraph: {
     title: 'Pricing - Credit Card Optimizer Premium',
     description: 'Upgrade to Premium for access to premium credit cards and advanced features. 7-day free trial.',
-    url: '/pricing',
+    url: 'https://optimizecard.com/pricing',
     type: 'website',
   },
 }

@@ -4,15 +4,36 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { UserMenu } from "@/components/UserMenu"
 import { Button } from "@/components/ui/button"
-import { useEffect } from "react"
+import { Moon, Sun } from "lucide-react"
+import { useState, useEffect } from "react"
 
 export function Header() {
   const pathname = usePathname()
+  const [isDark, setIsDark] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    // Force dark theme globally
-    document.documentElement.classList.add('dark')
+    setMounted(true)
+    // Check for saved theme preference
+    const savedTheme = localStorage.getItem('theme')
+    if (savedTheme === 'dark') {
+      setIsDark(true)
+      document.documentElement.classList.add('dark')
+    }
   }, [])
+
+  const toggleTheme = () => {
+    const newIsDark = !isDark
+    setIsDark(newIsDark)
+    
+    if (newIsDark) {
+      document.documentElement.classList.add('dark')
+      localStorage.setItem('theme', 'dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+      localStorage.setItem('theme', 'light')
+    }
+  }
 
   const isActive = (path: string) => pathname === path
 
@@ -63,7 +84,22 @@ export function Header() {
               Pricing
             </Link>
             
-            {/* Theme Toggle removed */}
+            {/* Theme Toggle - only render after mounted */}
+            {mounted && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={toggleTheme}
+                className="relative h-10 w-10 rounded-xl border-2 border-gray-200/50 dark:border-gray-600/50 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm hover:bg-white dark:hover:bg-gray-700 transition-all duration-300 shadow-md hover:shadow-lg hover:scale-105"
+              >
+                {isDark ? (
+                  <Sun className="h-4 w-4 text-yellow-500" />
+                ) : (
+                  <Moon className="h-4 w-4 text-indigo-600" />
+                )}
+                <span className="sr-only">Toggle theme</span>
+              </Button>
+            )}
             
             <UserMenu />
           </div>

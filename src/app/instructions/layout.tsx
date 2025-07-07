@@ -6,12 +6,12 @@ export const metadata: Metadata = {
   keywords: 'credit card optimizer instructions, how to use, tutorial, guide, credit card recommendations',
   robots: 'index, follow',
   alternates: {
-    canonical: '/instructions',
+    canonical: 'https://optimizecard.com/instructions',
   },
   openGraph: {
     title: 'How to Use - Credit Card Optimizer Instructions',
     description: 'Learn how to get the best credit card recommendations and maximize your rewards.',
-    url: '/instructions',
+    url: 'https://optimizecard.com/instructions',
     type: 'website',
   },
 }

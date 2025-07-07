@@ -136,14 +136,6 @@ export function SpendingForm() {
   const { rewardPreference, pointValue, enableSubCategories: enableSubcategories } = userState.preferences
   const { subscriptionTier: userSubscriptionTier } = userState
 
-  // Auto-revert premium preferences for free users
-  useEffect(() => {
-    if (userSubscriptionTier === 'free' && (rewardPreference === 'points' || rewardPreference === 'best_overall')) {
-      console.log('🔄 Auto-reverting premium preference to cashback for free user')
-      userState.updateRewardPreference('cashback')
-    }
-  }, [userSubscriptionTier, rewardPreference, userState])
-
   // Debug: Log when enableSubcategories changes
   useEffect(() => {
     console.log('🎯 enableSubcategories changed to:', enableSubcategories)

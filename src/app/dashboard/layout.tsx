@@ -4,14 +4,14 @@ export const metadata: Metadata = {
   title: 'Dashboard - Credit Card Optimizer',
   description: 'Enter your spending patterns to get personalized credit card recommendations and maximize your rewards.',
   keywords: 'credit card dashboard, spending analysis, reward optimization, personal finance',
-  robots: 'noindex, nofollow',
+  robots: 'index, follow',
   alternates: {
-    canonical: '/dashboard',
+    canonical: 'https://optimizecard.com/dashboard',
   },
   openGraph: {
     title: 'Dashboard - Credit Card Optimizer',
     description: 'Enter your spending patterns to get personalized credit card recommendations.',
-    url: '/dashboard',
+    url: 'https://optimizecard.com/dashboard',
     type: 'website',
   },
 }

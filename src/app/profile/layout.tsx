@@ -6,12 +6,12 @@ export const metadata: Metadata = {
   keywords: 'profile settings, account management, subscription management, user preferences',
   robots: 'index, follow',
   alternates: {
-    canonical: '/profile',
+    canonical: 'https://optimizecard.com/profile',
   },
   openGraph: {
     title: 'Profile Settings - Credit Card Optimizer',
     description: 'Manage your account settings and preferences.',
-    url: '/profile',
+    url: 'https://optimizecard.com/profile',
     type: 'website',
   },
 }

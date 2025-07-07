@@ -54,27 +54,12 @@ export async function withRetry<T>(
         error?.code === 'P2024' || // Timed out fetching connection
         error?.code === 'P2010' || // Raw query failed (prepared statement conflicts)
         error?.code === 'P1017' || // Server has closed the connection
-        error?.code === '42P05' || // PostgreSQL prepared statement already exists
         error?.message?.includes('ECONNRESET') ||
         error?.message?.includes('Connection terminated') ||
         error?.message?.includes('prepared statement') ||
         error?.message?.includes('already exists') ||
         error?.message?.includes('connection closed') ||
         error?.message?.includes('connection reset')
-
-      // If it's a prepared statement conflict, disconnect and let next retry use fresh connection
-      if (shouldRetry && (
-        error?.code === '42P05' ||
-        error?.code === 'P2010' ||
-        error?.message?.includes('prepared statement')
-      )) {
-        try {
-          console.warn('🔄 Prepared statement conflict detected – disconnecting for fresh connection')
-          await prisma.$disconnect()
-        } catch (disconnectError) {
-          console.error('⚠️ Error while disconnecting:', disconnectError)
-        }
-      }
 
       if (!shouldRetry || isLastAttempt) {
         console.error(`❌ Database operation failed (attempt ${attempt}/${maxRetries}):`, {
@@ -171,7 +156,7 @@ export async function warmupDatabase(): Promise<{ success: boolean; operations: 
 }
 
 // Force disconnect on process termination to clean up connections
-if (typeof process !== 'undefined' && typeof process.on === 'function' && process.env.NEXT_RUNTIME !== 'edge') {
+if (typeof process !== 'undefined') {
   process.on('beforeExit', async () => {
     await prisma.$disconnect()
   })

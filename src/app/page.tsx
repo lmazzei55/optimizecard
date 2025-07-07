@@ -10,12 +10,12 @@ export const metadata: Metadata = {
   keywords: 'credit card optimizer, best credit cards, credit card rewards, cashback cards, points cards, credit card comparison',
   robots: 'index, follow',
   alternates: {
-    canonical: '/',
+    canonical: 'https://optimizecard.com',
   },
   openGraph: {
     title: 'Credit Card Optimizer - Find Your Perfect Rewards Card',
     description: 'Get personalized credit card recommendations based on your spending patterns.',
-    url: '/',
+    url: 'https://optimizecard.com',
     type: 'website',
   }
 }
@@ -25,7 +25,7 @@ const structuredData = {
   "@type": "WebApplication",
   "name": "Credit Card Optimizer",
   "description": "AI-powered credit card recommendation service that analyzes spending patterns to suggest optimal rewards cards",
-  "url": "https://www.optimizecard.com",
+  "url": "https://optimizecard.com",
   "applicationCategory": "FinanceApplication",
   "operatingSystem": "Web Browser",
   "offers": [
@@ -48,7 +48,7 @@ const structuredData = {
   "provider": {
     "@type": "Organization",
     "name": "Credit Card Optimizer",
-    "url": "https://www.optimizecard.com"
+    "url": "https://optimizecard.com"
   },
   "featureList": [
     "Personalized credit card recommendations",
@@ -57,7 +57,7 @@ const structuredData = {
     "Benefits valuation",
     "Multi-card strategies"
   ],
-  "screenshot": "https://www.optimizecard.com/screenshot.png",
+  "screenshot": "https://optimizecard.com/screenshot.png",
   "aggregateRating": {
     "@type": "AggregateRating",
     "ratingValue": "4.8",
@@ -90,26 +90,17 @@ export default function Home() {
                   <span className="text-2xl">💳</span>
                 </div>
                 <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight">
-                  Turn everyday spending into $700+<span className="align-super text-base md:text-lg">*</span> in extra rewards each year
+                  Credit Card Optimizer
                 </h1>
-                <div className="flex flex-wrap justify-center gap-3 md:gap-4 max-w-4xl mx-auto mb-6">
-                  <span className="px-4 py-2 text-base md:text-xl font-medium rounded-full border border-white/30 text-white/90 bg-white/5 backdrop-blur-sm">
-                    Find the single card that pays you most today
-                  </span>
-                  <span className="px-4 py-2 text-base md:text-xl font-medium rounded-full border border-white/30 text-white/90 bg-white/5 backdrop-blur-sm">
-                    Map every purchase category to the best card already in your wallet
-                  </span>
-                  <span className="px-4 py-2 text-base md:text-xl font-medium rounded-full border border-white/30 text-white/90 bg-white/5 backdrop-blur-sm">
-                    Discover new cards that can boost your annual rewards even higher
-                  </span>
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 max-w-xl mx-auto mb-6">*Based on U.S. Bureau of Labor Statistics Consumer Expenditure Survey average card-eligible spend (~$2.5 k/month). Baseline = 1 % cash-back; Optimized = minimum 2–3 % blended reward rate with our recommended cards.</p>
-                <div className="bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 dark:from-blue-500/20 dark:via-purple-500/20 dark:to-pink-500/20 border border-blue-200/50 dark:border-blue-700/50 rounded-xl p-4 mb-8 max-w-2xl mx-auto backdrop-blur-sm">
-                  <div className="flex items-center justify-center space-x-2 text-blue-700 dark:text-blue-300">
+                <p className="text-lg md:text-2xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed mb-6">
+                  Discover which credit cards are <span className="font-semibold text-purple-600 dark:text-purple-400">mathematically best</span> for each spending category and for your combined spending. Our AI analyzes reward rates to find optimal single cards and multi-card strategies.
+                </p>
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-xl p-4 mb-8 max-w-2xl mx-auto">
+                  <div className="flex items-center justify-center space-x-2 text-green-700 dark:text-green-300">
                     <span className="text-xl">🔒</span>
-                    <span className="font-medium">100% Private – No personal information required</span>
+                    <span className="font-medium">100% Private - No personal information required</span>
                   </div>
-                  <p className="text-sm text-blue-600 dark:text-blue-300 mt-2 text-center">
+                  <p className="text-sm text-green-600 dark:text-green-400 mt-2 text-center">
                     We only ask for spending estimates to calculate your best rewards. No names, addresses, or financial data needed.
                   </p>
                 </div>
@@ -180,8 +171,8 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Secondary CTA Section (hidden on small screens) */}
-              <div className="text-center mb-16 hidden md:block">
+              {/* CTA Section */}
+              <div className="text-center mb-16">
                 <div className="bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 dark:from-blue-500/20 dark:via-purple-500/20 dark:to-pink-500/20 rounded-3xl p-6 md:p-8 mb-8 border border-blue-200/50 dark:border-blue-700/50">
                   <h3 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-4">
                     Ready to optimize your rewards?
@@ -235,14 +226,6 @@ export default function Home() {
               </div>
             </div>
           </div>
-          {/* Floating CTA Button (Option B) */}
-          <Link href="/dashboard" className="fixed bottom-6 right-6 z-50">
-            <Button
-              className="flex items-center gap-2 px-5 py-3 rounded-full bg-gradient-to-br from-pink-600 to-blue-600 hover:from-pink-700 hover:to-blue-700 text-white font-semibold shadow-xl transform hover:scale-105 transition-transform duration-300 animate-bounce hover:animate-none"
-            >
-              🚀 <span>Get Started</span>
-            </Button>
-          </Link>
         </main>
       </div>
     </>

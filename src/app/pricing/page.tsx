@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, Suspense, useRef } from "react"
+import type { Metadata } from 'next'
 import { useSession } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
@@ -18,6 +19,14 @@ interface SubscriptionData {
   subscriptionStartDate?: string
   subscriptionEndDate?: string
   trialEndDate?: string
+}
+
+export const metadata: Metadata = {
+  title: 'Pricing Plans',
+  description: 'Choose the right plan for you. Access premium features with a 7-day free trial.',
+  alternates: {
+    canonical: '/pricing',
+  },
 }
 
 function PricingContent() {
@@ -85,9 +94,9 @@ function PricingContent() {
                 setTimeout(() => fetchSubscription(), 1000)
                 setTimeout(() => fetchSubscription(), 3000)
                 
-                // If we found premium status and local state still says free, refetch subscription instead of full reload
+                // If we found premium status, reload the page to sync all components
                 if (verifyData.subscriptionTier === 'premium' && subscription?.subscriptionTier === 'free') {
-                  await fetchSubscription()
+                  setTimeout(() => window.location.reload(), 2000)
                 }
               }
             }
@@ -108,13 +117,13 @@ function PricingContent() {
       
       if (response.ok) {
         const data = await response.json()
-        // Convert API response to expected format (handle both old and new)
-        const subscriptionData: SubscriptionData = {
-          subscriptionTier: data.subscriptionTier || data.tier || 'free',
-          subscriptionStatus: data.subscriptionStatus || data.status || 'inactive',
-          subscriptionStartDate: data.subscriptionStartDate || data.currentPeriodStart,
-          subscriptionEndDate: data.subscriptionEndDate || data.currentPeriodEnd,
-          trialEndDate: data.trialEndDate || data.trialEnd
+        // Convert API response to expected format
+        const subscriptionData = {
+          subscriptionTier: data.tier,
+          subscriptionStatus: data.status,
+          subscriptionStartDate: data.currentPeriodStart,
+          subscriptionEndDate: data.currentPeriodEnd,
+          trialEndDate: data.trialEnd
         }
         console.log('📋 Pricing page subscription data:', subscriptionData)
         setSubscription(subscriptionData)
