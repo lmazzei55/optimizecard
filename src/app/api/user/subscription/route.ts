@@ -34,14 +34,14 @@ export async function GET(request: NextRequest) {
       })
 
       if (!user) {
-        // User doesn't exist, create them with premium tier (paying customer)
+        // User doesn't exist, create them with free tier (default)
         const newUser = await withRetry(async () => {
           return await prisma.user.create({
             data: {
               email: session.user.email!,
               name: session.user.name || session.user.email!.split('@')[0],
-              subscriptionTier: 'premium', // Default to premium for paying customers
-              subscriptionStatus: 'active',
+              subscriptionTier: 'free', // Start as free tier
+              subscriptionStatus: 'inactive',
               rewardPreference: 'cashback',
               pointValue: 0.01,
               enableSubCategories: false,
@@ -52,97 +52,79 @@ export async function GET(request: NextRequest) {
               subscriptionStartDate: true,
               subscriptionEndDate: true,
               trialEndDate: true,
-              customerId: true,
-            }
+            },
           })
         })
 
-        return NextResponse.json({
-          tier: newUser.subscriptionTier,
-          status: newUser.subscriptionStatus,
-          subscriptionStartDate: newUser.subscriptionStartDate,
-          subscriptionEndDate: newUser.subscriptionEndDate,
-          trialEndDate: newUser.trialEndDate,
-          customerId: newUser.customerId,
-          fallback: false,
-          recentlyVerified: false
-        })
+        console.log('✅ Created new user with free tier:', newUser)
+        return NextResponse.json(newUser)
       }
 
-      // If user shows as free tier and we have Stripe configured, do a quick verification
-      // This prevents the issue where webhooks fail but user has active subscription
-      if (user.subscriptionTier === 'free' && isStripeConfigured && stripe) {
-        console.log('🔍 Free tier user detected, checking for active Stripe subscription...')
-        
+      // Check if user has an active Stripe subscription
+      let hasActiveSubscription = false
+      let subscriptionDetails = null
+
+      if (user.customerId && stripe) {
         try {
-          // Check if user has a customer ID or find them by email
-          let customerId = user.customerId
-          
-          if (!customerId) {
-            const customers = await stripe.customers.list({
-              email: session.user.email,
-              limit: 1
-            })
-            
-            if (customers.data.length > 0) {
-              customerId = customers.data[0].id
+          const subscriptions = await stripe.subscriptions.list({
+            customer: user.customerId,
+            status: 'active',
+            limit: 1,
+          })
+
+          if (subscriptions.data.length > 0) {
+            const subscription = subscriptions.data[0]
+            hasActiveSubscription = true
+            subscriptionDetails = {
+              status: subscription.status,
+              currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
+              trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
             }
-          }
-          
-          if (customerId) {
-            // Check for active subscriptions
-            const subscriptions = await stripe.subscriptions.list({
-              customer: customerId,
-              status: 'active',
-              limit: 1
-            })
-            
-            if (subscriptions.data.length > 0) {
-              const activeSubscription = subscriptions.data[0]
-              console.log('🎯 Found active subscription for free-tier user, upgrading...')
-              
-              // Update database to premium
-              await withRetry(async () => {
-                await prisma.user.update({
-                  where: { email: session.user.email! },
-                  data: {
-                    subscriptionTier: 'premium',
-                    subscriptionStatus: activeSubscription.status,
-                    subscriptionId: activeSubscription.id,
-                    customerId: customerId,
-                    subscriptionStartDate: new Date(activeSubscription.start_date * 1000),
-                    subscriptionEndDate: (activeSubscription as any).current_period_end 
-                      ? new Date((activeSubscription as any).current_period_end * 1000) 
-                      : null,
-                    trialEndDate: activeSubscription.trial_end 
-                      ? new Date(activeSubscription.trial_end * 1000) 
-                      : null,
-                  }
-                })
-              })
-              
-              console.log('✅ User upgraded to premium automatically')
-              
-              return NextResponse.json({
-                tier: 'premium',
-                status: activeSubscription.status,
-                subscriptionStartDate: new Date(activeSubscription.start_date * 1000),
-                subscriptionEndDate: (activeSubscription as any).current_period_end 
-                  ? new Date((activeSubscription as any).current_period_end * 1000) 
-                  : null,
-                trialEndDate: activeSubscription.trial_end 
-                  ? new Date(activeSubscription.trial_end * 1000) 
-                  : null,
-                customerId: customerId,
-                fallback: false,
-                recentlyVerified: true,
-                autoUpgraded: true
-              })
-            }
+            console.log('✅ Found active Stripe subscription:', subscription.id)
           }
         } catch (stripeError) {
-          console.log('⚠️ Stripe verification failed, continuing with database data:', stripeError)
+          console.warn('⚠️ Error checking Stripe subscription:', stripeError)
+          // Continue with database-only check
         }
+      }
+
+      // Determine final subscription tier
+      let finalTier = 'free'
+      let finalStatus = 'inactive'
+      
+      if (hasActiveSubscription) {
+        finalTier = 'premium'
+        finalStatus = 'active'
+      } else if (user.subscriptionTier === 'premium' && user.subscriptionStatus === 'active') {
+        // Keep existing premium status if no Stripe check possible
+        finalTier = 'premium'
+        finalStatus = 'active'
+      }
+
+      // Update user if subscription status changed
+      if (user.subscriptionTier !== finalTier || user.subscriptionStatus !== finalStatus) {
+        const updatedUser = await withRetry(async () => {
+          return await prisma.user.update({
+            where: { email: session.user.email! },
+            data: {
+              subscriptionTier: finalTier,
+              subscriptionStatus: finalStatus,
+              subscriptionStartDate: subscriptionDetails?.trialEnd || subscriptionDetails?.currentPeriodEnd || user.subscriptionStartDate,
+              subscriptionEndDate: subscriptionDetails?.currentPeriodEnd || user.subscriptionEndDate,
+              trialEndDate: subscriptionDetails?.trialEnd || user.trialEndDate,
+            },
+            select: {
+              subscriptionTier: true,
+              subscriptionStatus: true,
+              subscriptionStartDate: true,
+              subscriptionEndDate: true,
+              trialEndDate: true,
+            },
+          })
+        })
+        
+        console.log(`✅ Updated user subscription: ${user.subscriptionTier} -> ${finalTier}`)
+        return NextResponse.json(updatedUser)
       }
 
       return NextResponse.json({

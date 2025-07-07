@@ -185,21 +185,18 @@ class UserStateManager {
           return data.tier
         } else if (data.fallback) {
           // Only protect premium status if we have recent premium confirmation
-          // and it's been less than 24 hours since last update (extended for paying customers)
-          const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000)
+          // and it's been less than 1 hour since last update (standard protection window)
+          const oneHourAgo = Date.now() - (60 * 60 * 1000)
           const hasRecentPremium = this.state.subscriptionTier === 'premium' && 
-                                  this.state.lastUpdated > twentyFourHoursAgo
+                                  this.state.lastUpdated > oneHourAgo
           
           if (hasRecentPremium) {
             console.log('🛡️ UserState: Protecting recent premium status during database issues')
             return 'premium'
           } else {
-            // Use fallback tier if no recent premium confirmation, but prefer premium for paying customers
-            const fallbackTier = data.tier || 'premium' // Default to premium for paying customers
-            console.log('⚠️ UserState: Using fallback tier, no recent premium confirmation:', fallbackTier)
-            this.state.subscriptionTier = fallbackTier
-            this.notifyListeners()
-            return fallbackTier
+            // Default to free tier when database is unavailable and no recent premium confirmation
+            console.log('⚠️ UserState: Using fallback tier, no recent premium confirmation: free')
+            return 'free'
           }
         }
       } else if (response.status === 401) {
