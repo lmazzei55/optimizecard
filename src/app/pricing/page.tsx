@@ -85,9 +85,9 @@ function PricingContent() {
                 setTimeout(() => fetchSubscription(), 1000)
                 setTimeout(() => fetchSubscription(), 3000)
                 
-                // If we found premium status, reload the page to sync all components
+                // If we found premium status and local state still says free, refetch subscription instead of full reload
                 if (verifyData.subscriptionTier === 'premium' && subscription?.subscriptionTier === 'free') {
-                  setTimeout(() => window.location.reload(), 2000)
+                  await fetchSubscription()
                 }
               }
             }
@@ -108,13 +108,13 @@ function PricingContent() {
       
       if (response.ok) {
         const data = await response.json()
-        // Convert API response to expected format
-        const subscriptionData = {
-          subscriptionTier: data.tier,
-          subscriptionStatus: data.status,
-          subscriptionStartDate: data.currentPeriodStart,
-          subscriptionEndDate: data.currentPeriodEnd,
-          trialEndDate: data.trialEnd
+        // Convert API response to expected format (handle both old and new)
+        const subscriptionData: SubscriptionData = {
+          subscriptionTier: data.subscriptionTier || data.tier || 'free',
+          subscriptionStatus: data.subscriptionStatus || data.status || 'inactive',
+          subscriptionStartDate: data.subscriptionStartDate || data.currentPeriodStart,
+          subscriptionEndDate: data.subscriptionEndDate || data.currentPeriodEnd,
+          trialEndDate: data.trialEndDate || data.trialEnd
         }
         console.log('📋 Pricing page subscription data:', subscriptionData)
         setSubscription(subscriptionData)
