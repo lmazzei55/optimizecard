@@ -31,6 +31,13 @@ function SignInContent() {
   const error = searchParams?.get("error") || null
   const callbackUrl = searchParams?.get("callbackUrl") || "/dashboard"
 
+  // Force dark theme on this standalone page so it matches the rest of the app
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      document.documentElement.classList.add('dark')
+    }
+  }, [])
+
   // Fetch available providers from server
   useEffect(() => {
     fetch('/api/auth/provider-status')
