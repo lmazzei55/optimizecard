@@ -24,8 +24,13 @@ export async function GET() {
     })
 
     if (!user) {
-      console.log('❌ User not found in preferences API:', session.user.email)
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      console.log('❌ User not found in preferences API, returning defaults:', session.user.email)
+      // Return defaults instead of creating user here - let subscription API handle user creation
+      return NextResponse.json({
+        rewardPreference: 'cashback',
+        pointValue: 0.01,
+        enableSubCategories: false
+      })
     }
 
     console.log('✅ Preferences API: Retrieved for user:', {
@@ -43,9 +48,6 @@ export async function GET() {
 
   } catch (error: any) {
     console.error('❌ Preferences API Error:', error)
-    
-    // CRITICAL: Don't return fallback data that conflicts with saved preferences
-    // Instead, return proper error codes so frontend can handle appropriately
     
     // Enhanced error handling for database connection issues
     if (error?.code === 'P2010' || 
@@ -98,9 +100,9 @@ export async function POST(request: NextRequest) {
         })
       })
 
-      // Auto-create user if they don't exist
+      // If user doesn't exist, create them with free tier (subscription API will upgrade if needed)
       if (!user) {
-        console.log('❌ User not found for preferences, auto-creating:', session.user.email)
+        console.log('❌ User not found for preferences, auto-creating as free tier:', session.user.email)
         user = await withRetry(async () => {
           return await prisma.user.create({
             data: {
@@ -110,13 +112,13 @@ export async function POST(request: NextRequest) {
               rewardPreference: 'cashback',
               pointValue: 0.01,
               enableSubCategories: false,
-              subscriptionTier: 'premium', // Set as premium since you're a paying customer
-              subscriptionStatus: 'active'
+              subscriptionTier: 'free', // Start as free, subscription API will upgrade
+              subscriptionStatus: 'inactive'
             },
             select: { subscriptionTier: true }
           })
         })
-        console.log('✅ Auto-created premium user for preferences:', session.user.email)
+        console.log('✅ Auto-created free tier user for preferences:', session.user.email)
       }
 
       if (user.subscriptionTier !== 'premium') {
@@ -136,7 +138,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (!existingUser) {
-      console.log('❌ User not found for update, auto-creating:', session.user.email)
+      console.log('❌ User not found for update, auto-creating as free tier:', session.user.email)
       existingUser = await withRetry(async () => {
         return await prisma.user.create({
           data: {
@@ -146,13 +148,13 @@ export async function POST(request: NextRequest) {
             rewardPreference: 'cashback',
             pointValue: 0.01,
             enableSubCategories: false,
-            subscriptionTier: 'premium', // Set as premium since you're a paying customer
-            subscriptionStatus: 'active'
+            subscriptionTier: 'free', // Start as free, subscription API will upgrade
+            subscriptionStatus: 'inactive'
           },
           select: { id: true }
         })
       })
-      console.log('✅ Auto-created premium user for update:', session.user.email)
+      console.log('✅ Auto-created free tier user for update:', session.user.email)
     }
 
     const updatedUser = await withRetry(async () => {

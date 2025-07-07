@@ -19,16 +19,16 @@ export async function GET(request: NextRequest) {
 
     try {
       // Get user subscription from database
-      const user = await withRetry(async () => {
+      let user = await withRetry(async () => {
         return await prisma.user.findUnique({
           where: { email: session.user.email! },
           select: {
             subscriptionTier: true,
             subscriptionStatus: true,
+            customerId: true,
             subscriptionStartDate: true,
             subscriptionEndDate: true,
             trialEndDate: true,
-            customerId: true,
           }
         })
       })
@@ -49,6 +49,7 @@ export async function GET(request: NextRequest) {
             select: {
               subscriptionTier: true,
               subscriptionStatus: true,
+              customerId: true,
               subscriptionStartDate: true,
               subscriptionEndDate: true,
               trialEndDate: true,
@@ -56,86 +57,106 @@ export async function GET(request: NextRequest) {
           })
         })
 
-        console.log('✅ Created new user with free tier:', newUser)
-        return NextResponse.json(newUser)
+        console.log('✅ Created new user with free tier:', session.user.email)
+        user = newUser
       }
 
-      // Check if user has an active Stripe subscription
+      // Check for active Stripe subscription
       let hasActiveSubscription = false
       let subscriptionDetails = null
 
-      if (user.customerId && stripe) {
+      if (stripe) {
         try {
-          const subscriptions = await stripe.subscriptions.list({
-            customer: user.customerId,
-            status: 'active',
-            limit: 1,
+          console.log('🔍 Checking Stripe subscriptions for:', session.user.email)
+          const customers = await stripe.customers.list({
+            email: session.user.email,
+            limit: 1
           })
 
-          if (subscriptions.data.length > 0) {
-            const subscription = subscriptions.data[0]
-            hasActiveSubscription = true
-            subscriptionDetails = {
-              status: subscription.status,
-              currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
-              trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
+          if (customers.data.length > 0) {
+            const customer = customers.data[0]
+            console.log('✅ Found Stripe customer:', customer.id)
+            
+            const subscriptions = await stripe.subscriptions.list({
+              customer: customer.id,
+              status: 'active',
+              limit: 1
+            })
+
+            if (subscriptions.data.length > 0) {
+              const subscription = subscriptions.data[0]
+              hasActiveSubscription = true
+              subscriptionDetails = {
+                status: subscription.status,
+                currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
+                trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000) : null,
+              }
+              console.log('✅ Found active Stripe subscription:', subscription.id)
             }
-            console.log('✅ Found active Stripe subscription:', subscription.id)
           }
         } catch (stripeError) {
-          console.warn('⚠️ Error checking Stripe subscription:', stripeError)
-          // Continue with database-only check
+          console.error('⚠️ Stripe API error (continuing with database check):', stripeError)
         }
       }
 
+      // SPECIAL CASE: For the main admin user (optimizecard@gmail.com), always set as premium
+      const isAdminUser = session.user.email === 'optimizecard@gmail.com'
+      
       // Determine final subscription tier
       let finalTier = 'free'
       let finalStatus = 'inactive'
       
-      if (hasActiveSubscription) {
+      if (isAdminUser) {
         finalTier = 'premium'
         finalStatus = 'active'
-      } else if (user.subscriptionTier === 'premium' && user.subscriptionStatus === 'active') {
-        // Keep existing premium status if no Stripe check possible
+        console.log('👑 Admin user detected, setting as premium:', session.user.email)
+      } else if (hasActiveSubscription) {
         finalTier = 'premium'
         finalStatus = 'active'
+        console.log('💳 Active subscription found, upgrading to premium:', session.user.email)
+      } else {
+        console.log('📋 No active subscription found, keeping as free tier:', session.user.email)
       }
 
-      // Update user if subscription status changed
-      if (user.subscriptionTier !== finalTier || user.subscriptionStatus !== finalStatus) {
-        const updatedUser = await withRetry(async () => {
+      // Update user if tier or status changed
+      if (user && (user.subscriptionTier !== finalTier || user.subscriptionStatus !== finalStatus)) {
+        console.log(`🔄 Updating subscription: ${user.subscriptionTier} -> ${finalTier}, ${user.subscriptionStatus} -> ${finalStatus}`)
+        
+        user = await withRetry(async () => {
           return await prisma.user.update({
             where: { email: session.user.email! },
             data: {
               subscriptionTier: finalTier,
               subscriptionStatus: finalStatus,
-              subscriptionStartDate: subscriptionDetails?.trialEnd || subscriptionDetails?.currentPeriodEnd || user.subscriptionStartDate,
-              subscriptionEndDate: subscriptionDetails?.currentPeriodEnd || user.subscriptionEndDate,
-              trialEndDate: subscriptionDetails?.trialEnd || user.trialEndDate,
+              ...(subscriptionDetails && {
+                subscriptionStartDate: subscriptionDetails.trialEnd || new Date(),
+                subscriptionEndDate: subscriptionDetails.currentPeriodEnd,
+                trialEndDate: subscriptionDetails.trialEnd,
+              })
             },
             select: {
               subscriptionTier: true,
               subscriptionStatus: true,
+              customerId: true,
               subscriptionStartDate: true,
               subscriptionEndDate: true,
               trialEndDate: true,
-            },
+            }
           })
         })
-        
-        console.log(`✅ Updated user subscription: ${user.subscriptionTier} -> ${finalTier}`)
-        return NextResponse.json(updatedUser)
+        console.log('✅ Subscription status updated successfully')
+      }
+
+      if (!user) {
+        throw new Error('Failed to create or retrieve user')
       }
 
       return NextResponse.json({
-        tier: user.subscriptionTier,
-        status: user.subscriptionStatus,
+        subscriptionTier: user.subscriptionTier,
+        subscriptionStatus: user.subscriptionStatus,
         subscriptionStartDate: user.subscriptionStartDate,
         subscriptionEndDate: user.subscriptionEndDate,
         trialEndDate: user.trialEndDate,
-        customerId: user.customerId,
-        fallback: false,
-        recentlyVerified: false
       })
 
     } catch (dbError) {
