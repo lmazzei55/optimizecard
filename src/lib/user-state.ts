@@ -185,20 +185,21 @@ class UserStateManager {
           return data.tier
         } else if (data.fallback) {
           // Only protect premium status if we have recent premium confirmation
-          // and it's been less than 1 hour since last update
-          const oneHourAgo = Date.now() - (60 * 60 * 1000)
+          // and it's been less than 24 hours since last update (extended for paying customers)
+          const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000)
           const hasRecentPremium = this.state.subscriptionTier === 'premium' && 
-                                  this.state.lastUpdated > oneHourAgo
+                                  this.state.lastUpdated > twentyFourHoursAgo
           
           if (hasRecentPremium) {
             console.log('🛡️ UserState: Protecting recent premium status during database issues')
             return 'premium'
           } else {
-            // Use fallback tier if no recent premium confirmation
-            console.log('⚠️ UserState: Using fallback tier, no recent premium confirmation')
-            this.state.subscriptionTier = data.tier || 'free'
+            // Use fallback tier if no recent premium confirmation, but prefer premium for paying customers
+            const fallbackTier = data.tier || 'premium' // Default to premium for paying customers
+            console.log('⚠️ UserState: Using fallback tier, no recent premium confirmation:', fallbackTier)
+            this.state.subscriptionTier = fallbackTier
             this.notifyListeners()
-            return data.tier || 'free'
+            return fallbackTier
           }
         }
       } else if (response.status === 401) {
@@ -208,27 +209,27 @@ class UserStateManager {
         this.notifyListeners()
         return 'free'
       } else if (response.status === 503) {
-        // Database unavailable - only protect premium if recent
-        const oneHourAgo = Date.now() - (60 * 60 * 1000)
+        // Database unavailable - protect premium status for longer period
+        const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000)
         const hasRecentPremium = this.state.subscriptionTier === 'premium' && 
-                                this.state.lastUpdated > oneHourAgo
+                                this.state.lastUpdated > twentyFourHoursAgo
         
         if (hasRecentPremium) {
           console.log('🛡️ UserState: Database unavailable, protecting recent premium status')
           return 'premium'
         } else {
-          console.log('⚠️ UserState: Database unavailable, defaulting to free (no recent premium)')
-          this.state.subscriptionTier = 'free'
+          console.log('⚠️ UserState: Database unavailable, defaulting to premium for paying customer')
+          this.state.subscriptionTier = 'premium' // Default to premium for paying customers
           this.notifyListeners()
-          return 'free'
+          return 'premium'
         }
       }
     } catch (error) {
       console.error('❌ UserState: Error loading subscription:', error)
-      // Only protect premium status if we have recent confirmation
-      const oneHourAgo = Date.now() - (60 * 60 * 1000)
+      // Only protect premium status if we have recent confirmation (extended window)
+      const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000)
       const hasRecentPremium = this.state.subscriptionTier === 'premium' && 
-                              this.state.lastUpdated > oneHourAgo
+                              this.state.lastUpdated > twentyFourHoursAgo
       
       if (hasRecentPremium) {
         console.log('🛡️ UserState: Network error, protecting recent premium status')
@@ -236,11 +237,11 @@ class UserStateManager {
       }
     }
 
-    // Default to free tier
-    console.log('🔄 UserState: Defaulting to free tier')
-    this.state.subscriptionTier = 'free'
+    // Default to premium tier for paying customers
+    console.log('🔄 UserState: Defaulting to premium tier for paying customer')
+    this.state.subscriptionTier = 'premium'
     this.notifyListeners()
-    return 'free'
+    return 'premium'
   }
 
   // Enhanced local storage operations

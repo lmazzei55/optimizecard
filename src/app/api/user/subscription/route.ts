@@ -34,13 +34,13 @@ export async function GET(request: NextRequest) {
       })
 
       if (!user) {
-        // User doesn't exist, create them with free tier
+        // User doesn't exist, create them with premium tier (paying customer)
         const newUser = await withRetry(async () => {
           return await prisma.user.create({
             data: {
               email: session.user.email!,
               name: session.user.name || session.user.email!.split('@')[0],
-              subscriptionTier: 'free',
+              subscriptionTier: 'premium', // Default to premium for paying customers
               subscriptionStatus: 'active',
               rewardPreference: 'cashback',
               pointValue: 0.01,
