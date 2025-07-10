@@ -1,0 +1,144 @@
+# Git Branching Strategy
+
+## **Branch Structure**
+- **`main`**: Production-ready code only
+  - All deploys come from this branch
+  - Protected with required status checks
+  - Only merge PR-reviewed, CI-green code
+
+- **Feature branches**: Short-lived, focused improvements
+  - Naming: `feat/feature-name` or `feat/feature-name-#taskId`
+  - Scope: 1-3 atomic tasks that can be reviewed in one PR
+  - Lifetime: < 1 week ideally
+  - Examples: `feat/tooltip-explanations-#23`, `feat/onboarding-tour`
+
+- **`staging`** (optional): Integration testing only
+  - Use only when multiple features need combined testing
+  - Most features merge directly to `main`
+
+## **Development Workflow**
+
+### **Starting New Features**
+```bash
+# 1. Ensure main is current
+git checkout main && git pull
+
+# 2. Create feature branch
+git checkout -b feat/feature-name-#taskId
+
+# 3. Link to Taskmaster task
+# Reference task ID in branch name and commits
+```
+
+### **During Development**
+- **Small, frequent commits** with clear messages
+- **Rebase frequently** to keep diffs small: `git rebase main`
+- **Reference task IDs** in commit messages: `feat(ui): add tooltips (#23)`
+- **Update task status** using Taskmaster as work progresses
+
+### **Merging Strategy**
+- **Open PR** when feature is complete
+- **CI must pass**: tests, linter, type-check, E2E tests
+- **Preview environment** auto-deploys for UX review
+- **Merge to main** once approved and green
+- **Auto-delete** merged branches
+
+## **Risk Mitigation**
+
+### **Feature Flags**
+- Wrap risky features behind environment variables
+- Example: `NEXT_PUBLIC_ENABLE_ONBOARDING=true`
+- Allows merging early, enabling later
+
+### **Database Safety**
+- Keep migrations backward-compatible
+- Test `prisma migrate deploy` in staging before merging
+- Never break existing data structures
+
+### **Rollback Strategy**
+- Each feature should be independently toggleable
+- Use feature flags for gradual rollouts
+- Keep deployment atomic and reversible
+
+## **Integration with Taskmaster**
+
+### **Task Management**
+- Create Taskmaster tasks for each feature branch
+- Break down complex features into subtasks
+- Reference task IDs in branch names and commits
+- Update task status as work progresses
+
+### **Documentation**
+- Create to-do lists in `docs/todo/` for each feature [[memory:2835512]]
+- Link task files to implementation progress
+- Move completed tasks to `docs/todo/completed/`
+
+## **Quality Gates**
+
+### **Required Checks**
+- ✅ Unit tests pass
+- ✅ ESLint/TypeScript checks pass
+- ✅ E2E happy path tests pass
+- ✅ Preview deployment successful
+- ✅ PR review completed
+
+### **Best Practices**
+- **One feature per branch** - keep scope focused
+- **Test locally first** - don't rely on CI to catch basic issues
+- **Update dependencies** regularly to avoid conflicts
+- **Clean commit history** - squash/rebase before merging
+
+## **Emergency Procedures**
+
+### **Hotfixes**
+- Create `hotfix/issue-description` branches from `main`
+- Fast-track through review process
+- Deploy immediately after merge
+
+### **Rollback**
+- Use `git revert` for safe rollbacks
+- Toggle feature flags to disable problematic features
+- Communicate changes to team immediately
+
+## **Branch Naming Conventions**
+
+- `feat/feature-name` - New features
+- `fix/bug-description` - Bug fixes  
+- `refactor/component-name` - Code improvements
+- `docs/update-description` - Documentation updates
+- `hotfix/critical-issue` - Emergency fixes
+
+## **Examples**
+
+### **UI/UX Improvement Workflow**
+```bash
+# Working on tooltip explanations (Task #23)
+git checkout -b feat/tooltip-explanations-#23
+
+# Make changes, commit frequently
+git add -A
+git commit -m "feat(ui): add category tooltips for spending form (#23)"
+
+# Push and create PR
+git push -u origin feat/tooltip-explanations-#23
+
+# After PR approval and CI green
+git checkout main
+git pull  # includes the merged changes
+git branch -d feat/tooltip-explanations-#23  # cleanup
+```
+
+### **Multiple Related Features**
+```bash
+# If features need integration testing
+git checkout -b feat/onboarding-improvements
+# Merge multiple feature branches here first
+# Test integration, then merge to main
+```
+
+This strategy ensures:
+- ✅ **Stable main branch** for reliable deployments
+- ✅ **Fast iteration** on UI/UX improvements  
+- ✅ **Clear audit trail** linking code to tasks
+- ✅ **Risk mitigation** through feature flags and testing
+- ✅ **Team collaboration** through PR reviews and preview environments

@@ -1,0 +1,30 @@
+---
+description: Project overview must be reviewed & updated whenever a feature, bug-fix, or ADR is merged
+globs: docs/PROJECT_OVERVIEW.md
+alwaysApply: true
+---
+
+- **Before starting work**
+  - Skim §1-4 of docs/PROJECT_OVERVIEW.md to understand current state
+  - Note any areas the change could impact (dependencies, trade-offs, user experience)
+  - Consider how the change fits into the overall architecture and goals
+
+- **When opening a PR / committing directly to main**
+  - If the change adds or removes functionality, record it under §2 (Core Functionality)
+  - If it fixes a bug or addresses an issue, add an entry to §3 (Recent Changes)
+  - If it spawns new ideas or reveals improvement opportunities, add bullet(s) to §4 (Future Improvements)
+  - If architectural decisions are made, update §5 (Architectural Notes)
+  - If nothing changes, explicitly state "No Project Overview update required" in the commit/PR body
+
+- **Update Guidelines**
+  - Use present tense for current functionality
+  - Use past tense with dates for completed changes
+  - Be specific about what changed and why
+  - Include relevant file paths and component names
+  - Link to related documentation or issues when applicable
+
+- **Quality Checks**
+  - Ensure the overview accurately reflects the current state
+  - Remove outdated information from Recent Changes when it becomes old
+  - Keep Future Improvements section realistic and actionable
+  - Maintain consistency with other documentation files

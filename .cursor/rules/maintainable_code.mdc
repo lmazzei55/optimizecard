@@ -1,0 +1,42 @@
+---
+description: Keep the codebase easy to maintain by favouring small, clear units and opportunistic refactors
+globs: src/**/*, scripts/**/*, prisma/**/*, middleware.ts
+alwaysApply: true
+---
+
+- **Function & Module Size**
+  - Aim for ≤ 40 lines per function; if it grows, extract helpers
+  - Split files > 300 lines into logical modules (e.g. `X.service.ts`, `X.controller.ts`)
+  - Use descriptive file names that clearly indicate their purpose
+
+- **Opportunistic Refactor**
+  - When touching a file, clean obvious smells (dead code, duplicate logic, unclear names)
+  - Prefer improving existing code over bolting on work-arounds
+  - Extract common patterns into reusable utilities
+  - Update imports and dependencies when refactoring
+
+- **Readability First**
+  - Self-explanatory names > comments; add comments only for non-obvious intent
+  - Keep indentation, imports and typing consistent with ESLint / Prettier rules
+  - Use TypeScript interfaces for complex data structures
+  - Avoid deeply nested conditional logic
+
+- **Isolation & Testability**
+  - Pure functions when feasible; side-effects live in thin wrappers
+  - New business logic sits behind an interface that can be unit-tested
+  - Separate API logic from business logic
+  - Keep database queries isolated in service layers
+
+- **Pull-Request Checklist**
+  - ✅ Functions are small and purposeful
+  - ✅ No obvious duplication added; existing duplication reduced where easy
+  - ✅ Any refactor in this diff passes existing tests
+  - ✅ TypeScript types are properly defined
+  - ✅ Error handling is consistent with existing patterns
+  - If refactor deferred, open a follow-up task and link it in the PR
+
+- **Code Organization**
+  - Group related functionality together
+  - Use consistent naming conventions across the codebase
+  - Keep component files focused on single responsibilities
+  - Separate concerns: UI components, business logic, data access
