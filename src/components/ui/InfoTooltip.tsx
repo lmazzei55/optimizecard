@@ -58,9 +58,9 @@ export function InfoTooltip({
         </svg>
       </button>
 
-      {/* Tooltip */}
+      {/* Tooltip - Standardized width */}
       <div 
-        className={`absolute ${positionClasses[position]} bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-200 pointer-events-none z-10 max-w-64 whitespace-normal md:max-w-72`}
+        className={`absolute ${positionClasses[position]} bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs px-3 py-2.5 rounded-lg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-200 pointer-events-none z-10 w-48 whitespace-normal`}
         role="tooltip"
         id={tooltipId}
         aria-hidden="true"
@@ -68,9 +68,9 @@ export function InfoTooltip({
         {Array.isArray(content) ? (
           <div className="text-left space-y-1">
             {content.map((item, index) => (
-              <div key={index} className="flex items-center">
-                <span className="text-blue-300 dark:text-blue-600 mr-1.5">•</span>
-                <span>{item}</span>
+              <div key={index} className="flex items-start">
+                <span className="text-blue-300 dark:text-blue-600 mr-1.5 mt-0.5 flex-shrink-0">•</span>
+                <span className="leading-tight">{item}</span>
               </div>
             ))}
           </div>

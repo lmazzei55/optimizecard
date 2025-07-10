@@ -125,6 +125,9 @@ export function SpendingForm() {
   // Category modal state
   const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null)
   
+  // Zero input feedback state
+  const [showZeroInputFeedback, setShowZeroInputFeedback] = useState(false)
+  
   // Prevent background scrolling when modal is open
   useEffect(() => {
     if (expandedCategoryId) {
@@ -649,6 +652,21 @@ export function SpendingForm() {
     }
   }
 
+  // Handle input changes with zero value feedback
+  const handleInputChange = useCallback((value: string, id: string, isSubcategory: boolean = false) => {
+    const numValue = parseFloat(value) || 0
+    
+    // Show feedback if user tries to input 0
+    if (value === '0' || value === '0.00') {
+      setShowZeroInputFeedback(true)
+      // Hide feedback after 3 seconds
+      setTimeout(() => setShowZeroInputFeedback(false), 3000)
+      return // Don't update spending for 0
+    }
+    
+    updateSpending(id, numValue, isSubcategory)
+  }, [])
+
   const updateSpending = (id: string, amount: number, isSubcategory: boolean = false) => {
     console.log('🖊️ User input:', { id, amount, isSubcategory })
     console.log('🖊️ Current spending state before update:', spending.filter(s => s.monthlySpend > 0))
@@ -1067,7 +1085,7 @@ export function SpendingForm() {
                           min="0"
                           step="25"
                           value={amount || ''}
-                          onChange={(e) => updateSpending(category.id, parseFloat(e.target.value) || 0, false)}
+                          onChange={(e) => handleInputChange(e.target.value, category.id, false)}
                                     onClick={(e) => e.stopPropagation()}
                           className="w-full px-2 py-1 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                                     placeholder="Monthly amount ($)"
@@ -1118,7 +1136,7 @@ export function SpendingForm() {
                                 min="0"
                                 step="25"
                                 value={amount || ''}
-                                onChange={(e) => updateSpending(subCategory.id, parseFloat(e.target.value) || 0, true)}
+                                onChange={(e) => handleInputChange(e.target.value, subCategory.id, true)}
                                           onClick={(e) => e.stopPropagation()}
                                           className="w-full px-2 py-1 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
                                           placeholder="Monthly amount ($)"
@@ -1183,7 +1201,7 @@ export function SpendingForm() {
                       min="0"
                       step="25"
                       value={amount || ''}
-                      onChange={(e) => updateSpending(category.id, parseFloat(e.target.value) || 0, false)}
+                      onChange={(e) => handleInputChange(e.target.value, category.id, false)}
                             onClick={(e) => e.stopPropagation()}
                             className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                             placeholder="Monthly amount ($)"
@@ -1456,6 +1474,23 @@ export function SpendingForm() {
               💡 Enter at least one monthly amount to get recommendations
             </p>
           )}
+
+          {/* Zero input feedback */}
+          {showZeroInputFeedback && (
+            <div className="max-w-md mx-auto mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl animate-fade-in">
+              <div className="flex items-start space-x-3">
+                <span className="text-blue-500 text-xl flex-shrink-0">💡</span>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-blue-800 dark:text-blue-300 mb-1">
+                    No need to enter $0
+                  </h3>
+                  <p className="text-blue-600 dark:text-blue-400 text-sm">
+                    You only need to fill in categories where you actually spend money. Leave empty categories blank - they won't affect your recommendations.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Error Display */}
@@ -1555,7 +1590,7 @@ export function SpendingForm() {
                       min="0"
                       step="25"
                             value={amount || ''}
-                      onChange={(e) => updateSpending(expandedCategory.id, parseFloat(e.target.value) || 0, false)}
+                      onChange={(e) => handleInputChange(e.target.value, expandedCategory.id, false)}
                             onClick={(e) => e.stopPropagation()}
                             className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                             placeholder="Monthly amount ($)"
@@ -1591,7 +1626,7 @@ export function SpendingForm() {
                               min="0"
                               step="25"
                               value={amount || ''}
-                              onChange={(e) => updateSpending(subCategory.id, parseFloat(e.target.value) || 0, true)}
+                              onChange={(e) => handleInputChange(e.target.value, subCategory.id, true)}
                               onClick={(e) => e.stopPropagation()}
                               className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                               placeholder="Monthly amount ($)"
