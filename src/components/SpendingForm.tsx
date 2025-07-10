@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
+import { InfoTooltip } from "@/components/ui/InfoTooltip"
 import { formatCurrency } from "@/lib/utils"
 import { CardCustomizationModal } from "@/components/CardCustomizationModal"
 import { MultiCardStrategies } from './MultiCardStrategies'
@@ -79,6 +80,18 @@ interface CardCustomization {
   pointValue?: number
   benefitValues: Record<string, number>
   enabledBenefits: Record<string, boolean>
+}
+
+// Category tooltip content mapping
+const categoryTooltips: Record<string, string> = {
+  'Transportation': 'Ride-share, taxis, buses, public transit',
+  'Travel': 'Flights, hotels, car rentals, vacation expenses',
+  'Dining': 'Restaurants, food delivery, coffee shops',
+  'Groceries': 'Supermarkets, food shopping, grocery stores',
+  'Gas': 'Fuel stations, gas purchases',
+  'Shopping': 'Retail, online shopping, clothing, general merchandise',
+  'Entertainment': 'Movies, concerts, streaming subscriptions, games',
+  'Other': 'Miscellaneous expenses not covered above'
 }
 
 export function SpendingForm() {
@@ -1029,9 +1042,17 @@ export function SpendingForm() {
                   return (
                               <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-600">
                       <div className="flex justify-between items-center mb-2">
-                        <label className="text-sm font-medium text-gray-900 dark:text-white">
-                          General {category.name}
-                        </label>
+                        <div className="flex items-center gap-2">
+                          <label className="text-sm font-medium text-gray-900 dark:text-white">
+                            General {category.name}
+                          </label>
+                          <InfoTooltip 
+                            content={categoryTooltips[category.name] || 'Spending in this category'}
+                            position="top"
+                            iconClassName="w-3 h-3"
+                            ariaLabel={`Information about ${category.name} spending category`}
+                          />
+                        </div>
                         <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
                           {formatCurrency(amount)}
                         </span>
@@ -1134,9 +1155,16 @@ export function SpendingForm() {
                       <div key={category.id} className="space-y-3 p-5 bg-gray-50/50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
                   <div className="flex justify-between items-start">
                     <div>
-                      <label className="block text-lg font-semibold text-gray-900 dark:text-white">
-                        {category.name}
-                      </label>
+                      <div className="flex items-center gap-2">
+                        <label className="block text-lg font-semibold text-gray-900 dark:text-white">
+                          {category.name}
+                        </label>
+                        <InfoTooltip 
+                          content={categoryTooltips[category.name] || 'Spending in this category'}
+                          position="top"
+                          ariaLabel={`Information about ${category.name} spending category`}
+                        />
+                      </div>
                       <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{category.description}</p>
                     </div>
                     <div className="text-right">
@@ -1396,20 +1424,39 @@ export function SpendingForm() {
 
       {/* System Status & Calculate Button */}
       <div className="text-center space-y-4">
-        <Button
-          onClick={calculateRecommendations}
-          disabled={totalMonthlySpend === 0 || calculating}
-          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-12 py-4 text-xl font-semibold rounded-full shadow-lg transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-        >
-          {calculating ? (
-            <div className="flex items-center space-x-2">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-              <span>Calculating... (may take a moment)</span>
-            </div>
-          ) : (
-            '🎯 Get My Recommendations'
+        <div className="space-y-2">
+          <Button
+            onClick={totalMonthlySpend === 0 ? undefined : calculateRecommendations}
+            aria-disabled={totalMonthlySpend === 0 || calculating}
+            aria-describedby={totalMonthlySpend === 0 ? 'cta-helper-text' : undefined}
+            className={`px-12 py-4 text-xl font-semibold rounded-full shadow-lg transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800 ${
+              totalMonthlySpend === 0 || calculating
+                ? 'bg-gray-400 dark:bg-gray-600 text-gray-200 dark:text-gray-400 cursor-not-allowed opacity-75 grayscale'
+                : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white transform hover:scale-105'
+            }`}
+          >
+            {calculating ? (
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <span>Calculating... (may take a moment)</span>
+              </div>
+            ) : (
+              '🎯 Get My Recommendations'
+            )}
+          </Button>
+          
+          {/* Helper text for disabled state */}
+          {totalMonthlySpend === 0 && !calculating && (
+            <p 
+              id="cta-helper-text"
+              className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 max-w-md mx-auto"
+              role="status"
+              aria-live="polite"
+            >
+              💡 Enter at least one monthly amount to get recommendations
+            </p>
           )}
-        </Button>
+        </div>
 
         {/* Error Display */}
         {error && (
@@ -1442,13 +1489,7 @@ export function SpendingForm() {
             </div>
           </div>
         )}
-        
-        {/* Helpful tip for first-time users */}
-        {totalMonthlySpend === 0 && (
-          <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
-            💡 Enter your monthly spending amounts above to get personalized credit card recommendations
-          </p>
-        )}
+
       </div>
 
       {/* Category Expansion Modal */}
@@ -1491,9 +1532,16 @@ export function SpendingForm() {
                       return (
                         <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-600">
                   <div className="flex justify-between items-center mb-3">
-                    <label className="text-lg font-semibold text-gray-900 dark:text-white">
-                      General {expandedCategory.name}
-                    </label>
+                    <div className="flex items-center gap-2">
+                      <label className="text-lg font-semibold text-gray-900 dark:text-white">
+                        General {expandedCategory.name}
+                      </label>
+                      <InfoTooltip 
+                        content={categoryTooltips[expandedCategory.name] || 'Spending in this category'}
+                        position="top"
+                        ariaLabel={`Information about ${expandedCategory.name} spending category`}
+                      />
+                    </div>
                     <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
                               {formatCurrency(amount)}
                     </span>

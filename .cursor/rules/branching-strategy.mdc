@@ -1,3 +1,9 @@
+---
+description: Git branching strategy for feature development and UI/UX improvements
+globs: **/*
+alwaysApply: true
+---
+
 # Git Branching Strategy
 
 ## **Branch Structure**
