@@ -29,7 +29,7 @@
 - [x] Ensure modal tooltips work properly
 - [x] Test helper text functionality
 - [x] Update PROJECT_OVERVIEW.md with completed feature
-- [ ] Consider merging tooltip branch with main branch
+- [x] Consider merging tooltip branch with main branch
 
 ## Linked Tasks
 - Taskmaster Task #11: Tooltip explanations and disabled CTA helper text
