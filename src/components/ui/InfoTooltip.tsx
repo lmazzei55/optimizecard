@@ -3,7 +3,7 @@
 import React from 'react'
 
 interface InfoTooltipProps {
-  content: string
+  content: string | string[]
   position?: 'top' | 'bottom' | 'left' | 'right'
   className?: string
   iconClassName?: string
@@ -31,6 +31,9 @@ export function InfoTooltip({
     right: 'top-0 left-1/2 -translate-x-1/2 -translate-y-1 md:left-0 md:top-1/2 md:-translate-y-1/2 md:-translate-x-1'
   }
 
+  // Generate a unique ID for accessibility
+  const tooltipId = `tooltip-${(Array.isArray(content) ? content.join('-') : content).slice(0, 20).replace(/\s+/g, '-')}`
+
   return (
     <div className={`relative inline-flex items-center group ${className}`}>
       {/* Info Icon */}
@@ -38,7 +41,7 @@ export function InfoTooltip({
         type="button"
         className={`text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded-full touch-manipulation ${iconClassName}`}
         aria-label={ariaLabel}
-        aria-describedby={`tooltip-${content.slice(0, 20).replace(/\s+/g, '-')}`}
+        aria-describedby={tooltipId}
         tabIndex={0}
       >
         <svg 
@@ -57,12 +60,23 @@ export function InfoTooltip({
 
       {/* Tooltip */}
       <div 
-        className={`absolute ${positionClasses[position]} bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-200 pointer-events-none z-10 max-w-64 text-center whitespace-normal md:max-w-72`}
+        className={`absolute ${positionClasses[position]} bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-200 pointer-events-none z-10 max-w-64 whitespace-normal md:max-w-72`}
         role="tooltip"
-        id={`tooltip-${content.slice(0, 20).replace(/\s+/g, '-')}`}
+        id={tooltipId}
         aria-hidden="true"
       >
-        {content}
+        {Array.isArray(content) ? (
+          <div className="text-left space-y-1">
+            {content.map((item, index) => (
+              <div key={index} className="flex items-center">
+                <span className="text-blue-300 dark:text-blue-600 mr-1.5">•</span>
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center">{content}</div>
+        )}
         {/* Arrow */}
         <div 
           className={`absolute w-2 h-2 bg-gray-900 dark:bg-gray-100 transform rotate-45 ${arrowClasses[position]}`}

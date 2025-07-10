@@ -83,15 +83,15 @@ interface CardCustomization {
 }
 
 // Category tooltip content mapping
-const categoryTooltips: Record<string, string> = {
-  'Transportation': 'Ride-share, taxis, buses, public transit',
-  'Travel': 'Flights, hotels, car rentals, vacation expenses',
-  'Dining': 'Restaurants, food delivery, coffee shops',
-  'Groceries': 'Supermarkets, food shopping, grocery stores',
-  'Gas': 'Fuel stations, gas purchases',
-  'Shopping': 'Retail, online shopping, clothing, general merchandise',
-  'Entertainment': 'Movies, concerts, streaming subscriptions, games',
-  'Other': 'Miscellaneous expenses not covered above'
+const categoryTooltips: Record<string, string[]> = {
+  'Transportation': ['Ride-share & taxis', 'Public transit', 'Parking fees', 'Tolls'],
+  'Travel': ['Flights & airlines', 'Hotels & lodging', 'Car rentals', 'Vacation expenses'],
+  'Dining': ['Restaurants', 'Food delivery', 'Coffee shops', 'Bars & nightlife'],
+  'Groceries': ['Supermarkets', 'Food shopping', 'Grocery stores', 'Meal planning'],
+  'Gas': ['Fuel stations', 'Gas purchases', 'Vehicle fuel'],
+  'Shopping': ['Retail stores', 'Online shopping', 'Clothing', 'General merchandise'],
+  'Entertainment': ['Movies & theaters', 'Concerts & events', 'Streaming services', 'Games & hobbies'],
+  'Other': ['Miscellaneous expenses', 'Items not listed above']
 }
 
 export function SpendingForm() {
@@ -1047,7 +1047,7 @@ export function SpendingForm() {
                             General {category.name}
                           </label>
                           <InfoTooltip 
-                            content={categoryTooltips[category.name] || 'Spending in this category'}
+                            content={categoryTooltips[category.name] || ['Spending in this category']}
                             position="top"
                             iconClassName="w-3 h-3"
                             ariaLabel={`Information about ${category.name} spending category`}
@@ -1160,7 +1160,7 @@ export function SpendingForm() {
                           {category.name}
                         </label>
                         <InfoTooltip 
-                          content={categoryTooltips[category.name] || 'Spending in this category'}
+                          content={categoryTooltips[category.name] || ['Spending in this category']}
                           position="top"
                           ariaLabel={`Information about ${category.name} spending category`}
                         />
@@ -1537,7 +1537,7 @@ export function SpendingForm() {
                         General {expandedCategory.name}
                       </label>
                       <InfoTooltip 
-                        content={categoryTooltips[expandedCategory.name] || 'Spending in this category'}
+                        content={categoryTooltips[expandedCategory.name] || ['Spending in this category']}
                         position="top"
                         ariaLabel={`Information about ${expandedCategory.name} spending category`}
                       />
