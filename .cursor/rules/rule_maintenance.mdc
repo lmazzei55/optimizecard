@@ -1,0 +1,44 @@
+---
+description: Capture effective working methods as new or updated rules
+globs: .cursor/rules/**/*
+alwaysApply: true
+---
+
+- **When to Add / Update**
+  - You notice a technique or pattern that:
+    - Prevents bugs or saves noticeable time, **and**
+    - Has been used successfully at least twice (or once, if obviously universal)
+  - Common triggers: successful debugging approach, effective refactoring pattern, useful testing strategy
+
+- **How to Add**
+  1. Create / modify a rule file in `.cursor/rules/` following the standard header format
+  2. Include a short "Why it works" note and, if possible, a code diff or link to the PR that introduced it
+  3. Commit the rule in the same PR (or a quick follow-up) that demonstrated the method
+  4. Reference the rule in commit messages when applying the pattern
+
+- **Rule Quality Standards**
+  - **Header Format**: Always include proper YAML frontmatter with description, globs, and alwaysApply
+  - **Actionable Content**: Rules should provide specific, actionable guidance
+  - **Examples**: Include real code examples or references to actual implementations
+  - **Scope**: Use appropriate glob patterns to target relevant files
+
+- **Pull-Request Checklist**
+  - ✅ Rule file updated OR commit message states "No new rule required"
+  - ✅ Rule header's `description` is one concise sentence
+  - ✅ Examples reference real code where practical
+  - ✅ Glob patterns are specific and appropriate
+  - ✅ Rule doesn't duplicate existing guidance
+
+- **Continuous Improvement**
+  - Outdated rules should be pruned or rewritten when discovered
+  - Large refactors should review rules for relevance
+  - Cross-reference related rules to avoid conflicts
+  - Update rules when better patterns emerge
+
+- **Common Rule Categories**
+  - **Code Quality**: Patterns for maintainable, readable code
+  - **Architecture**: Structural decisions and trade-offs
+  - **Testing**: Effective testing strategies and patterns
+  - **Performance**: Optimization techniques that work
+  - **Security**: Security patterns and best practices
+  - **Documentation**: Effective documentation approaches

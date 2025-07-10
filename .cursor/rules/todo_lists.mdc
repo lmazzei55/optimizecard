@@ -1,0 +1,50 @@
+---
+description: Each piece of work must have a living checklist in docs/todo/ and be kept in sync
+globs: docs/todo/**/*.md
+alwaysApply: true
+---
+
+- **Creation**
+  - At branch kickoff, create `docs/todo/<feature-name>.md` with Markdown checkboxes
+  - Use descriptive feature names that match branch names when possible
+  - Include high-level tasks, not individual code changes
+
+- **Maintenance**
+  - Check boxes as tasks complete; add new items if scope grows
+  - Reflect finished work in PROJECT_OVERVIEW.md or relevant rule files before ticking
+  - Update checklist items if requirements change during development
+
+- **References**
+  - Link the checklist in the corresponding Taskmaster task/subtask and in the PR
+  - Reference the checklist in commit messages when completing items
+  - Use the checklist to track progress and communicate status
+
+- **Completion**
+  - When all boxes are ticked *and* docs/rules are updated, mark the Taskmaster subtask "done"
+  - Archive completed checklists by moving them to `docs/todo/completed/` directory
+  - Update PROJECT_OVERVIEW.md with final summary of what was accomplished
+
+- **Checklist Format**
+  - Use clear, actionable task descriptions
+  - Group related tasks under headings when appropriate
+  - Include links to relevant files or documentation
+  - Add estimated effort or complexity when helpful
+
+- **Examples**
+  ```markdown
+  # Feature Name – To-Do List
+  
+  ## Planning
+  - [ ] Review existing code and identify integration points
+  - [ ] Update PROJECT_OVERVIEW.md with planned changes
+  
+  ## Implementation
+  - [ ] Create new component/service/utility
+  - [ ] Update existing components for integration
+  - [ ] Add proper TypeScript interfaces
+  
+  ## Testing & Documentation
+  - [ ] Test functionality manually
+  - [ ] Update relevant documentation
+  - [ ] Create or update rule files if new patterns emerge
+  ```
