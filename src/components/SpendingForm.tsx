@@ -1506,21 +1506,24 @@ export function SpendingForm() {
           )}
 
           {/* Zero input feedback */}
-          {showZeroInputFeedback && (
-            <div className="max-w-md mx-auto mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl animate-fade-in">
-              <div className="flex items-start space-x-3">
-                <span className="text-blue-500 text-xl flex-shrink-0">💡</span>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-blue-800 dark:text-blue-300 mb-1">
-                    💡 Tip about $0 entries
-                  </h3>
-                  <p className="text-blue-600 dark:text-blue-400 text-sm">
-                    You only need to fill in categories where you actually spend money. Empty fields and $0 entries work the same way - they won't affect your recommendations.
-                  </p>
+          {(() => {
+            console.log('🔍 Zero feedback render check:', { showZeroInputFeedback })
+            return showZeroInputFeedback && (
+              <div className="max-w-md mx-auto mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl animate-fade-in">
+                <div className="flex items-start space-x-3">
+                  <span className="text-blue-500 text-xl flex-shrink-0">💡</span>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-blue-800 dark:text-blue-300 mb-1">
+                      💡 Tip about $0 entries
+                    </h3>
+                    <p className="text-blue-600 dark:text-blue-400 text-sm">
+                      You only need to fill in categories where you actually spend money. Empty fields and $0 entries work the same way - they won't affect your recommendations.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
         </div>
 
         {/* Error Display */}
