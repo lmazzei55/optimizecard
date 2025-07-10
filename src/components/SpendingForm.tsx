@@ -1531,7 +1531,14 @@ export function SpendingForm() {
           {(() => {
             console.log('🔍 Zero feedback render check:', { showZeroInputFeedback })
             return showZeroInputFeedback && (
-              <div className="max-w-md mx-auto mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl animate-fade-in">
+              <div 
+                className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 max-w-md p-4 bg-blue-50 dark:bg-blue-900 border-2 border-blue-500 rounded-xl shadow-2xl animate-fade-in"
+                style={{ 
+                  backgroundColor: '#dbeafe', 
+                  borderColor: '#3b82f6',
+                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+                }}
+              >
                 <div className="flex items-start space-x-3">
                   <span className="text-blue-500 text-xl flex-shrink-0">💡</span>
                   <div className="flex-1">
