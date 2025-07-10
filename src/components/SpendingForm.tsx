@@ -128,6 +128,9 @@ export function SpendingForm() {
   // Zero input feedback state
   const [showZeroInputFeedback, setShowZeroInputFeedback] = useState(false)
   
+  // Temporary display state for zero inputs
+  const [tempZeroInputs, setTempZeroInputs] = useState<{[key: string]: boolean}>({})
+  
   // Prevent background scrolling when modal is open
   useEffect(() => {
     if (expandedCategoryId) {
@@ -659,6 +662,7 @@ export function SpendingForm() {
     // Allow empty string to clear the field
     if (value === '') {
       console.log('📝 Empty value, clearing field')
+      setTempZeroInputs(prev => ({ ...prev, [id]: false }))
       updateSpending(id, 0, isSubcategory)
       return
     }
@@ -676,18 +680,23 @@ export function SpendingForm() {
     const numValue = parseFloat(value) || 0
     console.log('🔢 Parsed number value:', numValue)
     
-    // Always update the spending first so user can see what they typed
-    console.log('📝 Updating spending with value:', numValue)
-    updateSpending(id, numValue, isSubcategory)
-    
     // Show feedback if user enters 0, then clear the field after a brief delay
     if (value === '0' || value === '0.00') {
       console.log('💡 Zero detected, showing feedback')
       setShowZeroInputFeedback(true)
+      setTempZeroInputs(prev => ({ ...prev, [id]: true }))
+      
       // Hide feedback after 4 seconds
       setTimeout(() => setShowZeroInputFeedback(false), 4000)
-      // Clear the field after 1.5 seconds so user sees the "0" and gets feedback
-      setTimeout(() => updateSpending(id, 0, isSubcategory), 1500)
+      // Clear the temp display and field after 1.5 seconds
+      setTimeout(() => {
+        setTempZeroInputs(prev => ({ ...prev, [id]: false }))
+        updateSpending(id, 0, isSubcategory)
+      }, 1500)
+    } else {
+      // For non-zero values, clear temp state and update normally
+      setTempZeroInputs(prev => ({ ...prev, [id]: false }))
+      updateSpending(id, numValue, isSubcategory)
     }
   }, [])
 
@@ -1107,7 +1116,7 @@ export function SpendingForm() {
                         <input
                           type="text"
                           inputMode="numeric"
-                          value={amount || ''}
+                          value={tempZeroInputs[category.id] ? '0' : (amount || '')}
                           onChange={(e) => handleInputChange(e.target.value, category.id, false)}
                                     onClick={(e) => e.stopPropagation()}
                           className="w-full px-2 py-1 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -1157,7 +1166,7 @@ export function SpendingForm() {
                               <input
                                 type="text"
                                 inputMode="numeric"
-                                value={amount || ''}
+                                value={tempZeroInputs[subCategory.id] ? '0' : (amount || '')}
                                 onChange={(e) => handleInputChange(e.target.value, subCategory.id, true)}
                                           onClick={(e) => e.stopPropagation()}
                                           className="w-full px-2 py-1 text-xs bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
@@ -1221,7 +1230,7 @@ export function SpendingForm() {
                     <input
                       type="text"
                       inputMode="numeric"
-                      value={amount || ''}
+                      value={tempZeroInputs[category.id] ? '0' : (amount || '')}
                       onChange={(e) => handleInputChange(e.target.value, category.id, false)}
                             onClick={(e) => e.stopPropagation()}
                             className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
@@ -1609,7 +1618,7 @@ export function SpendingForm() {
                     <input
                       type="text"
                       inputMode="numeric"
-                            value={amount || ''}
+                            value={tempZeroInputs[expandedCategory.id] ? '0' : (amount || '')}
                       onChange={(e) => handleInputChange(e.target.value, expandedCategory.id, false)}
                             onClick={(e) => e.stopPropagation()}
                             className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1644,7 +1653,7 @@ export function SpendingForm() {
                             <input
                               type="text"
                               inputMode="numeric"
-                              value={amount || ''}
+                              value={tempZeroInputs[subCategory.id] ? '0' : (amount || '')}
                               onChange={(e) => handleInputChange(e.target.value, subCategory.id, true)}
                               onClick={(e) => e.stopPropagation()}
                               className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
