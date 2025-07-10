@@ -1527,22 +1527,7 @@ export function SpendingForm() {
             </p>
           )}
 
-          {/* Zero input feedback */}
-          {showZeroInputFeedback && (
-            <div className="max-w-lg mx-auto mt-6 p-4 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/30 border border-amber-200 dark:border-amber-700 rounded-xl shadow-lg animate-fade-in">
-              <div className="flex items-start space-x-3">
-                <span className="text-amber-600 dark:text-amber-400 text-xl flex-shrink-0">💡</span>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-amber-800 dark:text-amber-200 mb-2">
-                    No need to enter $0
-                  </h3>
-                  <p className="text-amber-700 dark:text-amber-300 text-sm leading-relaxed">
-                    Simply leave categories blank if you don't spend money there. Empty fields and $0 amounts are treated the same way.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
+
         </div>
 
         {/* Error Display */}
@@ -1712,6 +1697,25 @@ export function SpendingForm() {
         feature={upgradePromptFeature}
         description={upgradePromptDescription}
       />
+
+      {/* Zero input feedback - Fixed center overlay */}
+      {showZeroInputFeedback && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+          <div className="max-w-md mx-4 p-4 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/90 dark:to-yellow-900/90 border border-amber-200 dark:border-amber-700 rounded-xl shadow-2xl animate-fade-in pointer-events-auto backdrop-blur-sm">
+            <div className="flex items-start space-x-3">
+              <span className="text-amber-600 dark:text-amber-400 text-xl flex-shrink-0">💡</span>
+              <div className="flex-1">
+                <h3 className="font-semibold text-amber-800 dark:text-amber-200 mb-2">
+                  No need to enter $0
+                </h3>
+                <p className="text-amber-700 dark:text-amber-300 text-sm leading-relaxed">
+                  Simply leave categories blank if you don't spend money there. Empty fields and $0 amounts are treated the same way.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 } 

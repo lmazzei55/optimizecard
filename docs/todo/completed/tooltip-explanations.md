@@ -4,7 +4,7 @@
 - [x] Review existing SpendingForm component and identify integration points
 - [x] Analyze current UI/UX patterns for tooltips and helper text
 - [x] Check if tooltip library is already available or needs to be added
-- [ ] Update PROJECT_OVERVIEW.md with planned changes
+- [x] Update PROJECT_OVERVIEW.md with planned changes
 
 ## Implementation
 - [x] Create reusable Tooltip component with proper TypeScript interfaces
@@ -20,8 +20,8 @@
 - [x] Test disabled CTA helper text appears correctly
 - [x] Verify accessibility with screen readers
 - [x] Test keyboard navigation for tooltips
-- [ ] Update relevant documentation
-- [ ] Create or update rule files if new patterns emerge
+- [x] Update relevant documentation
+- [x] Create or update rule files if new patterns emerge
 
 ## Completion & Integration
 - [x] Test the current implementation on the tooltip branch

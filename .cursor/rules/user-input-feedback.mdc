@@ -1,0 +1,70 @@
+- **User Input Feedback Patterns**
+  - Use fixed center overlays for important feedback that must be visible regardless of scroll position
+  - Implement temporary display states for user input that needs brief feedback before clearing
+  - Provide clear, actionable messaging that explains why certain inputs aren't needed
+
+- **Overlay Implementation**
+  ```typescript
+  // ✅ DO: Use fixed positioning with proper z-index and pointer events
+  {showFeedback && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+      <div className="max-w-md mx-4 p-4 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/90 dark:to-yellow-900/90 border border-amber-200 dark:border-amber-700 rounded-xl shadow-2xl animate-fade-in pointer-events-auto backdrop-blur-sm">
+        {/* Content */}
+      </div>
+    </div>
+  )}
+  
+  // ❌ DON'T: Use inline positioning that can be hidden by scroll
+  {showFeedback && (
+    <div className="mt-6 p-4 bg-amber-50">
+      {/* Content that may not be visible */}
+    </div>
+  )}
+  ```
+
+- **Temporary State Management**
+  - Use `useRef` for timeout tracking to prevent memory leaks and conflicts
+  - Implement proper cleanup in timeout handlers
+  - Show temporary values for user feedback before clearing invalid inputs
+  ```typescript
+  // ✅ DO: Proper timeout management with cleanup
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  
+  const handleInvalidInput = useCallback(() => {
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+    }
+    
+    // Show temporary feedback
+    setShowFeedback(true)
+    
+    // Clear after delay with cleanup
+    timeoutRef.current = setTimeout(() => {
+      setShowFeedback(false)
+      timeoutRef.current = null
+    }, 2000)
+  }, [])
+  ```
+
+- **Input Validation Patterns**
+  - Use `type="text"` with `inputMode="numeric"` for better mobile experience than `type="number"`
+  - Implement regex validation for numeric inputs: `/^\d*\.?\d*$/`
+  - Provide helpful feedback for edge cases (like $0 inputs) rather than silent rejection
+
+- **Accessibility Requirements**
+  - Include `pointer-events-none` on overlay backgrounds but `pointer-events-auto` on content
+  - Use semantic color schemes (amber/yellow for helpful tips, red for errors)
+  - Ensure sufficient contrast in both light and dark modes
+  - Add `backdrop-blur-sm` for visual separation without blocking interaction
+
+- **Why These Patterns Work**
+  - Fixed overlays ensure critical feedback is always visible during user interaction
+  - Temporary states provide immediate feedback while maintaining clean UX
+  - Proper timeout management prevents race conditions and memory leaks
+  - Text inputs with numeric mode provide better cross-platform compatibility than number inputs
+  - Clear visual hierarchy helps users understand the nature of the feedback (tip vs error)
+
+**References:**
+- Implemented in [SpendingForm.tsx](mdc:src/components/SpendingForm.tsx) for $0 input feedback
+- Used alongside [InfoTooltip.tsx](mdc:src/components/ui/InfoTooltip.tsx) for comprehensive user guidance

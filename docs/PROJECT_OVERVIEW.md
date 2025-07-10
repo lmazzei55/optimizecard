@@ -12,7 +12,7 @@ The target users are financially-aware consumers who want to optimize their cred
 |------|-------------|----------------------------|
 | **Authentication** | NextAuth.js v5 with OAuth providers (Google, GitHub, Facebook, Twitter) and magic links via Resend | `src/app/api/auth/[...nextauth]/route.ts`, `src/lib/auth.ts` |
 | **Recommendation Engine** | Mathematical algorithm that calculates net annual value considering spending patterns, reward rates, benefits, and fees | `src/lib/recommendation-engine.ts`, `src/app/api/recommendations/route.ts` |
-| **Spending Input System** | Interactive form with sliders and text inputs for 8+ spending categories with optional subcategory precision, enhanced with explanatory tooltips and disabled state helper text | `src/components/SpendingForm.tsx`, `src/components/ui/InfoTooltip.tsx`, `src/app/api/categories/route.ts` |
+| **Spending Input System** | Interactive form with sliders and text inputs for 8+ spending categories with optional subcategory precision, enhanced with explanatory tooltips for all categories and intelligent $0 input feedback | `src/components/SpendingForm.tsx`, `src/components/ui/InfoTooltip.tsx`, `src/app/api/categories/route.ts` |
 | **User Profiles & Preferences** | Save reward preferences, point valuations, subcategory settings, and owned cards management | `src/app/api/user/preferences/route.ts`, `src/app/profile/page.tsx` |
 | **Subscription System** | Stripe-integrated freemium model with free tier (no-fee cards) and premium tier (all cards) | `src/app/api/stripe/`, `src/lib/stripe.ts` |
 | **Multi-Card Strategies** | Premium feature that optimizes 2-3 card combinations for maximum rewards across categories | `src/components/MultiCardStrategies.tsx`, `src/lib/multi-card-engine.ts` |
@@ -21,7 +21,7 @@ The target users are financially-aware consumers who want to optimize their cred
 
 ## 3. Recent Changes / Known Issues
 
-**2025-01-02** – Implemented tooltip explanations and disabled CTA helper text to improve user experience and reduce confusion about spending categories and form interactions
+**2025-01-02** – Completed tooltip explanations feature with comprehensive category tooltips, intelligent $0 input feedback, and full accessibility support including keyboard navigation and ARIA labels
 
 **2024-12-XX** – Comprehensive authentication fixes implemented with enhanced error handling, logging, and graceful degradation for database issues
 
