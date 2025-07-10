@@ -161,7 +161,7 @@ class UserStateManager {
     return true // Return true since local save succeeded
   }
 
-  // CRITICAL: Enhanced subscription loading with authentication check
+  // Enhanced subscription loading with improved fallback mechanisms
   async loadSubscriptionTier(email?: string): Promise<'free' | 'premium'> {
     // Skip API call if user is not authenticated
     if (!email) {
@@ -180,26 +180,34 @@ class UserStateManager {
         // CRITICAL: If API returns a definitive tier (not fallback), use it
         if (!data.fallback && data.tier) {
           this.state.subscriptionTier = data.tier
+          this.state.lastUpdated = Date.now()
           this.notifyListeners()
           console.log('✅ UserState: Subscription tier loaded:', data.tier)
           return data.tier
         } else if (data.fallback) {
-          // Only protect premium status if we have recent premium confirmation
-          // and it's been less than 1 hour since last update
-          const oneHourAgo = Date.now() - (60 * 60 * 1000)
-          const hasRecentPremium = this.state.subscriptionTier === 'premium' && 
-                                  this.state.lastUpdated > oneHourAgo
-          
-          if (hasRecentPremium) {
-            console.log('🛡️ UserState: Protecting recent premium status during database issues')
-            return 'premium'
-          } else {
-            // Use fallback tier if no recent premium confirmation
-            console.log('⚠️ UserState: Using fallback tier, no recent premium confirmation')
-            this.state.subscriptionTier = data.tier || 'free'
+          // Enhanced fallback logic - check if Stripe verification succeeded
+          if (data.stripeVerified && data.tier === 'premium') {
+            console.log('🎯 UserState: Database unavailable but Stripe verified premium status')
+            this.state.subscriptionTier = 'premium'
+            this.state.lastUpdated = Date.now()
             this.notifyListeners()
-            return data.tier || 'free'
+            return 'premium'
           }
+          
+          // Check cached premium status for resilience
+          const premiumCache = this.getCachedPremiumStatus(email)
+          if (premiumCache) {
+            console.log('🛡️ UserState: Using cached premium status during database issues')
+            this.state.subscriptionTier = 'premium'
+            this.notifyListeners()
+            return 'premium'
+          }
+          
+          // Use fallback tier if no cached premium status
+          console.log('⚠️ UserState: Using fallback tier, no cached premium status')
+          this.state.subscriptionTier = data.tier || 'free'
+          this.notifyListeners()
+          return data.tier || 'free'
         }
       } else if (response.status === 401) {
         // Not authenticated - default to free tier
@@ -208,16 +216,15 @@ class UserStateManager {
         this.notifyListeners()
         return 'free'
       } else if (response.status === 503) {
-        // Database unavailable - only protect premium if recent
-        const oneHourAgo = Date.now() - (60 * 60 * 1000)
-        const hasRecentPremium = this.state.subscriptionTier === 'premium' && 
-                                this.state.lastUpdated > oneHourAgo
-        
-        if (hasRecentPremium) {
-          console.log('🛡️ UserState: Database unavailable, protecting recent premium status')
+        // Database unavailable - check cached premium status
+        const premiumCache = this.getCachedPremiumStatus(email)
+        if (premiumCache) {
+          console.log('🛡️ UserState: Database unavailable, using cached premium status')
+          this.state.subscriptionTier = 'premium'
+          this.notifyListeners()
           return 'premium'
         } else {
-          console.log('⚠️ UserState: Database unavailable, defaulting to free (no recent premium)')
+          console.log('⚠️ UserState: Database unavailable, no cached premium status, defaulting to free')
           this.state.subscriptionTier = 'free'
           this.notifyListeners()
           return 'free'
@@ -225,13 +232,13 @@ class UserStateManager {
       }
     } catch (error) {
       console.error('❌ UserState: Error loading subscription:', error)
-      // Only protect premium status if we have recent confirmation
-      const oneHourAgo = Date.now() - (60 * 60 * 1000)
-      const hasRecentPremium = this.state.subscriptionTier === 'premium' && 
-                              this.state.lastUpdated > oneHourAgo
       
-      if (hasRecentPremium) {
-        console.log('🛡️ UserState: Network error, protecting recent premium status')
+      // Check cached premium status during network errors
+      const premiumCache = this.getCachedPremiumStatus(email)
+      if (premiumCache) {
+        console.log('🛡️ UserState: Network error, using cached premium status')
+        this.state.subscriptionTier = 'premium'
+        this.notifyListeners()
         return 'premium'
       }
     }
@@ -243,7 +250,35 @@ class UserStateManager {
     return 'free'
   }
 
-  // Enhanced local storage operations
+  // Helper method to check cached premium status
+  private getCachedPremiumStatus(email: string): boolean {
+    if (typeof window === 'undefined') return false
+    
+    try {
+      const cached = localStorage.getItem('premiumStatusCache')
+      if (cached) {
+        const cacheData = JSON.parse(cached)
+        const fourHoursAgo = Date.now() - (4 * 60 * 60 * 1000) // 4 hour cache validity
+        
+        // Check if cache is valid and for the same user
+        if (cacheData.tier === 'premium' && 
+            cacheData.email === email && 
+            cacheData.cachedAt > fourHoursAgo) {
+          console.log('📋 UserState: Found valid cached premium status')
+          return true
+        } else if (cacheData.cachedAt <= fourHoursAgo) {
+          console.log('⏰ UserState: Cached premium status expired, clearing')
+          localStorage.removeItem('premiumStatusCache')
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ UserState: Error reading premium cache:', error)
+    }
+    
+    return false
+  }
+
+  // Enhanced local storage operations with premium status caching
   private saveToLocalStorage(): void {
     if (typeof window === 'undefined') return
     
@@ -256,6 +291,19 @@ class UserStateManager {
         lastUpdated: this.state.lastUpdated
       }
       localStorage.setItem('userState', JSON.stringify(dataToSave))
+      
+      // Enhanced premium status caching for resilience
+      if (this.state.subscriptionTier === 'premium') {
+        localStorage.setItem('premiumStatusCache', JSON.stringify({
+          tier: 'premium',
+          cachedAt: Date.now(),
+          email: this.currentEmail
+        }))
+        console.log('🛡️ UserState: Cached premium status for resilience')
+      } else if (this.state.subscriptionTier === 'free') {
+        // Only clear premium cache if we have a definitive 'free' status
+        localStorage.removeItem('premiumStatusCache')
+      }
       
       // Also save individual items for backward compatibility
       localStorage.setItem('rewardPreference', this.state.rewardPreference)

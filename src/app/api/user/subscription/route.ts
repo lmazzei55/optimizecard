@@ -159,7 +159,60 @@ export async function GET(request: NextRequest) {
     } catch (dbError) {
       console.error('Database error in subscription fetch:', dbError)
       
-      // Database fallback - return basic free tier
+      // Enhanced fallback - try Stripe verification even when database is down
+      if (isStripeConfigured && stripe) {
+        console.log('💡 Database unavailable, attempting Stripe-only verification for:', session.user.email)
+        
+        try {
+          // Find customer by email in Stripe
+          const customers = await stripe.customers.list({
+            email: session.user.email,
+            limit: 1
+          })
+          
+          if (customers.data.length > 0) {
+            const customer = customers.data[0]
+            console.log('✅ Found Stripe customer during database fallback:', customer.id)
+            
+            // Check for active subscriptions
+            const subscriptions = await stripe.subscriptions.list({
+              customer: customer.id,
+              status: 'active',
+              limit: 1
+            })
+            
+            if (subscriptions.data.length > 0) {
+              const activeSubscription = subscriptions.data[0]
+              console.log('🎯 Found active subscription during database fallback, returning premium status')
+              
+              return NextResponse.json({
+                tier: 'premium',
+                status: activeSubscription.status,
+                subscriptionStartDate: new Date(activeSubscription.start_date * 1000),
+                subscriptionEndDate: (activeSubscription as any).current_period_end 
+                  ? new Date((activeSubscription as any).current_period_end * 1000) 
+                  : null,
+                trialEndDate: activeSubscription.trial_end 
+                  ? new Date(activeSubscription.trial_end * 1000) 
+                  : null,
+                customerId: customer.id,
+                fallback: true,
+                stripeVerified: true,
+                dbUnavailable: true,
+                message: 'Database temporarily unavailable, verified with Stripe'
+              })
+            } else {
+              console.log('ℹ️ No active subscription found in Stripe during database fallback')
+            }
+          } else {
+            console.log('ℹ️ No Stripe customer found during database fallback')
+          }
+        } catch (stripeError) {
+          console.error('❌ Stripe verification also failed during database fallback:', stripeError)
+        }
+      }
+      
+      // Final fallback - return basic free tier
       return NextResponse.json({
         tier: 'free',
         status: 'active',

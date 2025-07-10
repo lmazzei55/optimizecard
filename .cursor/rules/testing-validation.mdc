@@ -1,0 +1,107 @@
+---
+globs:
+alwaysApply: true
+---
+
+- **Testing Requirements Before Completion**
+  - Never claim work is "done" or "complete" without testing the actual functionality
+  - Document test scenarios and expected outcomes before implementing fixes
+  - Test both happy path and edge cases for any changes made
+  - Validate claims with concrete evidence (logs, screenshots, API responses)
+
+- **Testing Documentation Process**
+  ```markdown
+  ## Test Plan
+  1. **Issue Identification**: Document the specific problem with evidence
+  2. **Root Cause Analysis**: Trace through the code flow to find the source
+  3. **Solution Design**: Plan the fix with specific code changes
+  4. **Test Scenarios**: Define what success looks like
+  5. **Implementation**: Make the changes
+  6. **Validation**: Test each scenario and document results
+  7. **Edge Case Testing**: Test failure modes and boundary conditions
+  ```
+
+- **Evidence Requirements**
+  - Before: Document current broken behavior with logs/screenshots
+  - During: Show code changes and reasoning
+  - After: Demonstrate fixed behavior with new logs/screenshots
+  - Include both positive and negative test cases
+
+- **Testing Methodology**
+  - Test the specific user flow that was reported as broken
+  - Verify the fix doesn't break existing functionality
+  - Test with different user states (new user, existing user, etc.)
+  - Validate database state changes when applicable
+  - Check API responses and error handling
+
+- **Documentation Standards**
+  - Create test documentation in `docs/todo/` for complex fixes
+  - Log findings and solutions in implementation notes
+  - Update relevant documentation with new understanding
+  - Reference test evidence in commit messages
+
+- **Completion Criteria**
+  - ✅ Issue reproduced and documented
+  - ✅ Root cause identified with code references
+  - ✅ Solution implemented and tested
+  - ✅ Edge cases validated
+  - ✅ No regression in existing functionality
+  - ✅ Evidence documented for future reference
+
+**Why This Matters:**
+- Prevents claiming completion without actual validation
+- Builds confidence in solutions through evidence
+- Creates knowledge base for future debugging
+- Ensures robust fixes that handle edge cases
+- Maintains high code quality standards
+- **Testing Requirements Before Completion**
+  - Never claim work is "done" or "complete" without testing the actual functionality
+  - Document test scenarios and expected outcomes before implementing fixes
+  - Test both happy path and edge cases for any changes made
+  - Validate claims with concrete evidence (logs, screenshots, API responses)
+
+- **Testing Documentation Process**
+  ```markdown
+  ## Test Plan
+  1. **Issue Identification**: Document the specific problem with evidence
+  2. **Root Cause Analysis**: Trace through the code flow to find the source
+  3. **Solution Design**: Plan the fix with specific code changes
+  4. **Test Scenarios**: Define what success looks like
+  5. **Implementation**: Make the changes
+  6. **Validation**: Test each scenario and document results
+  7. **Edge Case Testing**: Test failure modes and boundary conditions
+  ```
+
+- **Evidence Requirements**
+  - Before: Document current broken behavior with logs/screenshots
+  - During: Show code changes and reasoning
+  - After: Demonstrate fixed behavior with new logs/screenshots
+  - Include both positive and negative test cases
+
+- **Testing Methodology**
+  - Test the specific user flow that was reported as broken
+  - Verify the fix doesn't break existing functionality
+  - Test with different user states (new user, existing user, etc.)
+  - Validate database state changes when applicable
+  - Check API responses and error handling
+
+- **Documentation Standards**
+  - Create test documentation in `docs/todo/` for complex fixes
+  - Log findings and solutions in implementation notes
+  - Update relevant documentation with new understanding
+  - Reference test evidence in commit messages
+
+- **Completion Criteria**
+  - ✅ Issue reproduced and documented
+  - ✅ Root cause identified with code references
+  - ✅ Solution implemented and tested
+  - ✅ Edge cases validated
+  - ✅ No regression in existing functionality
+  - ✅ Evidence documented for future reference
+
+**Why This Matters:**
+- Prevents claiming completion without actual validation
+- Builds confidence in solutions through evidence
+- Creates knowledge base for future debugging
+- Ensures robust fixes that handle edge cases
+- Maintains high code quality standards
