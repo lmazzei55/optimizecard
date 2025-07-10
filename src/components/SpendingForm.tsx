@@ -654,6 +654,18 @@ export function SpendingForm() {
 
   // Handle input changes with zero value feedback
   const handleInputChange = useCallback((value: string, id: string, isSubcategory: boolean = false) => {
+    // Allow empty string to clear the field
+    if (value === '') {
+      updateSpending(id, 0, isSubcategory)
+      return
+    }
+    
+    // Only allow numbers and one decimal point
+    const numericRegex = /^\d*\.?\d*$/
+    if (!numericRegex.test(value)) {
+      return // Don't update if invalid characters
+    }
+    
     const numValue = parseFloat(value) || 0
     
     // Always update the spending first so user can see what they typed
@@ -1081,9 +1093,8 @@ export function SpendingForm() {
                       
                       <div className="space-y-2">
                         <input
-                          type="number"
-                          min="0"
-                          step="25"
+                          type="text"
+                          inputMode="numeric"
                           value={amount || ''}
                           onChange={(e) => handleInputChange(e.target.value, category.id, false)}
                                     onClick={(e) => e.stopPropagation()}
@@ -1132,9 +1143,8 @@ export function SpendingForm() {
                             
                                       <div className="space-y-1">
                               <input
-                                type="number"
-                                min="0"
-                                step="25"
+                                type="text"
+                                inputMode="numeric"
                                 value={amount || ''}
                                 onChange={(e) => handleInputChange(e.target.value, subCategory.id, true)}
                                           onClick={(e) => e.stopPropagation()}
@@ -1197,9 +1207,8 @@ export function SpendingForm() {
                         <div className="space-y-2">
                           <span className="text-sm text-gray-500 dark:text-gray-400">Exact amount:</span>
                     <input
-                      type="number"
-                      min="0"
-                      step="25"
+                      type="text"
+                      inputMode="numeric"
                       value={amount || ''}
                       onChange={(e) => handleInputChange(e.target.value, category.id, false)}
                             onClick={(e) => e.stopPropagation()}
@@ -1586,9 +1595,8 @@ export function SpendingForm() {
                   </p>
                   
                     <input
-                      type="number"
-                      min="0"
-                      step="25"
+                      type="text"
+                      inputMode="numeric"
                             value={amount || ''}
                       onChange={(e) => handleInputChange(e.target.value, expandedCategory.id, false)}
                             onClick={(e) => e.stopPropagation()}
@@ -1622,9 +1630,8 @@ export function SpendingForm() {
                           </div>
                           
                             <input
-                              type="number"
-                              min="0"
-                              step="25"
+                              type="text"
+                              inputMode="numeric"
                               value={amount || ''}
                               onChange={(e) => handleInputChange(e.target.value, subCategory.id, true)}
                               onClick={(e) => e.stopPropagation()}
