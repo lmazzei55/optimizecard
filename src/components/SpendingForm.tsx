@@ -656,15 +656,15 @@ export function SpendingForm() {
   const handleInputChange = useCallback((value: string, id: string, isSubcategory: boolean = false) => {
     const numValue = parseFloat(value) || 0
     
-    // Show feedback if user tries to input 0
-    if (value === '0' || value === '0.00') {
-      setShowZeroInputFeedback(true)
-      // Hide feedback after 3 seconds
-      setTimeout(() => setShowZeroInputFeedback(false), 3000)
-      return // Don't update spending for 0
-    }
-    
+    // Always update the spending first so user can see what they typed
     updateSpending(id, numValue, isSubcategory)
+    
+    // Show feedback if user enters 0 (but still allow the input to show)
+    if (value === '0' || value === '0.00' || numValue === 0) {
+      setShowZeroInputFeedback(true)
+      // Hide feedback after 4 seconds
+      setTimeout(() => setShowZeroInputFeedback(false), 4000)
+    }
   }, [])
 
   const updateSpending = (id: string, amount: number, isSubcategory: boolean = false) => {
@@ -1482,10 +1482,10 @@ export function SpendingForm() {
                 <span className="text-blue-500 text-xl flex-shrink-0">💡</span>
                 <div className="flex-1">
                   <h3 className="font-semibold text-blue-800 dark:text-blue-300 mb-1">
-                    No need to enter $0
+                    💡 Tip about $0 entries
                   </h3>
                   <p className="text-blue-600 dark:text-blue-400 text-sm">
-                    You only need to fill in categories where you actually spend money. Leave empty categories blank - they won't affect your recommendations.
+                    You only need to fill in categories where you actually spend money. Empty fields and $0 entries work the same way - they won't affect your recommendations.
                   </p>
                 </div>
               </div>
