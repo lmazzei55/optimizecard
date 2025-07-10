@@ -131,6 +131,10 @@ export function SpendingForm() {
   // Temporary display state for zero inputs
   const [tempZeroInputs, setTempZeroInputs] = useState<{[key: string]: boolean}>({})
   
+  // Refs to track timeouts for cleanup
+  const feedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const clearTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  
   // Prevent background scrolling when modal is open
   useEffect(() => {
     if (expandedCategoryId) {
@@ -144,6 +148,14 @@ export function SpendingForm() {
       document.body.style.overflow = 'unset'
     }
   }, [expandedCategoryId])
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current)
+      if (clearTimeoutRef.current) clearTimeout(clearTimeoutRef.current)
+    }
+  }, [])
 
   // Track if we've loaded initial data to prevent conflicts
   const [initialDataLoaded, setInitialDataLoaded] = useState(false)
@@ -683,16 +695,26 @@ export function SpendingForm() {
     // Show feedback if user enters 0, then clear the field after a brief delay
     if (value === '0' || value === '0.00') {
       console.log('💡 Zero detected, showing feedback')
+      
+      // Clear any existing timeouts first
+      if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current)
+      if (clearTimeoutRef.current) clearTimeout(clearTimeoutRef.current)
+      
       setShowZeroInputFeedback(true)
       setTempZeroInputs(prev => ({ ...prev, [id]: true }))
       
-      // Hide feedback after 4 seconds
-      setTimeout(() => setShowZeroInputFeedback(false), 4000)
-      // Clear the temp display and field after 1.5 seconds
-      setTimeout(() => {
+      // Hide feedback after 5 seconds (increased from 4)
+      feedbackTimeoutRef.current = setTimeout(() => {
+        console.log('⏰ Hiding feedback after timeout')
+        setShowZeroInputFeedback(false)
+      }, 5000)
+      
+      // Clear the temp display and field after 2 seconds (increased from 1.5)
+      clearTimeoutRef.current = setTimeout(() => {
+        console.log('⏰ Clearing temp zero display')
         setTempZeroInputs(prev => ({ ...prev, [id]: false }))
         updateSpending(id, 0, isSubcategory)
-      }, 1500)
+      }, 2000)
     } else {
       // For non-zero values, clear temp state and update normally
       setTempZeroInputs(prev => ({ ...prev, [id]: false }))
