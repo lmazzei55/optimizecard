@@ -21,6 +21,8 @@ The target users are financially-aware consumers who want to optimize their cred
 
 ## 3. Recent Changes / Known Issues
 
+**2025-01-02** – Fixed critical subscription sync issue where users showed as 'free' tier despite successful payment due to 503 database errors; enhanced fallback mechanisms with Stripe verification and premium status caching
+
 **2025-01-02** – Completed tooltip explanations feature with comprehensive category tooltips, intelligent $0 input feedback, and full accessibility support including keyboard navigation and ARIA labels
 
 **2024-12-XX** – Comprehensive authentication fixes implemented with enhanced error handling, logging, and graceful degradation for database issues

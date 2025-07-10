@@ -1,0 +1,105 @@
+- **Subscription Resilience Patterns**
+  - Never default to 'free' tier without exhausting all verification options
+  - Implement multiple fallback layers for different failure scenarios
+  - Cache premium status with proper expiration and email validation
+  - Use Stripe as source of truth when database is unavailable
+
+- **Database Fallback Implementation**
+  ```typescript
+  // ✅ DO: Enhanced fallback with Stripe verification
+  } catch (dbError) {
+    console.error('Database error in subscription fetch:', dbError)
+    
+    // Try Stripe verification even when database is down
+    if (isStripeConfigured && stripe) {
+      try {
+        const customers = await stripe.customers.list({ email: session.user.email, limit: 1 })
+        if (customers.data.length > 0) {
+          const subscriptions = await stripe.subscriptions.list({
+            customer: customers.data[0].id,
+            status: 'active',
+            limit: 1
+          })
+          
+          if (subscriptions.data.length > 0) {
+            return NextResponse.json({
+              tier: 'premium',
+              fallback: true,
+              stripeVerified: true,
+              dbUnavailable: true
+            })
+          }
+        }
+      } catch (stripeError) {
+        console.error('Stripe verification also failed:', stripeError)
+      }
+    }
+    
+    // Final fallback
+    return NextResponse.json({ tier: 'free', fallback: true })
+  }
+  
+  // ❌ DON'T: Simple fallback that loses premium users
+  } catch (dbError) {
+    return NextResponse.json({ tier: 'free', fallback: true })
+  }
+  ```
+
+- **Premium Status Caching**
+  - Cache premium status with 4-hour validity for resilience
+  - Include email validation to prevent cross-user contamination
+  - Automatically expire and clean up old cache entries
+  ```typescript
+  // ✅ DO: Robust premium caching
+  if (this.state.subscriptionTier === 'premium') {
+    localStorage.setItem('premiumStatusCache', JSON.stringify({
+      tier: 'premium',
+      cachedAt: Date.now(),
+      email: this.currentEmail
+    }))
+  }
+  
+  // Validate cache before using
+  const fourHoursAgo = Date.now() - (4 * 60 * 60 * 1000)
+  if (cacheData.tier === 'premium' && 
+      cacheData.email === email && 
+      cacheData.cachedAt > fourHoursAgo) {
+    return true
+  }
+  ```
+
+- **Error Handling Strategy**
+  - Distinguish between different error types (503, 401, network)
+  - Provide specific fallback behavior for each scenario
+  - Log comprehensive information for debugging
+  - Return appropriate HTTP status codes for retry logic
+
+- **Webhook Resilience**
+  - Use upsert operations to handle duplicate webhooks
+  - Implement proper retry logic with exponential backoff
+  - Return 500 status for database errors to trigger Stripe retries
+  - Log all webhook events for audit trail
+
+- **User Experience Considerations**
+  - Show loading states during subscription verification
+  - Provide clear messaging about temporary issues
+  - Cache UI state to prevent flickering between tiers
+  - Offer manual sync options when automatic sync fails
+
+- **Testing Requirements**
+  - Test database unavailability scenarios
+  - Validate Stripe API integration during fallbacks
+  - Verify cache persistence and expiration
+  - Test webhook delivery and processing
+  - Ensure no regression in existing functionality
+
+**Why These Patterns Work:**
+- Multiple fallback layers prevent service degradation during outages
+- Stripe verification provides authoritative subscription status
+- Proper caching maintains user experience during temporary issues
+- Comprehensive error handling enables quick debugging and resolution
+
+**References:**
+- Implemented in [subscription route](mdc:src/app/api/user/subscription/route.ts) for API fallbacks
+- Enhanced in [user-state](mdc:src/lib/user-state.ts) for client-side resilience
+- Related webhook handling in [stripe webhooks](mdc:src/app/api/stripe/webhooks/route.ts)
