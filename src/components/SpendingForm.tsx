@@ -671,11 +671,13 @@ export function SpendingForm() {
     // Always update the spending first so user can see what they typed
     updateSpending(id, numValue, isSubcategory)
     
-    // Show feedback if user enters 0 (but still allow the input to show)
-    if (value === '0' || value === '0.00' || numValue === 0) {
+    // Show feedback if user enters 0, then clear the field after a brief delay
+    if (value === '0' || value === '0.00') {
       setShowZeroInputFeedback(true)
       // Hide feedback after 4 seconds
       setTimeout(() => setShowZeroInputFeedback(false), 4000)
+      // Clear the field after 1.5 seconds so user sees the "0" and gets feedback
+      setTimeout(() => updateSpending(id, 0, isSubcategory), 1500)
     }
   }, [])
 
