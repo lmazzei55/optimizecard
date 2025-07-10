@@ -654,25 +654,35 @@ export function SpendingForm() {
 
   // Handle input changes with zero value feedback
   const handleInputChange = useCallback((value: string, id: string, isSubcategory: boolean = false) => {
+    console.log('🔍 handleInputChange called with:', { value, id, isSubcategory })
+    
     // Allow empty string to clear the field
     if (value === '') {
+      console.log('📝 Empty value, clearing field')
       updateSpending(id, 0, isSubcategory)
       return
     }
     
     // Only allow numbers and one decimal point
     const numericRegex = /^\d*\.?\d*$/
-    if (!numericRegex.test(value)) {
+    const isValidFormat = numericRegex.test(value)
+    console.log('🔍 Regex test:', { value, isValidFormat, regex: numericRegex.toString() })
+    
+    if (!isValidFormat) {
+      console.log('❌ Invalid format, rejecting input')
       return // Don't update if invalid characters
     }
     
     const numValue = parseFloat(value) || 0
+    console.log('🔢 Parsed number value:', numValue)
     
     // Always update the spending first so user can see what they typed
+    console.log('📝 Updating spending with value:', numValue)
     updateSpending(id, numValue, isSubcategory)
     
     // Show feedback if user enters 0, then clear the field after a brief delay
     if (value === '0' || value === '0.00') {
+      console.log('💡 Zero detected, showing feedback')
       setShowZeroInputFeedback(true)
       // Hide feedback after 4 seconds
       setTimeout(() => setShowZeroInputFeedback(false), 4000)
