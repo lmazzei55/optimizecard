@@ -4,6 +4,7 @@ import Script from "next/script";
 import "./globals.css";
 import { SessionProvider } from "@/components/SessionProvider";
 import { Footer } from "@/components/Footer";
+import { ClientProviders } from "@/components/ClientProviders";
 
 const geist = Geist({
   variable: "--font-geist-sans",
@@ -92,8 +93,10 @@ export default function RootLayout({
         data-gr-ext-installed=""
       >
         <SessionProvider>
-          {children}
-          <Footer />
+          <ClientProviders>
+            {children}
+            <Footer />
+          </ClientProviders>
         </SessionProvider>
       </body>
     </html>
