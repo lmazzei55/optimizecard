@@ -1,0 +1,39 @@
+---
+title: Merge Approval
+---
+
+- **Branch Merge Requirements**
+  - Always ask for explicit user approval before merging to main
+  - Present a summary of changes before requesting approval
+  - Never auto-merge to main without confirmation
+  - Use clear approval prompts like "Ready to merge to main? (yes/no)"
+
+- **Pre-Merge Checklist**
+  - ✅ All tests passing (if applicable)
+  - ✅ Code builds successfully
+  - ✅ Todo lists updated and moved to completed if done
+  - ✅ PROJECT_OVERVIEW.md updated with changes
+  - ✅ Any new rules documented
+  - ✅ Commit messages follow conventions
+
+- **Merge Process**
+  ```bash
+  # ✅ DO: Ask for approval
+  echo "Ready to merge feature-branch to main?"
+  echo "Summary: [brief description of changes]"
+  echo "Approve merge? (yes/no)"
+  
+  # ❌ DON'T: Auto-merge without asking
+  git checkout main && git merge feature-branch
+  ```
+
+- **Post-Merge Actions**
+  - Only proceed with push after approval
+  - Clean up feature branch only after successful merge
+  - Confirm successful push to remote
+
+**Why This Rule Exists:**
+- Prevents accidental merges to production
+- Gives user final review opportunity
+- Maintains control over deployment timing
+- Ensures conscious decision-making for releases

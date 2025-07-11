@@ -1073,7 +1073,7 @@ export function SpendingForm() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 max-w-8xl mx-auto">
         {/* Left Side - Categories Grid (3/4 width) */}
         <div className="lg:col-span-3">
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-6">
+          <div className="spending-categories bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-6">
         
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {enableSubcategories ? (
@@ -1286,7 +1286,7 @@ export function SpendingForm() {
           </div>
 
           {/* Subcategories Toggle */}
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-6">
+          <div className="subcategories-toggle bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-6">
             <div className="space-y-4">
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Subcategories</h3>
               <p className="text-sm text-gray-600 dark:text-gray-300">
@@ -1398,7 +1398,7 @@ export function SpendingForm() {
       </div>
 
       {/* Preferences */}
-      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">
+      <div className="reward-preference bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8">
         <h2 className="text-3xl font-semibold text-gray-900 dark:text-white mb-8 text-center">
           ⚙️ Reward Preferences
         </h2>
@@ -1497,12 +1497,14 @@ export function SpendingForm() {
         <div className="space-y-2">
         <Button
             onClick={totalMonthlySpend === 0 ? undefined : calculateRecommendations}
-            aria-disabled={totalMonthlySpend === 0 || calculating}
-            aria-describedby={totalMonthlySpend === 0 ? 'cta-helper-text' : undefined}
-            className={`px-12 py-4 text-xl font-semibold rounded-full shadow-lg transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800 ${
-              totalMonthlySpend === 0 || calculating
-                ? 'bg-gray-400 dark:bg-gray-600 text-gray-200 dark:text-gray-400 cursor-not-allowed opacity-75 grayscale'
-                : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white transform hover:scale-105'
+            disabled={calculating || recalculating || totalMonthlySpend === 0 || isWarming || !systemReady}
+            size="lg"
+            className={`calculate-button px-12 py-4 text-lg rounded-xl transition-all duration-300 transform hover:scale-105 ${
+              totalMonthlySpend === 0 
+                ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed' 
+                : calculating || recalculating || isWarming || !systemReady
+                  ? 'bg-gray-400 dark:bg-gray-600 text-gray-600 dark:text-gray-400 cursor-wait'
+                  : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl'
             }`}
         >
           {calculating ? (

@@ -9,6 +9,7 @@ import { UpgradePrompt } from '@/components/UpgradePrompt'
 import { CheckoutButton } from '@/components/CheckoutButton'
 import { useUserState } from '@/hooks/useUserState'
 import { Loader2 } from 'lucide-react';
+import { useOnboardingTour } from '@/components/OnboardingTour'
 
 interface CreditCard {
   id: string
@@ -21,6 +22,7 @@ interface CreditCard {
 export default function Profile() {
   const { data: session, status } = useSession()
   const userState = useUserState()
+  const { restartTour } = useOnboardingTour()
   
   const [isLoading, setIsLoading] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
@@ -673,6 +675,44 @@ export default function Profile() {
                 </div>
               </>
             )}
+          </div>
+
+          {/* Help & Tour Section */}
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8 mt-8">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
+              Help & Support
+            </h2>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-600">
+                <div>
+                  <h3 className="font-medium text-gray-900 dark:text-white mb-1">
+                    🎯 Onboarding Tour
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    New to Credit Card Optimizer? Take a quick tour to learn the basics.
+                  </p>
+                </div>
+                <Button
+                  onClick={restartTour}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
+                >
+                  Start Tour
+                </Button>
+              </div>
+              
+              <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                <h3 className="font-medium text-gray-900 dark:text-white mb-2">
+                  📚 Quick Tips
+                </h3>
+                <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                  <li>• Enter your monthly spending to get personalized card recommendations</li>
+                  <li>• Enable subcategories for more precise recommendations</li>
+                  <li>• Premium users can optimize for travel points and see the best overall value</li>
+                  <li>• Mark cards you already own to avoid duplicate recommendations</li>
+                </ul>
+              </div>
+            </div>
           </div>
 
         </div>

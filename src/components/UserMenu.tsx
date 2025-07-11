@@ -26,7 +26,7 @@ export function UserMenu() {
   }
 
   return (
-    <div className="relative">
+    <div className="user-menu relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center space-x-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl p-2 border border-gray-200 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-800 transition-all duration-200 shadow-lg"

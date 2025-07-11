@@ -39,6 +39,12 @@ The target users are financially-aware consumers who want to optimize their cred
 
 **2024-12-XX** – Implemented global UserState loading overlay that displays across all pages during initialization (Date: January 11, 2025)
 
+**2024-12-XX** – Implemented custom onboarding tour for new users with React 19 compatibility (Date: January 11, 2025)
+  - Created custom tour component to replace react-joyride (not React 19 compatible)
+  - Added tour steps highlighting key features: spending categories, reward preferences, subcategories, etc.
+  - Integrated tour restart functionality in profile page
+  - Uses localStorage for tour completion tracking
+
 **Known Issues:**
 - Spending amounts reset on page navigation due to hydration mismatch (data saves/loads correctly, issue is client-side state)
 - First-time visitors experience 5-10 second load times due to serverless cold starts (expected behavior)
