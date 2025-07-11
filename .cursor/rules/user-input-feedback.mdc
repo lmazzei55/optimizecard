@@ -1,3 +1,4 @@
+
 - **User Input Feedback Patterns**
   - Use fixed center overlays for important feedback that must be visible regardless of scroll position
   - Implement temporary display states for user input that needs brief feedback before clearing
@@ -65,6 +66,26 @@
   - Text inputs with numeric mode provide better cross-platform compatibility than number inputs
   - Clear visual hierarchy helps users understand the nature of the feedback (tip vs error)
 
+- **Loading State Patterns**
+  - Use semi-transparent overlays with spinners for blocking operations like data loading
+  - Provide informative messages like 'Loading your premium status...' during fallbacks
+  - Ensure loading states are dismissible if non-critical
+```typescript
+// ✅ DO: Loading overlay
+{isLoading && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">
+    <div className="bg-white p-6 rounded-xl shadow-xl">
+      <Loader2 className="animate-spin" />
+      <p>Loading...</p>
+    </div>
+  </div>
+)}
+```
+
 **References:**
+- Implemented in [SpendingForm.tsx](mdc:src/components/SpendingForm.tsx) for $0 input feedback
+- Used alongside [InfoTooltip.tsx](mdc:src/components/ui/InfoTooltip.tsx) for comprehensive user guidance
+- Implemented in [profile/page.tsx](mdc:src/app/profile/page.tsx) for subscription loading
+
 - Implemented in [SpendingForm.tsx](mdc:src/components/SpendingForm.tsx) for $0 input feedback
 - Used alongside [InfoTooltip.tsx](mdc:src/components/ui/InfoTooltip.tsx) for comprehensive user guidance

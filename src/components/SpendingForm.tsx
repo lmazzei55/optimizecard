@@ -1116,9 +1116,9 @@ export function SpendingForm() {
                               <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-600">
                       <div className="flex justify-between items-center mb-2">
                         <div className="flex items-center gap-2">
-                          <label className="text-sm font-medium text-gray-900 dark:text-white">
-                            General {category.name}
-                          </label>
+                        <label className="text-sm font-medium text-gray-900 dark:text-white">
+                          General {category.name}
+                        </label>
                           <InfoTooltip 
                             content={categoryTooltips[category.name] || ['Spending in this category']}
                             position="top"
@@ -1227,9 +1227,9 @@ export function SpendingForm() {
                   <div className="flex justify-between items-start">
                     <div>
                       <div className="flex items-center gap-2">
-                        <label className="block text-lg font-semibold text-gray-900 dark:text-white">
-                          {category.name}
-                        </label>
+                      <label className="block text-lg font-semibold text-gray-900 dark:text-white">
+                        {category.name}
+                      </label>
                         <InfoTooltip 
                           content={categoryTooltips[category.name] || ['Spending in this category']}
                           position="top"
@@ -1495,7 +1495,7 @@ export function SpendingForm() {
       {/* System Status & Calculate Button */}
       <div className="text-center space-y-4">
         <div className="space-y-2">
-          <Button
+        <Button
             onClick={totalMonthlySpend === 0 ? undefined : calculateRecommendations}
             aria-disabled={totalMonthlySpend === 0 || calculating}
             aria-describedby={totalMonthlySpend === 0 ? 'cta-helper-text' : undefined}
@@ -1504,16 +1504,16 @@ export function SpendingForm() {
                 ? 'bg-gray-400 dark:bg-gray-600 text-gray-200 dark:text-gray-400 cursor-not-allowed opacity-75 grayscale'
                 : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white transform hover:scale-105'
             }`}
-          >
-            {calculating ? (
-              <div className="flex items-center space-x-2">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                <span>Calculating... (may take a moment)</span>
-              </div>
-            ) : (
-              '🎯 Get My Recommendations'
-            )}
-          </Button>
+        >
+          {calculating ? (
+            <div className="flex items-center space-x-2">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              <span>Calculating... (may take a moment)</span>
+            </div>
+          ) : (
+            '🎯 Get My Recommendations'
+          )}
+        </Button>
           
           {/* Helper text for disabled state */}
           {totalMonthlySpend === 0 && !calculating && (
@@ -1561,7 +1561,7 @@ export function SpendingForm() {
             </div>
           </div>
         )}
-
+        
       </div>
 
       {/* Category Expansion Modal */}
@@ -1605,9 +1605,9 @@ export function SpendingForm() {
                         <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-600">
                   <div className="flex justify-between items-center mb-3">
                     <div className="flex items-center gap-2">
-                      <label className="text-lg font-semibold text-gray-900 dark:text-white">
-                        General {expandedCategory.name}
-                      </label>
+                    <label className="text-lg font-semibold text-gray-900 dark:text-white">
+                      General {expandedCategory.name}
+                    </label>
                       <InfoTooltip 
                         content={categoryTooltips[expandedCategory.name] || ['Spending in this category']}
                         position="top"

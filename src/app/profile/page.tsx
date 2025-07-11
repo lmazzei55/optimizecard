@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { UpgradePrompt } from '@/components/UpgradePrompt'
 import { CheckoutButton } from '@/components/CheckoutButton'
 import { useUserState } from '@/hooks/useUserState'
+import { Loader2 } from 'lucide-react';
 
 interface CreditCard {
   id: string
@@ -684,6 +685,14 @@ export default function Profile() {
         feature={upgradePromptFeature}
         description={upgradePromptDescription}
       />
+      {userState.isLoading && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none bg-black/20">
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-xl flex flex-col items-center">
+      <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-4" />
+      <p className="text-gray-700 dark:text-gray-300">Loading your premium status...</p>
+    </div>
+  </div>
+)}
     </div>
   )
 } 

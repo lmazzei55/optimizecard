@@ -35,6 +35,8 @@ The target users are financially-aware consumers who want to optimize their cred
 
 **2024-12-XX** – Added comprehensive fixes for spending persistence issues, subcategory aggregation, and cross-component synchronization
 
+**2024-12-XX** – Enhanced subscription loading UX with visible indicators and optimized initializations for better first-use experience (Date: [current date])
+
 **Known Issues:**
 - Spending amounts reset on page navigation due to hydration mismatch (data saves/loads correctly, issue is client-side state)
 - First-time visitors experience 5-10 second load times due to serverless cold starts (expected behavior)

@@ -27,6 +27,8 @@ class UserStateManager {
   private maxRetries = 3
   private retryDelay = 2000
   private currentEmail?: string // Store current email for sync operations
+  private isInitializing = false;
+  private initializePromise: Promise<void> | null = null;
   
   constructor() {
     // Only add event listeners in browser environment
@@ -205,9 +207,9 @@ class UserStateManager {
           
           // Use fallback tier if no cached premium status
           console.log('⚠️ UserState: Using fallback tier, no cached premium status')
-          this.state.subscriptionTier = data.tier || 'free'
-          this.notifyListeners()
-          return data.tier || 'free'
+            this.state.subscriptionTier = data.tier || 'free'
+            this.notifyListeners()
+            return data.tier || 'free'
         }
       } else if (response.status === 401) {
         // Not authenticated - default to free tier
@@ -401,24 +403,35 @@ class UserStateManager {
 
   // Initialize the state manager
   async initialize(email?: string): Promise<void> {
-    console.log('🚀 UserState: Initializing...')
-    
-    // Store email for future sync operations
-    this.currentEmail = email
-    
-    // Load preferences first
-    await this.loadPreferences(email)
-    
-    // Only load subscription tier if user is authenticated
-    if (email) {
-      await this.loadSubscriptionTier(email)
-    } else {
-      console.log('🔓 UserState: No email provided, skipping subscription check')
-      this.state.subscriptionTier = 'free'
-      this.notifyListeners()
+    if (this.initializePromise) {
+      return this.initializePromise;
     }
-    
-    console.log('✅ UserState: Initialized with state:', this.getState())
+    if (this.isInitializing) return;
+    this.isInitializing = true;
+    this.initializePromise = (async () => {
+      try {
+        console.log('🚀 UserState: Starting initialization...');
+        // Store email for future sync operations
+        this.currentEmail = email
+        
+        // Load preferences first
+        await this.loadPreferences(email)
+        
+        // Only load subscription tier if user is authenticated
+        if (email) {
+          await this.loadSubscriptionTier(email)
+        } else {
+          console.log('🔓 UserState: No email provided, skipping subscription check')
+          this.state.subscriptionTier = 'free'
+          this.notifyListeners()
+        }
+        console.log('✅ UserState: Initialized with state:', this.getState());
+      } finally {
+        this.isInitializing = false;
+        this.initializePromise = null;
+      }
+    })();
+    return this.initializePromise;
   }
 }
 
