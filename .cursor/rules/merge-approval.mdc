@@ -1,6 +1,3 @@
----
-title: Merge Approval
----
 
 - **Branch Merge Requirements**
   - Always ask for explicit user approval before merging to main
@@ -35,5 +32,8 @@ title: Merge Approval
 **Why This Rule Exists:**
 - Prevents accidental merges to production
 - Gives user final review opportunity
+- Maintains control over deployment timing
+- Ensures conscious decision-making for releases
+
 - Maintains control over deployment timing
 - Ensures conscious decision-making for releases
